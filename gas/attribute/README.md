@@ -13,6 +13,7 @@ GAS의 Attribute 시스템에 관한 세부 주제 모음.
 | [03. ATTRIBUTE_ACCESSORS & Clamp](03_accessors_and_clamp.md) | 매크로가 생성하는 함수, 클램프 콜백 |
 | [04. Meta Attribute 패턴](04_meta_attribute.md) | 임시 중간 Attribute, Damage/Healing 흐름, ExecCalc 연동 |
 | [05. 파생 Attribute](05_derived_attribute.md) | AttributeBased GE, PostAttributeChange, MMC 세 가지 방법 |
+| [06. Lyra 사용 방식](06_lyra_usage.md) | 클래스 계층, 등록 경로, 콜백 구조, 외부 구독 패턴 전체 흐름 |
 
 ---
 
