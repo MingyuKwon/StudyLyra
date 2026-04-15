@@ -15,6 +15,7 @@ GAS의 Attribute 시스템에 관한 세부 주제 모음.
 | [05. 파생 Attribute](05_derived_attribute.md) | AttributeBased GE, PostAttributeChange, MMC 세 가지 방법 |
 | [06. Lyra 사용 방식](06_lyra_usage.md) | 클래스 계층, 등록 경로, 콜백 구조, 외부 구독 패턴 전체 흐름 |
 | [07. ASC 등록 메커니즘](07_asc_registration.md) | SpawnedAttributes 등록 방법 (자동 수집 vs 수동 등록), 엔진 코드 위치 |
+| [08. AttributeSet 완전 가이드](08_attributeset_guide.md) | 설계 전략, 런타임 추가/제거, 복제 패턴, 콜백 전체, OnAttributeAggregatorCreated |
 
 ---
 
