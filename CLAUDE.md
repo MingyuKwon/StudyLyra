@@ -41,6 +41,19 @@ Plugins/GameFeatures/            ← ShooterCore 등 게임 기능 플러그인
 
 ---
 
+## 소스 코드 분석 전 캐시 확인 규칙
+
+Lyra 소스 파일(`Source/LyraGame/`, `Plugins/`)을 읽기 **전에** 반드시 아래 순서를 따른다.
+
+1. **캐시 먼저 확인**: `C:\Users\kmgmg2391601\.claude\projects\D--LyraStarterGame\memory\lyra_gas_analysis.md` 를 읽는다.
+2. **캐시에 있으면**: 소스 파일을 열지 않고 캐시 내용을 바탕으로 답한다.
+3. **캐시에 없으면**: 소스 파일을 직접 읽어서 분석한다.
+4. **소스 직접 분석 후**: 새로 알게 된 내용을 `lyra_gas_analysis.md`에 추가한다. 섹션 번호를 이어서 붙이고, 출처 파일 경로를 명시한다.
+
+> **목적**: 같은 소스를 반복 열람하는 토큰 낭비를 막기 위함.
+
+---
+
 ---
 
 ## 폴더 분류 규칙
