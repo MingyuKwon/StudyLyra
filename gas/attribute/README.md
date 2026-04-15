@@ -14,6 +14,7 @@ GAS의 Attribute 시스템에 관한 세부 주제 모음.
 | [04. Meta Attribute 패턴](04_meta_attribute.md) | 임시 중간 Attribute, Damage/Healing 흐름, ExecCalc 연동 |
 | [05. 파생 Attribute](05_derived_attribute.md) | AttributeBased GE, PostAttributeChange, MMC 세 가지 방법 |
 | [06. Lyra 사용 방식](06_lyra_usage.md) | 클래스 계층, 등록 경로, 콜백 구조, 외부 구독 패턴 전체 흐름 |
+| [07. ASC 등록 메커니즘](07_asc_registration.md) | SpawnedAttributes 등록 방법 (자동 수집 vs 수동 등록), 엔진 코드 위치 |
 
 ---
 

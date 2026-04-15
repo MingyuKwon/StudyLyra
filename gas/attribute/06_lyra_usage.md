@@ -52,34 +52,9 @@ HealthSet = CreateDefaultSubobject<ULyraHealthSet>(TEXT("HealthSet"));
 CombatSet = CreateDefaultSubobject<ULyraCombatSet>(TEXT("CombatSet"));
 ```
 
-`CreateDefaultSubobject`로 만들면 Owner(PlayerState)의 서브오브젝트가 된다.
-ASC는 `InitializeComponent()` 시점에 Owner의 서브오브젝트를 스캔해서 `UAttributeSet` 파생 클래스를 자동 수집한다.
-
-**자동 수집 코드 위치**: 엔진 `AbilitySystemComponent_Abilities.cpp` — `UAbilitySystemComponent::InitializeComponent()`
-
-```cpp
-// "Look for DSO AttributeSets" 주석
-TArray<UObject*> ChildObjects;
-GetObjectsWithOuter(Owner, ChildObjects, /*bIncludeNestedObjects=*/false, RF_NoFlags, EInternalObjectFlags::Garbage);
-
-for (UObject* Obj : ChildObjects)
-{
-    UAttributeSet* Set = Cast<UAttributeSet>(Obj);
-    if (Set)
-    {
-        SpawnedAttributes.AddUnique(Set);  // SpawnedAttributes 배열에 등록
-    }
-}
-```
-
-**동작 순서:**
-1. `CreateDefaultSubobject<ULyraHealthSet>` → HealthSet이 PlayerState의 서브오브젝트로 생성
-2. ASC ctor에서 `bWantsInitializeComponent = true` → 엔진이 나중에 `InitializeComponent()` 호출을 보장
-3. `GetObjectsWithOuter(Owner)` → ASC Owner(PlayerState)의 **직접** 자식 오브젝트 전체 스캔 (재귀 없음)
-4. `UAttributeSet` 파생이면 `SpawnedAttributes`에 추가
-
-> **조건은 하나**: ASC의 Owner와 동일한 Outer를 가질 것.
-> `CreateDefaultSubobject`는 자동으로 Owner를 Outer로 설정하므로, 선언만 해두면 자동 등록된다.
+`CreateDefaultSubobject`로 만들면 Owner(PlayerState)의 서브오브젝트가 되고,
+ASC가 `InitializeComponent()` 시점에 Owner를 스캔해서 자동으로 `SpawnedAttributes`에 등록한다.
+→ 등록 메커니즘 상세: [07. AttributeSet과 ASC 등록 메커니즘](07_asc_registration.md)
 
 ### 경로 2. ULyraAbilitySet을 통한 동적 부여
 
