@@ -4,3 +4,7 @@
 /Saved
 /Build
 /.vs
+
+# Plugin binaries and intermediate
+Plugins/**/Binaries
+Plugins/**/Intermediate
