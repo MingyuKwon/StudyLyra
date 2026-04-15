@@ -41,6 +41,34 @@ Plugins/GameFeatures/            ← ShooterCore 등 게임 기능 플러그인
 
 ---
 
+---
+
+## 폴더 분류 규칙
+
+하나의 `.md` 파일이 아래 조건 중 하나라도 충족하면 **하위 폴더로 분리**한다.
+
+- **300줄 초과** — 한 파일에 너무 많은 내용이 집중된 경우
+- **독립적인 개념이 3개 이상** — 각자 완결된 주제가 여러 개 모인 경우
+
+### 하위 폴더 구성 규칙
+
+1. 폴더 안에 `README.md`를 만들어 인덱스 역할을 한다.
+2. 각 주제는 번호 접두사 파일(`01_topic.md`, `02_topic.md`, ...)로 분리한다.
+3. 부모 `README.md`의 링크를 `하위폴더/README.md`로 교체하고, 구 파일은 삭제한다.
+
+**예시:**
+```
+gas/05_attribute_set.md  (610줄, 5개 독립 주제)
+  →  gas/attribute/README.md
+     gas/attribute/01_attribute_types.md
+     gas/attribute/02_base_current_value.md
+     gas/attribute/03_accessors_and_clamp.md
+     gas/attribute/04_meta_attribute.md
+     gas/attribute/05_derived_attribute.md
+```
+
+---
+
 ## 참고
 
 - 전체 GAS 구조 분석: `README.md` 하단 "GAS 학습 분석" 섹션

@@ -13,7 +13,7 @@ Lyra 구현 분석은 [doc/](../doc/README.md) 폴더 참고.
 | [02. AbilitySystemComponent](02_ability_system_component.md) | ASC의 역할, Owner/Avatar 구조, 초기화 | |
 | [03. GameplayAbility](03_gameplay_ability.md) | GA 생명주기, 활성화 조건, Instancing Policy | |
 | [04. GameplayEffect](04_gameplay_effect.md) | GE 종류(Instant/Duration/Infinite), Modifier, Stack | |
-| [05. Attribute & AttributeSet](05_attribute_set.md) | Attribute 정의, Meta Attribute 패턴, Clamp | |
+| [05. Attribute & AttributeSet](attribute/README.md) | Attribute 타입, BaseValue/CurrentValue, Meta Attribute, 파생 Attribute | |
 | [06. GameplayTag](06_gameplay_tag.md) | 태그 계층 구조, 태그 기반 조건, 태그 이벤트 | |
 | [07. GameplayCue](07_gameplay_cue.md) | Cue 트리거 방식, Cue Manager, 네트워크 처리 | |
 | [08. AbilityTask](08_ability_task.md) | Task 생명주기, 비동기 작업 패턴, 커스텀 Task | |
