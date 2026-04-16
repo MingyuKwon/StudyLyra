@@ -276,3 +276,56 @@ doc/
 
 `gas/02~04`, `gas/06~10` 은 스켈레톤(헤더만 있음). 내용 있는 것: `gas/attribute/` 전체.
 `doc/` 전체는 내용 있음.
+
+---
+
+## 12. 언리얼 입력 파이프라인 & ProcessAbilityInput 호출 경로
+
+**출처 (Lyra)**: `Player/LyraPlayerController.cpp:376-384`, `AbilitySystem/LyraAbilitySystemComponent.cpp:216`  
+**출처 (엔진 UE 5.7)**: `Engine/Source/Runtime/Engine/Private/PlayerController.cpp`, `Engine/Source/Runtime/Engine/Private/UserInterface/PlayerInput.cpp`  
+**상세 문서**: `unrealCore/input_pipeline.md`
+
+### 전체 호출 체인
+
+```
+APlayerController::PlayerTick()                    ← PC.cpp:2309, 매 틱 무조건 (로컬 PC만)
+    └─ TickPlayerInput()                           ← PC.cpp:5320
+        ├─ PlayerInput->Tick()                     ← 제스처 인식 등
+        └─ ProcessPlayerInput()                    ← PC.cpp:2768
+            ├─ BuildInputStack()                   ← InputComponent 우선순위 스택 구성
+            └─ PlayerInput->ProcessInputStack()    ← PlayerInput.cpp:1239
+                ├─ PreProcessInput()               ← virtual 훅
+                ├─ EvaluateKeyMapState()           ← Accumulator → EventCounts flush
+                ├─ EvaluateInputDelegates()        ← 바인딩 델리게이트 실행
+                ├─ PostProcessInput()              ← virtual 훅 ★ Lyra가 오버라이드
+                │       └─ LyraASC->ProcessAbilityInput()
+                └─ FinishProcessingPlayerInput()
+```
+
+### Accumulator 패턴 (두 단계 분리)
+
+- **1단계 — 비동기 수집**: OS 키 이벤트 → `UPlayerInput::InputKey()` → `EventAccumulator`에 누적 (PlayerInput.cpp:278)
+- **2단계 — 매 틱 flush**: `EvaluateKeyMapState()`가 `EventAccumulator` → `EventCounts`로 이동 후 Accumulator 초기화 (PlayerInput.cpp:1281)
+- 입력이 없는 틱에도 flush 함수는 실행된다 (빈 Accumulator를 처리).
+
+### bDown 홀드 상태 유지 원리
+
+```cpp
+// PlayerInput.cpp — ProcessNonAxesKeys 내부
+if (KeyState->EventCounts[IE_Pressed].Num() > 0)
+    KeyState->bDown = true;
+else
+    KeyState->bDown = KeyState->bDownPrevious;  // 이전 프레임 상태 복사
+```
+이 덕분에 `WhileInputActive` 정책이 키 홀드를 매 틱 감지할 수 있다.
+
+### BuildInputStack 우선순위 (낮음 → 높음)
+1. Pawn->InputComponent
+2. Pawn에 붙은 다른 UInputComponent
+3. LevelScriptActor->InputComponent
+4. PlayerController->InputComponent
+5. PushInputComponent()로 수동 추가된 것 (최우선)
+
+### PostProcessInput이 매 틱 불리는 이유
+`ProcessInputStack()`이 매 틱 `ProcessPlayerInput()`에서 무조건 호출되기 때문.
+입력 이벤트 유무와 무관하다.
