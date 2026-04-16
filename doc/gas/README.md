@@ -1,6 +1,6 @@
 # GAS 개요
 
-> 참고: [GAS Doc 캐시](cache/gas_doc_cache.md) | [Lyra 소스 분석](../memory/lyra_gas_analysis.md)
+> 참고: [GAS Doc 캐시](cache/gas_doc_cache.md) | [Lyra 소스 분석](../../memory/lyra_gas_analysis.md)
 
 ---
 

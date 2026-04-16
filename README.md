@@ -28,19 +28,31 @@ GAS 학습 분석
 
 | 폴더 | 내용 |
 |------|------|
-| [doc/](doc/) | Lyra 프로젝트 코드 분석 (구조, 패턴, 흐름) |
-| [gas/](gas/) | GAS 개념 학습 노트 (원리, API, 동작 방식) |
+| [doc/gas/](doc/gas/) | GAS 개념 학습 노트 (원리, API, 동작 방식) |
+| [doc/unrealCore/](doc/unrealCore/) | 언리얼 엔진 코어 시스템 분석 (입력 파이프라인 등) |
+| [memory/](memory/) | 세션 간 지속 캐시 (소스 분석 결과, 프로젝트 개요) |
 
 ---
 
-## Lyra 분석 문서
+## GAS 학습 문서
 
 | 문서 | 내용 |
 |------|------|
-| [01. 프로젝트 전체 구조](doc/01_project_structure.md) | 소스 모듈, GameFeatures 플러그인, 폴더 트리 |
-| [02. GAS 아키텍처](doc/02_gas_architecture.md) | ASC 소유 구조, 핵심 클래스 목록, AttributeSet 패턴 |
-| [03. Pawn 초기화 흐름](doc/03_pawn_initialization.md) | PawnData → ASC 생성 → Avatar 등록 → AbilitySet 부여 |
-| [04. 입력 → Ability 연결](doc/04_input_ability.md) | InputConfig, HeroComponent, ASC 입력 처리 흐름 |
-| [05. Equipment / Weapon GAS 연동](doc/05_equipment_weapon.md) | 장비 장착/해제 시 Ability 부여/제거 패턴 |
-| [06. 게임 페이즈 시스템](doc/06_game_phase.md) | GamePhaseAbility, GamePhaseSubsystem |
-| [07. GameFeature 기반 Ability 추가](doc/07_game_feature_ability.md) | Experience 로딩 → GameFeature → 동적 Ability 부여 |
+| [GAS 개요](doc/gas/README.md) | GAS란, 핵심 구성요소, Lyra 전체 흐름 |
+| [AbilitySystemComponent](doc/gas/ability_system_component/README.md) | ASC 역할, Owner/Avatar, 초기화, 입력 바인딩, ActivationGroup |
+| [GameplayAbility](doc/gas/gameplay_ability/README.md) | GA 생명주기, ActivationPolicy, Instancing, Cost, 태그 조건 |
+| [GameplayEffect](doc/gas/gameplay_effect/README.md) | GE 타입, Modifier/MMC, 태그/스택, GESpec/SetByCaller |
+| [AttributeSet](doc/gas/attribute_set/README.md) | Attribute 타입, Base/Current, Meta Attribute, Lyra 구현 |
+| [GameplayTag](doc/gas/gameplay_tag/README.md) | 태그 계층, GAS 역할, TagRelationshipMapping |
+| [GameplayCue](doc/gas/gameplay_cue/README.md) | Cue 트리거, Static/Actor, LyraGameplayCueManager |
+| [AbilityTask](doc/gas/ability_task/README.md) | Task 생명주기, 사용 패턴, GrantNearbyInteraction |
+| [Execution Calculation](doc/gas/execution_calculation/README.md) | ExecCalc 구조, Attribute Capture, LyraDamageExecution |
+| [네트워크 & Prediction](doc/gas/network_prediction/README.md) | 복제 구조, Prediction Key, 예측 가능/불가 목록 |
+
+---
+
+## 언리얼 코어 분석
+
+| 문서 | 내용 |
+|------|------|
+| [입력 파이프라인](doc/unrealCore/input_pipeline.md) | PlayerTick → ProcessInputStack 전체 흐름, Accumulator 패턴, bDown 홀드 원리 |
