@@ -1,6 +1,6 @@
 # GE 지속 타입
 
-> 참고: [GAS Doc 캐시](../gas_doc_cache.md)
+> 참고: [GAS Doc 캐시](../cache/gas_doc_cache.md)
 
 ---
 

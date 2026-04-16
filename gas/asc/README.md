@@ -14,7 +14,7 @@ ASC는 GAS의 **허브 컴포넌트**다. Ability, Effect, Attribute, Tag, Cue �
 | [02. 초기화 흐름](02_initialization.md) | InitAbilityActorInfo, PawnExtensionComponent 상태 머신 |
 | [03. 입력 바인딩](03_input_binding.md) | InputTag → AbilitySpec → 활성화 전체 흐름 |
 | [04. ActivationGroup](04_activation_group.md) | Independent/Exclusive_Replaceable/Exclusive_Blocking |
-| [05. TagRelationshipMapping](05_tag_relationship.md) | → [GameplayTag 문서](../06_gameplay_tag.md#tagrelationshipmapping) |
+| [05. TagRelationshipMapping](05_tag_relationship.md) | → [GameplayTag 문서](../tag/README.md#tagrelationshipmapping) |
 
 ---
 

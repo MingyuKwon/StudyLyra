@@ -1,6 +1,6 @@
 # GAS 개요
 
-> 참고: [GAS Doc 캐시](gas_doc_cache.md) | [Lyra 소스 분석](../memory/lyra_gas_analysis.md)
+> 참고: [GAS Doc 캐시](cache/gas_doc_cache.md) | [Lyra 소스 분석](../memory/lyra_gas_analysis.md)
 
 ---
 
@@ -21,8 +21,8 @@ GAS(Gameplay Ability System)는 언리얼 엔진 공식 플러그인으로, 캐�
 | [GameplayEffect](ge/README.md) | GE | 속성(Attribute)을 수정하는 규칙. 지속시간/즉시/무한 |
 | [AttributeSet](attribute/README.md) | - | 체력, 데미지 등 수치 데이터 묶음 |
 | AbilityTask | AT | GA 내부에서 비동기 작업 처리 |
-| [GameplayCue](07_gameplay_cue.md) | GC | 시각/사운드 이펙트 전담. 게임플레이 로직과 분리 |
-| [GameplayTag](06_gameplay_tag.md) | GT | 계층형 문자열 태그. 상태, 조건, 식별자로 사용 |
+| [GameplayCue](cue/README.md) | GC | 시각/사운드 이펙트 전담. 게임플레이 로직과 분리 |
+| [GameplayTag](tag/README.md) | GT | 계층형 문자열 태그. 상태, 조건, 식별자로 사용 |
 
 ---
 
@@ -110,8 +110,8 @@ InitState_Spawned
 - [GA 상세](ga/README.md)
 - [GE 상세](ge/README.md)
 - [Attribute & AttributeSet](attribute/README.md)
-- [GameplayTag](06_gameplay_tag.md)
-- [GameplayCue](07_gameplay_cue.md)
-- [AbilityTask](08_ability_task.md)
-- [ExecCalc](09_execution_calculation.md)
-- [네트워크 & Prediction](10_network_prediction.md)
+- [GameplayTag](tag/README.md)
+- [GameplayCue](cue/README.md)
+- [AbilityTask](task/README.md)
+- [ExecCalc](exec/README.md)
+- [네트워크 & Prediction](network/README.md)

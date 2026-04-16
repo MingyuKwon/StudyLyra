@@ -1,6 +1,6 @@
 # GA 태그 조건 (9가지 컨테이너)
 
-> 참고: [GAS Doc 캐시](../gas_doc_cache.md) | 소스: `LyraGameplayAbility.cpp`
+> 참고: [GAS Doc 캐시](../cache/gas_doc_cache.md) | 소스: `LyraGameplayAbility.cpp`
 
 ---
 

@@ -1,6 +1,6 @@
 # GameplayEffect (GE)
 
-> 참고: [GAS Doc 캐시](../gas_doc_cache.md) | 소스: `LyraDamageExecution.cpp`, `LyraAbilitySet.cpp`
+> 참고: [GAS Doc 캐시](../cache/gas_doc_cache.md) | 소스: `LyraDamageExecution.cpp`, `LyraAbilitySet.cpp`
 
 GE는 **Attribute를 수정하는 규칙**이다. 지속 시간, 수정 방법, 조건, 스택 등을 정의하는 DataAsset.
 

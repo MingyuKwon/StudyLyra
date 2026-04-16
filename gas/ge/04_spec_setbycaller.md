@@ -1,6 +1,6 @@
 # GESpec & SetByCaller
 
-> 참고: [GAS Doc 캐시](../gas_doc_cache.md) | 소스: `LyraGameplayAbility.cpp`, `LyraGameplayEffectContext.h`
+> 참고: [GAS Doc 캐시](../cache/gas_doc_cache.md) | 소스: `LyraGameplayAbility.cpp`, `LyraGameplayEffectContext.h`
 
 ---
 
