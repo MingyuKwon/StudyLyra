@@ -16,13 +16,13 @@ GAS(Gameplay Ability System)는 언리얼 엔진 공식 플러그인으로, 캐�
 
 | 구성요소 | 약어 | 역할 |
 |---|---|---|
-| [AbilitySystemComponent](asc/README.md) | ASC | 모든 GAS 기능의 허브. Owner Actor에 붙음 |
-| [GameplayAbility](ga/README.md) | GA | 하나의 능력 (공격, 점프, 스킬 등) |
-| [GameplayEffect](ge/README.md) | GE | 속성(Attribute)을 수정하는 규칙. 지속시간/즉시/무한 |
-| [AttributeSet](attribute/README.md) | - | 체력, 데미지 등 수치 데이터 묶음 |
+| [AbilitySystemComponent](ability_system_component/README.md) | ASC | 모든 GAS 기능의 허브. Owner Actor에 붙음 |
+| [GameplayAbility](gameplay_ability/README.md) | GA | 하나의 능력 (공격, 점프, 스킬 등) |
+| [GameplayEffect](gameplay_effect/README.md) | GE | 속성(Attribute)을 수정하는 규칙. 지속시간/즉시/무한 |
+| [AttributeSet](attribute_set/README.md) | - | 체력, 데미지 등 수치 데이터 묶음 |
 | AbilityTask | AT | GA 내부에서 비동기 작업 처리 |
-| [GameplayCue](cue/README.md) | GC | 시각/사운드 이펙트 전담. 게임플레이 로직과 분리 |
-| [GameplayTag](tag/README.md) | GT | 계층형 문자열 태그. 상태, 조건, 식별자로 사용 |
+| [GameplayCue](gameplay_cue/README.md) | GC | 시각/사운드 이펙트 전담. 게임플레이 로직과 분리 |
+| [GameplayTag](gameplay_tag/README.md) | GT | 계층형 문자열 태그. 상태, 조건, 식별자로 사용 |
 
 ---
 
@@ -106,12 +106,12 @@ InitState_Spawned
 
 ## 관련 문서
 
-- [ASC 상세](asc/README.md)
-- [GA 상세](ga/README.md)
-- [GE 상세](ge/README.md)
-- [Attribute & AttributeSet](attribute/README.md)
-- [GameplayTag](tag/README.md)
-- [GameplayCue](cue/README.md)
-- [AbilityTask](task/README.md)
-- [ExecCalc](exec/README.md)
-- [네트워크 & Prediction](network/README.md)
+- [ASC 상세](ability_system_component/README.md)
+- [GA 상세](gameplay_ability/README.md)
+- [GE 상세](gameplay_effect/README.md)
+- [Attribute & AttributeSet](attribute_set/README.md)
+- [GameplayTag](gameplay_tag/README.md)
+- [GameplayCue](gameplay_cue/README.md)
+- [AbilityTask](ability_task/README.md)
+- [ExecCalc](execution_calculation/README.md)
+- [네트워크 & Prediction](network_prediction/README.md)
