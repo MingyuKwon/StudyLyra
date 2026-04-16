@@ -6,7 +6,10 @@
       "Bash(git commit -m ':*)",
       "Bash(gh repo:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:www.notion.so)"
+      "WebFetch(domain:www.notion.so)",
+      "Skill(update-config)",
+      "Bash(echo $USERPROFILE)",
+      "Bash(echo $HOME)"
     ]
   }
 }
