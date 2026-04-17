@@ -9,7 +9,30 @@
       "WebFetch(domain:www.notion.so)",
       "Skill(update-config)",
       "Bash(echo $USERPROFILE)",
-      "Bash(echo $HOME)"
+      "Bash(echo $HOME)",
+      "Bash(bash *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(mkdir -p tag cue task exec network cache)",
+      "Bash(mv 06_gameplay_tag.md tag/README.md)",
+      "Bash(mv 07_gameplay_cue.md cue/README.md)",
+      "Bash(mv 08_ability_task.md task/README.md)",
+      "Bash(mv 09_execution_calculation.md exec/README.md)",
+      "Bash(cmd /c \"dir /b C:\\\\Program Files\\\\Epic Games\")",
+      "Bash(cmd /c \"dir /b D:\\\\Epic Games\")",
+      "Bash(cmd /c \"dir /b C:\\\\Program Files\\\\EpicGames\")",
+      "Bash(cmd /c \"where UnrealEditor.exe 2>nul\")",
+      "Bash(cmd /c \"reg query HKLM\\\\SOFTWARE\\\\EpicGames\\\\Unreal Engine /s 2>nul | findstr /i InstallDirectory\")",
+      "Bash(cmd *)",
+      "Read(//c//**)",
+      "Read(//d//**)",
+      "Bash(ls /mnt/)",
+      "Bash(ls /drives/)",
+      "Bash(ls /cygdrive/)",
+      "Bash(powershell.exe Get-PSDrive -PSProvider FileSystem | Select-Object Name,Root *)",
+      "Bash(git rm *)",
+      "Bash(git mv *)",
+      "Bash(git commit *)"
     ]
   }
 }
