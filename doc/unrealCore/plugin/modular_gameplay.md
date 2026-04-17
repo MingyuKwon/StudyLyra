@@ -65,6 +65,89 @@ return Owner ? Owner->GetGameInstance<T>() : nullptr;
 
 ---
 
+## UGameFrameworkComponent 직접 서브클래스 전체 목록
+
+ModularGameplay 플러그인은 게임 프레임워크의 주요 Actor 클래스 각각에 대응하는 컴포넌트 베이스를 제공한다. 설계 패턴이 완전히 동일하다 — **"이 Actor에 붙는 컴포넌트라면 이 헬퍼들이 필요하다"** 를 미리 묶어 둔 것.
+
+```
+UGameFrameworkComponent
+  ├─ UPawnComponent          → APawn용
+  ├─ UControllerComponent    → AController용
+  ├─ UPlayerStateComponent   → APlayerState용
+  └─ UGameStateComponent     → AGameStateBase용
+```
+
+| 클래스 | 파일 | Owner 타입 | 추가 접근자 |
+|--------|------|-----------|------------|
+| `UPawnComponent` | `PawnComponent.h` | `APawn` | `GetPawn`, `GetPlayerState`, `GetController` |
+| `UControllerComponent` | `ControllerComponent.h` | `AController` | `GetController`, `GetPawn`, `GetViewTarget`, `GetPlayerState`, `GetPlayer` |
+| `UPlayerStateComponent` | `PlayerStateComponent.h` | `APlayerState` | `GetPlayerState`, `GetPawn` |
+| `UGameStateComponent` | `GameStateComponent.h` | `AGameStateBase` | `GetGameState`, `GetGameMode` |
+
+---
+
+### UControllerComponent
+
+**파일**: `ControllerComponent.h`  
+**Owner**: `AController` (PlayerController / AIController 모두 해당)
+
+접근자 외에 **이벤트 virtual 함수** 두 개를 추가로 제공한다:
+
+```cpp
+virtual void ReceivedPlayer() {}   // PlayerController의 뷰포트/넷 연결이 완료된 시점
+virtual void PlayerTick(float DeltaTime) {}  // PlayerInput이 있는 로컬 PC에서만 매 틱 호출
+```
+
+`GetPawnOrViewTarget<T>()` 헬퍼도 있다 — Pawn을 빙의 중이면 Pawn, 아니면 ViewTarget 반환.
+
+---
+
+### UPlayerStateComponent
+
+**파일**: `PlayerStateComponent.h`  
+**Owner**: `APlayerState`
+
+접근자 외에 **PlayerState 생명주기 virtual 함수** 두 개:
+
+```cpp
+virtual void Reset() {}  // 속성 초기화 (리스폰 등)
+virtual void CopyProperties(UPlayerStateComponent* Target) {}  // 비활성 PlayerState로 속성 복사
+```
+
+`GetPawn<T>()` 헬퍼가 있지만, PlayerState에서 Pawn 접근은 클라이언트 복제가 완료되기 전에는 null이다.
+
+---
+
+### UGameStateComponent
+
+**파일**: `GameStateComponent.h`  
+**Owner**: `AGameStateBase`
+
+`GetGameMode<T>()`는 `GetOwner()->GetGameMode()`가 아닌 `World->GetAuthGameMode<T>()`를 쓴다. 주석에 이유가 명시돼 있다:
+
+> *"GameState 초기화 중에 GameMode가 null일 수 있어 World에서 직접 가져온다"*
+
+접근자 외에 **매치 생명주기 virtual 함수** 두 개:
+
+```cpp
+virtual void HandleMatchHasStarted() {}  // 게임플레이 시작
+virtual void HandleMatchHasEnded() {}    // 게임플레이 종료
+```
+
+---
+
+### 설계 패턴 요약
+
+모두 같은 방식으로 만들어져 있다:
+
+1. `GetOwner()`를 특정 Actor 타입으로 캐스팅하는 헬퍼 (`GetXxx<T>()` / `GetXxxChecked<T>()`)
+2. 그 Actor에서 자주 타고 올라가는 인접 객체 접근자 (Pawn → Controller → PlayerState 등)
+3. 해당 Actor의 생명주기 이벤트 virtual 함수 (override 포인트 제공)
+
+즉, "이 Actor 위에 붙는 컴포넌트라면 늘 필요한 것들"을 한 번만 정의해두는 **보일러플레이트 제거 레이어**다.
+
+---
+
 ## UPawnComponent
 
 **파일**: `PawnComponent.h`  
