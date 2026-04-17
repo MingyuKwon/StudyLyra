@@ -361,3 +361,60 @@ else
 
 ### 복제
 `AbilitySpecInputPressed/Released`에서 `bReplicateInputDirectly` 미사용. `InvokeReplicatedEvent`로 처리 → `WaitInputPress/Release` AbilityTask와 호환.
+
+---
+
+## 14. ModularGameplay 플러그인 — UGameFrameworkComponent / UPawnComponent / InitState 시스템
+
+**출처**:  
+`Engine/Plugins/Runtime/ModularGameplay/Source/ModularGameplay/Public/Components/GameFrameworkComponent.h`  
+`Engine/Plugins/Runtime/ModularGameplay/Source/ModularGameplay/Public/Components/PawnComponent.h`  
+`Engine/Plugins/Runtime/ModularGameplay/Source/ModularGameplay/Public/Components/GameFrameworkInitStateInterface.h`  
+`Engine/Plugins/Runtime/ModularGameplay/Source/ModularGameplay/Public/Components/GameFrameworkComponentManager.h`  
+**상세 문서**: `doc/unrealCore/modular_gameplay.md`
+
+### 클래스 계층
+
+```
+UActorComponent
+  └─ UGameFrameworkComponent
+        └─ UPawnComponent
+```
+
+### UGameFrameworkComponent 추가 API
+- `GetGameInstance<T>()` — Owner 통해 GameInstance 접근
+- `HasAuthority()` — Owner Role == ROLE_Authority 확인
+- `GetWorldTimerManager()` — 타이머 매니저
+- 같은 헤더에 `TComponentIterator<T>` / `TConstComponentIterator<T>` 이터레이터 유틸리티 정의
+
+### UPawnComponent 추가 API (모두 template, static_assert 타입 안전)
+- `GetPawn<T>()` / `GetPawnChecked<T>()` — Owner를 Pawn으로 접근
+- `GetPlayerState<T>()` — Pawn의 PlayerState (클라이언트 복제 전 null 가능)
+- `GetController<T>()` — Pawn의 Controller (클라이언트에서 보통 null)
+
+### UGameFrameworkComponentManager (UGameInstanceSubsystem)
+**역할 1: 컴포넌트 동적 주입**
+- `AddReceiver(Actor)` — Actor를 수신자로 등록 (BeginPlay/OnRegister에서 호출)
+- `AddComponentRequest(ActorClass, ComponentClass)` → `FComponentRequestHandle` (RAII, 소멸 시 컴포넌트 제거)
+- `SendExtensionEvent(Actor, EventName)` — 확장 이벤트 발송
+- 내장 이벤트: `NAME_ReceiverAdded`, `NAME_ReceiverRemoved`, `NAME_GameActorReady`
+
+**역할 2: InitState 조율**
+- `RegisterInitState(NewState, bAddBefore, ExistingState)` — 전역 상태 순서 등록 (GameplayTag 배열)
+- `ChangeFeatureInitState(Actor, FeatureName, Implementer, FeatureState)` — 상태 변경 + 구독자 통보 (StateChangeQueue로 재귀 방지)
+- `HaveAllFeaturesReachedInitState(Actor, RequiredState)` — 모든 Feature 도달 여부 체크
+
+### IGameFrameworkInitStateInterface 핵심 메서드
+- `RegisterInitStateFeature()` / `UnregisterInitStateFeature()` — OnRegister/EndPlay에서 호출
+- `CanChangeInitState(Manager, Current, Desired)` — 전이 가능 여부 커스텀 체크
+- `HandleChangeInitState(Manager, Current, Desired)` — 전이 직전 실행 로직
+- `TryToChangeInitState(DesiredState)` — Can 확인 → Handle → Manager 통보
+- `ContinueInitStateChain(ChainArray)` — 지정 순서로 연속 전이, 도달한 최종 상태 반환
+- `OnActorInitStateChanged(Params)` — 같은 Actor 다른 Feature 상태 변경 감지
+- `CheckDefaultInitialization()` — override해서 ContinueInitStateChain 호출
+
+### Lyra 활용 패턴
+- `ULyraPawnExtensionComponent` + `ULyraHeroComponent` 모두 `UPawnComponent + IGameFrameworkInitStateInterface` 이중 상속
+- Pawn 위 두 Feature가 Manager를 중재자로 삼아 직접 참조 없이 초기화 순서 조율
+- InitState 4단계: `Spawned → DataAvailable → DataInitialized → GameplayReady`
+- `DataInitialized` 전이 시: PawnExtension → `InitializeAbilitySystem()`, Hero → `InitializePlayerInput()`
