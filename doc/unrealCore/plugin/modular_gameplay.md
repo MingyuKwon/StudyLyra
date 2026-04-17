@@ -44,6 +44,25 @@ UActorComponent
 같은 헤더에 `TComponentIterator<T>` / `TConstComponentIterator<T>` 유틸리티도 정의돼 있다.  
 `IsRegistered()` 조건을 걸며 Actor의 등록된 컴포넌트를 순회한다.
 
+### 왜 GetGameInstance가 여기 있나?
+
+`GetGameInstance<T>()`는 특별한 접근 권한을 부여하는 게 아니다. 단순히 긴 접근 체인의 축약형이다.
+
+```cpp
+// 원래 코드
+GetOwner()->GetWorld()->GetGameInstance<UMyGameInstance>();
+
+// 헬퍼 내부 구현 (그대로임)
+AActor* Owner = GetOwner();
+return Owner ? Owner->GetGameInstance<T>() : nullptr;
+```
+
+**`UActorComponent`에 없는 이유**: `UActorComponent`는 물리/렌더/충돌 등 GameInstance와 전혀 무관한 컴포넌트까지 전부 포함하는 범용 베이스다. 거기에 게임 프레임워크 전용 헬퍼를 넣으면 책임 분리 위반이다.
+
+`UGameFrameworkComponent`는 이름 자체가 "게임 프레임워크 Actor(PlayerState, GameState 등)에 붙는 컴포넌트"라는 의미를 선언하며, 그 맥락에서 자주 쓰이는 접근 패턴을 헬퍼로 제공한 것이다.
+
+> **수명 관계**: GameInstance는 레벨 전환에도 살아있는 유일한 전역 객체다. 이 컴포넌트들이 붙는 PlayerState, GameState, Pawn은 모두 GameInstance보다 수명이 짧다. 즉, 이 헬퍼는 "수명이 짧은 컴포넌트에서 수명이 긴 전역 객체로 안전하게 올라가는" 관용구를 감싼 것이다.
+
 ---
 
 ## UPawnComponent
