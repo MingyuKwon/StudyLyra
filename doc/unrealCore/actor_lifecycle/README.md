@@ -16,6 +16,7 @@
 | [02_gameplay.md](02_gameplay.md) | 게임플레이 단계 — BeginPlay / Tick / EndPlay / Destroyed |
 | [03_component.md](03_component.md) | 컴포넌트 생명주기 — OnRegister / InitializeComponent / BeginPlay / EndPlay |
 | [04_replication.md](04_replication.md) | 복제 훅 — GetLifetimeReplicatedProps / PreReplication / OnRep_ |
+| [05_world_context.md](05_world_context.md) | 게임 월드와 생명주기 — EWorldType / IsGameWorld / AreActorsInitialized |
 
 ---
 
