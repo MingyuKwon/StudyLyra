@@ -444,3 +444,41 @@ UActorComponent
 ### 공통 합류점
 - `PostInitializeComponents()` — 배치/스폰 모두 여기서 동일한 상태 보장
 - `PostActorCreated()`는 SpawnActor 경로에만 존재 → 배치 Actor 초기화 코드를 여기에 넣으면 안 됨
+
+---
+
+## 언리얼 복제 시스템 파이프라인
+
+> 출처: `NetDriver.cpp`, `DataChannel.cpp`, `DataReplication.cpp`, `RepLayout.cpp`, `ActorReplication.cpp`
+
+### 서버 매 틱 흐름
+```
+UNetDriver::TickFlush()
+  → ServerReplicateActors()
+    1. BuildConsiderList() — 후보 Actor 목록 (NextUpdateTime, RemoteRole, IsActorInitialized 필터)
+    2. [각 Connection] IsNetRelevantFor() — 이 클라이언트에 관련 있는가
+    3. GetNetPriority() 정렬 — 대역폭 부족 시 우선순위
+    4. ActorChannel::ReplicateActor()
+         bNetInitial=true: SerializeNewActor() (클라이언트에서 Actor 스폰)
+         FObjectReplicator::ReplicateProperties()
+           CompareProperties() — 현재값 vs Shadow Buffer 비교
+           변경된 프로퍼티만 직렬화 → 전송
+```
+
+### Shadow Buffer
+- `FRepLayout`이 "지난번에 보낸 값"의 복사본을 유지
+- 현재값과 비교해 변경된 것만 직렬화 → 대역폭 절약
+- `GShareShadowState`: 같은 프레임에 커넥션 100개라도 CompareProperties는 1번만
+
+### Actor 복제 등록 시점
+- `DispatchBeginPlay()` → `StartReplicatingActor()` → `BeginPlay()`
+- `RouteEndPlay()` → `StopReplicatingActor()`
+
+### Relevancy 플래그 (ActorReplication.cpp:382)
+- `bAlwaysRelevant=true`: 모든 클라이언트에 항상
+- `bOnlyRelevantToOwner=true`: Owner만
+- 기본값: `NetCullDistanceSquared` 거리 컬링
+
+### NetUpdateFrequency
+- `SetNetUpdateFrequency(100.0f)` — ConsiderList 진입 최대 빈도 (초당)
+- 높다고 매 틱 복제되는 게 아님 — 대역폭/우선순위에 따라 실제 전송은 스킵 가능
