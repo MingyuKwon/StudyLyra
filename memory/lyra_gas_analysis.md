@@ -601,6 +601,12 @@ UWorld (UObject, 컨테이너)
 - GameState는 복제됨 (점수, 남은 시간 등 클라도 알아야 함)
 - WorldSettings가 DefaultGameMode 클래스를 결정 → 서버 맵 로드 시 인스턴스화
 
+### AWorldSettings 추가 사항 (WorldSettings.cpp:353, 378)
+- **이름 오해**: "Settings"지만 실제로는 레벨당 하나인 대표 Actor — 설정값 보관 + 레벨 범위 로직 실행
+- **복제 프로퍼티**: `PauserPlayerState`, `TimeDilation`, `CinematicTimeDilation`, `WorldGravityZ`, `bHighPriorityLoading` (모두 transient, 런타임 상태)
+- **NotifyBeginPlay()**: 월드 전체 Actor의 BeginPlay를 일괄 트리거. GameStateBase::HandleBeginPlay()가 서버에서 호출 → bReplicatedHasBegunPlay 복제 → 클라이언트 OnRep에서 동일하게 호출
+- **왜 WorldSettings에**: UWorld는 서브클래싱 불가 → AWorldSettings가 레벨 범위 커스터마이징 진입점. GameStateBase(언제) vs WorldSettings(어떻게) 관심사 분리
+
 ### Lyra 확장
 - `ALyraWorldSettings::DefaultGameplayExperience` — 레벨별 기본 Experience 에셋
 - `ALyraGameMode::HandleMatchAssignmentIfNotExpectingOne()` — URL > DeveloperSettings > CommandLine > WorldSettings > 하드코딩 폴백 순으로 ExperienceId 결정

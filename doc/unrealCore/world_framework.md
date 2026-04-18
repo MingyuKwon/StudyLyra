@@ -64,6 +64,105 @@ GetWorld()->GetGameState();      // AGameStateBase*
 
 ---
 
+### AWorldSettings — 이름이 오해를 준다
+
+이름이 "Settings"라 데이터 모음처럼 보이지만, 실제 역할은 **레벨당 하나인 대표 Actor**다.
+
+| 역할 | 내용 |
+|------|------|
+| 설정값 보관 | 중력, KillZ, TimeDilation 등 |
+| 레벨 대표 | 레벨 범위 작업(BeginPlay 트리거 등) 실행 |
+
+`UWorld`는 엔진 내부 클래스라 게임 코드에서 서브클래싱하지 않는다.  
+`AWorldSettings`가 "레벨 범위 커스터마이징의 진입점" 역할을 하기 때문에 로직도 들어간다.
+
+---
+
+### 복제(Replicated)되는 프로퍼티
+
+> 출처: `Engine/Source/Runtime/Engine/Private/WorldSettings.cpp:378` (`GetLifetimeReplicatedProps`)
+
+`AWorldSettings` 자체가 `bReplicates = true`인 Actor다.
+
+```cpp
+DOREPLIFETIME(AWorldSettings, PauserPlayerState);     // 게임 일시정지한 플레이어
+DOREPLIFETIME(AWorldSettings, TimeDilation);          // 월드 시간 배율 (슬로우모션)
+DOREPLIFETIME(AWorldSettings, CinematicTimeDilation); // 시퀀서 슬로우모션 배율
+DOREPLIFETIME(AWorldSettings, WorldGravityZ);         // 현재 적용 중인 중력값
+DOREPLIFETIME(AWorldSettings, bHighPriorityLoading);  // 백그라운드 로딩 우선순위
+DOREPLIFETIME_WITH_PARAMS_FAST(AWorldSettings, NaniteSettings, ...); // Nanite 설정
+```
+
+이것들은 레벨 파일에서 읽는 정적 설정값이 아니라 **런타임에 서버가 바꾸면 클라이언트에 전파되는 상태**다(`transient` 플래그).
+
+---
+
+### NotifyBeginPlay — 월드 전체 BeginPlay 진입점
+
+> 출처: `Engine/Source/Runtime/Engine/Private/WorldSettings.cpp:353`
+
+```cpp
+void AWorldSettings::NotifyBeginPlay()
+{
+    UWorld* World = GetWorld();
+    if (!World->GetBegunPlay())  // 한 번만 실행
+    {
+        World->OnWorldPreBeginPlay.Broadcast();
+
+        for (FActorIterator It(World); It; ++It)
+        {
+            It->DispatchBeginPlay(bFromLevelLoad);  // 모든 Actor BeginPlay 호출
+        }
+
+        World->SetBegunPlay(true);
+    }
+}
+```
+
+**누가 호출하나** — `AGameStateBase`가 결정하고 `AWorldSettings`가 실행한다:
+
+```cpp
+// GameStateBase.cpp
+
+// 서버: 직접 호출
+void AGameStateBase::HandleBeginPlay()
+{
+    bReplicatedHasBegunPlay = true;           // 클라이언트에 복제
+    GetWorldSettings()->NotifyBeginPlay();    // 서버 Actor BeginPlay 실행
+    GetWorldSettings()->NotifyMatchStarted();
+}
+
+// 클라이언트: bReplicatedHasBegunPlay 복제 수신 시 OnRep 콜백
+void AGameStateBase::OnRep_ReplicatedHasBegunPlay()
+{
+    if (bReplicatedHasBegunPlay && GetLocalRole() != ROLE_Authority)
+    {
+        GetWorldSettings()->NotifyBeginPlay();    // 클라이언트 Actor BeginPlay 실행
+        GetWorldSettings()->NotifyMatchStarted();
+    }
+}
+```
+
+흐름:
+
+```
+서버: GameStateBase::HandleBeginPlay()
+  → WorldSettings::NotifyBeginPlay()
+       → 모든 Actor::DispatchBeginPlay()   ← 서버 BeginPlay 실행
+  → bReplicatedHasBegunPlay = true → 클라이언트에 복제
+
+클라이언트: bReplicatedHasBegunPlay OnRep 수신
+  → WorldSettings::NotifyBeginPlay()
+       → 모든 Actor::DispatchBeginPlay()   ← 클라이언트 BeginPlay 실행
+```
+
+**왜 WorldSettings가 하는가:**
+- `GameStateBase`는 "언제 시작할지" 결정 (게임 타이밍)
+- `WorldSettings`는 "어떻게 이 레벨 Actor들을 깨울지" 실행 (레벨 실행)
+- 관심사 분리 + 게임 코드에서 `NotifyBeginPlay()`를 오버라이드해 커스터마이징 가능
+
+---
+
 ## AGameModeBase (GameMode)
 
 **게임의 규칙을 정의**하는 클래스.
