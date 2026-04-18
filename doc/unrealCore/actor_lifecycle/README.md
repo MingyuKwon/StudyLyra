@@ -18,6 +18,7 @@
 | [04_replication.md](04_replication.md) | 복제 훅 — GetLifetimeReplicatedProps / PreReplication / OnRep_ |
 | [05_world_context.md](05_world_context.md) | 게임 월드와 생명주기 — EWorldType / IsGameWorld / AreActorsInitialized |
 | [06_placed_vs_spawned.md](06_placed_vs_spawned.md) | 배치 Actor vs 동적 스폰 — 진입 경로 차이, Construction Script 조건, RouteActorInitialize 3단계 |
+| [07_construction_script.md](07_construction_script.md) | ExecuteConstruction / SCS — C++ 생성자와의 차이, 여러 번 실행되는 이유, 코드 배치 기준 |
 
 ---
 
