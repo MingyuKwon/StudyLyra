@@ -482,3 +482,19 @@ UNetDriver::TickFlush()
 ### NetUpdateFrequency
 - `SetNetUpdateFrequency(100.0f)` — ConsiderList 진입 최대 빈도 (초당)
 - 높다고 매 틱 복제되는 게 아님 — 대역폭/우선순위에 따라 실제 전송은 스킵 가능
+
+### RPC 내부 흐름
+> 출처: `ScriptCore.cpp`, `Actor.cpp`, `NetDriver.cpp`
+
+- **프로퍼티 복제와 차이**: 복제=값 자동 전파, RPC=함수 호출 직접 전달
+- **진입점**: `UObject::ProcessEvent()` → `GetFunctionCallspace()` → Remote면 `CallRemoteFunction()` → `NetDriver::ProcessRemoteFunction()`
+- **GetFunctionCallspace 로직** (Actor.cpp):
+  - Server RPC + 클라이언트 호출 → Remote (서버로 전송)
+  - Server RPC + 서버 호출 → Local (이미 서버)
+  - Client RPC + 서버 호출 → Remote (Owner 클라이언트로 전송)
+  - Multicast + 서버 호출 → Local|Remote (서버 실행 + 모든 클라에 전송)
+- **직렬화**: `FRepLayout::SendPropertiesForRPC()` — 파라미터를 비트스트림으로 직렬화
+- **Unreliable + 대역폭 포화** → 조용히 드랍 (NetDriver.cpp:2929)
+- **Reliable 버퍼 오버플로우** → 연결 자체 끊음 (NetDriver.cpp:3152)
+- **Unreliable Multicast** → 즉시 전송 안 하고 틱 끝에 일괄 처리 (QueueBunch)
+- **bReplicates=false인 Actor의 RPC** → RemoteRole=ROLE_None → Absorbed (무시)
