@@ -418,3 +418,29 @@ UActorComponent
 - Pawn 위 두 Feature가 Manager를 중재자로 삼아 직접 참조 없이 초기화 순서 조율
 - InitState 4단계: `Spawned → DataAvailable → DataInitialized → GameplayReady`
 - `DataInitialized` 전이 시: PawnExtension → `InitializeAbilitySystem()`, Hero → `InitializePlayerInput()`
+
+---
+
+## 배치 Actor vs 동적 스폰 Actor 초기화 경로
+
+> 출처: `Engine/Source/Runtime/Engine/Private/World.cpp`, `Level.cpp`, `Actor.cpp`
+
+### 배치 Actor (레벨에 놓인 것)
+- `PostLoad()` → `RegisterAllComponents()` → `RouteActorInitialize()`
+- `RouteActorInitialize` (Level.cpp:3817): 3단계 Phase로 레벨 내 전체 Actor를 일괄 처리
+  - Phase 1: 전체 Actor `PreInitializeComponents()`
+  - Phase 2: 전체 Actor `InitializeComponents()` + `PostInitializeComponents()`
+  - Phase 3: 전체 Actor `DispatchBeginPlay()`
+- Construction Script 실행 여부: `!(RequiresCookedData || bWasDuplicatedForPIE || bHasRerunConstructionScripts)`
+  - 쿠킹 빌드: 실행 안 함 (직렬화에 포함됨)
+  - PIE: 실행 안 함 (에디터 레벨 복제본)
+  - 에디터 빌드 게임: 실행함
+
+### 동적 스폰 Actor
+- `SpawnActor()` → `PostSpawnInitialize()` → `PostActorCreated()` → `OnConstruction()` → `PostInitializeComponents()`
+- Construction Script: 항상 실행
+- `World->HasBegunPlay()` 이면 `PostInitializeComponents` 직후 `BeginPlay` 즉시 호출
+
+### 공통 합류점
+- `PostInitializeComponents()` — 배치/스폰 모두 여기서 동일한 상태 보장
+- `PostActorCreated()`는 SpawnActor 경로에만 존재 → 배치 Actor 초기화 코드를 여기에 넣으면 안 됨
