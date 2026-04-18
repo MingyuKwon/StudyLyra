@@ -100,6 +100,38 @@ void UGameFeatureAction_AddComponents::OnGameFeatureDeactivating(...)
 
 ---
 
+### 런타임 활성화/비활성화 — 실제로 일어나는가
+
+"플러그인을 런타임에 켜고 끈다"는 게 에디터 설정 얘기가 아니다.  
+`UGameFeaturesSubsystem::ActivateGameFeaturePlugin()` 같은 **C++ API 호출**이다.
+
+**Lyra Experience 시스템이 가장 직접적인 예시**다:
+
+```
+서버에서 게임 모드(Experience) 결정
+  → ULyraExperienceManagerComponent::StartExperienceLoad()
+       → 이 Experience에 연결된 GameFeature 플러그인 목록 확인
+       → UGameFeaturesSubsystem::LoadAndActivateGameFeaturePlugin()
+            → ShooterCore 활성화
+                 → UGameFeatureAction_AddComponents 실행
+                      → AddComponentRequest(ALyraCharacter, EquipmentManagerComponent)
+                      → AddComponentRequest(ALyraCharacter, ...)
+```
+
+게임 모드가 전환되면 이전 Experience의 플러그인이 비활성화되고(컴포넌트 자동 제거),  
+새 Experience의 플러그인이 활성화되어(컴포넌트 새로 주입) 완전히 다른 기능 세트가 붙는다.
+
+**런타임 활성화/비활성화가 일어나는 케이스**:
+
+| 케이스 | 설명 |
+|--------|------|
+| **게임 모드 전환** | Experience 변경 시 — Lyra의 핵심 사용 패턴 |
+| **DLC / 라이브 서비스** | 콘텐츠 다운로드 후 그 자리에서 활성화 |
+| **서버 설정** | 서버가 호스팅하는 모드에 따라 다른 Feature 로드 |
+| **플랫폼별 기능** | 특정 플랫폼에서만 활성화되는 기능 |
+
+---
+
 ### Actor의 opt-in 선언이 필요한 이유
 
 `AddReceiver(this)` 없이는 Manager가 해당 Actor에 컴포넌트를 붙이지 않는다.  

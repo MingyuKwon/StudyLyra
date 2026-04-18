@@ -45,7 +45,9 @@ for (UClass* Class = Receiver->GetClass(); Class != AActor::StaticClass(); Class
 }
 ```
 
-> **클래스 계층 전체를 순회하는 이유**: `AMyCharacter`에 등록된 요청이 있어도 `AMyCharacter`의 부모 `ALyraCharacter`에 등록된 요청도 함께 적용돼야 하기 때문이다.
+> **클래스 계층 전체를 순회하는 이유**: 요청은 특정 클래스를 키로 등록된다. `ALyraCharacter`를 대상으로 등록된 요청은 그 자식 클래스인 `AMyCharacter` 인스턴스가 `AddReceiver()`를 호출할 때도 적용돼야 한다. 순회가 자식 → 부모 방향으로 올라가므로, 부모 클래스 기준으로 등록된 요청도 자식 인스턴스가 전부 수신한다.
+>
+> 예시: `AddComponentRequest(ALyraCharacter, HealthComponent)` → `AMyCharacter`(: ALyraCharacter) 인스턴스가 `AddReceiver()` 호출 시 ALyraCharacter 레벨에서 요청이 걸려 HealthComponent도 생성됨.
 
 ---
 
@@ -128,6 +130,51 @@ if (USceneComponent* NewSceneComp = Cast<USceneComponent>(NewComp))
     NewSceneComp->SetupAttachment(ActorInstance->GetRootComponent());  // SceneComponent면 루트에 붙임
 NewComp->RegisterComponent();  // 등록
 ```
+
+`NewObject`의 Outer가 `ActorInstance`(특정 인스턴스)라는 점이 핵심이다.  
+**CDO는 전혀 건드리지 않는다.**
+
+---
+
+### CDO vs 런타임 인스턴스 — CreateDefaultSubobject와의 차이
+
+생성자에서 `CreateDefaultSubobject`로 컴포넌트를 만드는 방식과 근본적으로 다르다.
+
+```cpp
+// 기존 방식 — CDO에 등록됨 (컴파일/에디터 시점 결정)
+ALyraCharacter::ALyraCharacter()
+{
+    HealthComponent = CreateDefaultSubobject<ULyraHealthComponent>("Health");
+}
+
+// ModularGameplay 방식 — 런타임 인스턴스에 직접 생성
+NewObject<UActorComponent>(ActorInstance, ComponentClass, ...);
+RegisterComponent();
+```
+
+| | `CreateDefaultSubobject` | `AddComponentRequest` |
+|--|--------------------------|----------------------|
+| 생성 시점 | CDO (컴파일/에디터) | 런타임 인스턴스 단위 |
+| 에디터 패널 표시 | O | X |
+| 저장/직렬화 | O | X |
+| 제거 가능 | 불가 | Handle 소멸 → 자동 제거 |
+| 복제 컴포넌트 | 서버+클라 동시 보유 | Authority에서만 생성 |
+
+**두 시점에 각각 생성된다**:
+
+```
+① AddComponentRequest() 호출 시
+     → 이미 월드에 살아있는 해당 클래스 Actor 전부 순회
+     → 각각에 NewObject + RegisterComponent
+
+② 이후 Actor가 스폰될 때 (BeginPlay에서 AddReceiver 호출)
+     → Manager가 요청 목록 확인
+     → NewObject + RegisterComponent
+```
+
+GameFeature가 꺼지면:
+- 살아있는 인스턴스에서 `DestroyComponent()` 호출
+- 이후 스폰되는 Actor는 `AddReceiver()` 시 요청 목록이 비어있어 생성 자체를 안 함
 
 ---
 
