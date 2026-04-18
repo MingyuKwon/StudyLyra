@@ -9,6 +9,8 @@
 
 ## Replication과 RPC의 차이
 
+> 네트워크 스택 전체 구조(NetDriver → Connection → Channel → Bunch)는 [00_network_stack.md](00_network_stack.md) 참고.
+
 헷갈리기 쉬운데 근본적으로 다른 메커니즘이다.
 
 | | Replication (프로퍼티 복제) | RPC |

@@ -14,6 +14,7 @@
 
 | 파일 | 내용 |
 |------|------|
+| [00_network_stack.md](00_network_stack.md) | 네트워크 스택 구조 — NetDriver·Connection·Channel·Bunch 계층, 데이터 흐름, Bunch vs UDP 패킷 |
 | [01_pipeline.md](01_pipeline.md) | 복제 전체 파이프라인 — NetDriver Tick → ConsiderList → 우선순위 → ActorChannel |
 | [02_actor_replication.md](02_actor_replication.md) | Actor 복제 상세 — bReplicates, Relevancy, Priority, 프로퍼티 Diff, Shadow Buffer |
 | [03_rpc.md](03_rpc.md) | RPC — ProcessEvent 흐름, Server/Client/Multicast, Reliable/Unreliable, Validation |
