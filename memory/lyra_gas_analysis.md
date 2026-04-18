@@ -575,8 +575,33 @@ TObjectPtr<ULyraPawnData> DefaultPawnData;
 ```
 
 ### UGameFeatureAction 구현 패턴 (AddAbilities.cpp 기반)
+
 - **AddComponentRequest 패턴**: 활성화 시 Handle 저장, 비활성화 시 Empty() → RAII 자동 제거
 - **AddExtensionHandler 패턴**: Actor 이벤트(NAME_ExtensionAdded, NAME_LyraAbilityReady) 시 GA/AttributeSet 부여
 - **WorldActionBase 패턴**: OnGameFeatureActivating에서 현재 월드 전체 + 이후 월드 모두 AddToWorld() 호출
 - **FPerContextData 패턴**: `TMap<FGameFeatureStateChangeContext, FPerContextData>` — PIE 서버/클라 독립 상태 관리
 - AddAbilities 흐름: `OnGameFeatureActivating → AddToWorld → AddExtensionHandler 등록 → HandleActorExtension → AddActorAbilities(ASC에 GiveAbility)`
+
+---
+
+## 14. World 프레임워크 — UWorld · AWorldSettings · GameMode · GameState
+
+> 출처: `LyraWorldSettings.h`, `LyraGameMode.cpp`, `LyraGameState.h`
+
+### 구조
+```
+UWorld (UObject, 컨테이너)
+  ├─ AWorldSettings  — 레벨 설정값 Actor (중력, KillZ, 기본 GameMode 클래스)
+  ├─ AGameModeBase   — 게임 규칙 (서버 전용, 클라에 없음)
+  └─ AGameStateBase  — 현재 게임 상태 (서버→클라 복제)
+```
+
+### 핵심 구분
+- GameMode는 서버 전용 (규칙은 클라가 알 필요 없음 → 치트 방지)
+- GameState는 복제됨 (점수, 남은 시간 등 클라도 알아야 함)
+- WorldSettings가 DefaultGameMode 클래스를 결정 → 서버 맵 로드 시 인스턴스화
+
+### Lyra 확장
+- `ALyraWorldSettings::DefaultGameplayExperience` — 레벨별 기본 Experience 에셋
+- `ALyraGameMode::HandleMatchAssignmentIfNotExpectingOne()` — URL > DeveloperSettings > CommandLine > WorldSettings > 하드코딩 폴백 순으로 ExperienceId 결정
+- `ALyraGameState`가 `ULyraExperienceManagerComponent` 보유 → Experience 로드 + GameFeature 활성화
