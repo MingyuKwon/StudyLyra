@@ -498,3 +498,35 @@ UNetDriver::TickFlush()
 - **Reliable 버퍼 오버플로우** → 연결 자체 끊음 (NetDriver.cpp:3152)
 - **Unreliable Multicast** → 즉시 전송 안 하고 틱 끝에 일괄 처리 (QueueBunch)
 - **bReplicates=false인 Actor의 RPC** → RemoteRole=ROLE_None → Absorbed (무시)
+
+---
+
+## 12. ModularGameplay 설계 의도 — 왜 필요한가
+
+> 출처: `Engine/Plugins/Runtime/ModularGameplay/Source/ModularGameplay/Public/Components/GameFrameworkComponentManager.h`
+
+### 핵심 설계 의도
+- **"Actor를 건드리지 않고 외부에서 기능 주입"**
+- GameFeature 플러그인이 켜질 때 `AddComponentRequest()` → 컴포넌트 자동 생성
+- 플러그인 비활성화 시 `FComponentRequestHandle` 소멸(RAII) → 컴포넌트 자동 제거
+- Actor는 `AddReceiver(this)` 선언만 하면 됨 — 뭐가 붙는지 모름
+
+### 기존 방식 vs ModularGameplay
+```
+기존: ALyraCharacter 생성자에서 CreateDefaultSubobject — 컴파일 타임 결정
+새것: UGameFeatureAction_AddComponents::OnGameFeatureActivating() → AddComponentRequest() — 런타임 결정
+```
+
+### GameFeature 연동 패턴
+```cpp
+// 활성화 시
+Manager->AddComponentRequest(ALyraCharacter::StaticClass(), ULyraEquipmentManagerComponent::StaticClass());
+// → 현재 살아있는 ALyraCharacter에 즉시 생성 + 이후 스폰된 것에도 자동 적용
+
+// 비활성화 시
+ActiveRequests.Empty();  // Handle 소멸 → 자동 제거
+```
+
+### Actor opt-in 필요한 이유
+- ReceiverClass == AActor 강제 차단 (ensure로 막음) — 성능 문제
+- Actor 개발자가 명시적 지원 선언 필요: `BeginPlay()`에서 `AddGameFrameworkComponentReceiver(this)`
