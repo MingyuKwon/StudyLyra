@@ -308,3 +308,137 @@ void AMyActor::OnRep_Health() { PlayHitEffect(); }
 UFUNCTION(NetMulticast, Unreliable)
 void MulticastExplosionVFX(FVector Location);
 ```
+
+---
+
+## RPC 전송 직전 ReplicateActor 호출 — 왜?
+
+`ProcessRemoteFunctionForChannelPrivate` (NetDriver.cpp:3077)를 보면 RPC를 보내기 전에 조건부로 `ReplicateActor()`를 먼저 호출한다. 언뜻 보면 이상하다.
+
+```cpp
+// NetDriver.cpp:3077
+// Make sure initial channel-opening replication has taken place.
+if (Ch->OpenPacketId.First == INDEX_NONE)
+{
+    Ch->SetForcedSerializeFromRPC(true);
+    Ch->ReplicateActor();   // ← RPC 보내기 전에 먼저 Actor 복제?
+    Ch->SetForcedSerializeFromRPC(false);
+}
+// 그 다음 RPC 직렬화 + 전송
+```
+
+조건이 `OpenPacketId.First == INDEX_NONE`이다.  
+`OpenPacketId`는 이 채널의 **첫 번째 패킷이 전송됐을 때 기록**된다.  
+`INDEX_NONE`이라는 건 **클라이언트가 이 Actor를 아직 한 번도 받은 적 없다**는 뜻이다.
+
+---
+
+### 문제 — 클라이언트가 Actor를 모르는 상태에서 RPC가 오면
+
+RPC는 "**이 Actor 위에서 이 함수를 실행해**"라는 명령이다.  
+클라이언트 수신 코드는 채널에 Actor가 없으면 아예 처리를 거부한다.
+
+```cpp
+// DataChannel.cpp:3263 — 클라이언트 수신 측
+if (Actor == NULL)  // 이 채널에 아직 Actor 없음
+{
+    if (!Bunch.bOpen)  // Open Bunch(SpawnInfo)가 아니면
+    {
+        UE_LOG(Error, "New actor channel received non-open packet");
+        return;  // 처리 불가, 드랍
+    }
+    // Open Bunch여야만 SerializeNewActor로 스폰
+}
+```
+
+ActorChannel의 첫 패킷은 반드시 `bOpen = 1`이어야 하고,  
+그 안에 `SerializeNewActor` (클래스, 위치, NetGUID)가 있어야 클라이언트가 Actor를 스폰한다.
+
+---
+
+### 언제 이 상황이 생기나
+
+```
+서버: Actor 스폰
+  → ActorChannel 생성 (OpenPacketId = INDEX_NONE)
+
+복제 틱이 돌기 전에 RPC 발생:
+  Actor->ClientDoSomething()
+    → ProcessRemoteFunction
+      → OpenPacketId.First == INDEX_NONE  ← 클라이언트가 모름
+      → 바로 RPC만 보내면 클라이언트가 처리 불가
+```
+
+이런 일은 실제로 자주 발생한다.  
+예) `SpawnActor()` 직후 바로 `ClientRPC()` 호출, 복제 틱은 다음 프레임에 돌 예정.
+
+---
+
+### 해결 — RPC 전에 SpawnInfo 먼저 전송
+
+```cpp
+Ch->ReplicateActor();   // bNetInitial=true → SerializeNewActor 포함한 Open Bunch 전송
+                        // → OpenPacketId 기록됨
+// 이제 클라이언트가 Actor를 알게 됨
+// RPC 전송
+```
+
+`ReplicateActor()` 내부:
+
+```cpp
+// DataChannel.cpp:3769 — OpenPacketId가 없으면 bNetInitial = true
+if (OpenPacketId.First == INDEX_NONE)
+    RepFlags.bNetInitial = true;
+
+// DataChannel.cpp:3793 — bNetInitial이면 SpawnInfo 직렬화
+if (RepFlags.bNetInitial && OpenedLocally)
+    Connection->PackageMap->SerializeNewActor(Bunch, this, Actor);
+```
+
+클라이언트 수신 순서:
+
+```
+1. Open Bunch (bOpen=1, SpawnInfo) 수신
+     → SerializeNewActor → Actor 스폰
+     → SetChannelActor 완료
+
+2. RPC Bunch 수신
+     → Actor가 이제 존재함
+     → 함수 실행
+```
+
+---
+
+### bForcedSerializeFromRPC 플래그
+
+```cpp
+Ch->SetForcedSerializeFromRPC(true);
+Ch->ReplicateActor();
+Ch->SetForcedSerializeFromRPC(false);
+```
+
+이 플래그는 "지금 이 ReplicateActor 호출이 RPC 때문에 강제된 것"임을 표시한다.  
+`ReplicateActor` 내부에서 BeginPlay 전 Actor인지 체크할 때 이 플래그를 참고해서  
+정상 복제 경로와 다르게 처리해야 하는 부분을 구분한다 (DataChannel.cpp:3646).
+
+---
+
+### 정상 경로 vs 예외 경로 비교
+
+```
+[정상 — 복제 틱이 먼저 돌았을 때]
+  ServerReplicateActors()
+    → ReplicateActor()   ← OpenPacketId 기록, 클라이언트 Actor 스폰
+  나중에 RPC 발생
+    → OpenPacketId.First != INDEX_NONE  ← 이미 열렸음
+    → ReplicateActor 스킵, 바로 RPC 전송
+
+[예외 — 스폰 직후 즉시 RPC]
+  Actor 스폰
+  바로 RPC 호출
+    → OpenPacketId.First == INDEX_NONE  ← 아직 안 열렸음
+    → ReplicateActor 강제 (SpawnInfo 전송)
+    → RPC 전송
+```
+
+결국 이 처리는 **"RPC 수신 대상이 존재함"을 보장하기 위한 안전장치**다.
