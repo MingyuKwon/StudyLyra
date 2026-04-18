@@ -6,3 +6,4 @@ Lyra 전용이 아닌 범용 엔진 플러그인이지만, Lyra에서 적극 활
 | 폴더 | 플러그인 경로 | 내용 |
 |------|--------------|------|
 | [modular_gameplay/](modular_gameplay/README.md) | `Engine/Plugins/Runtime/ModularGameplay/` | UGameFrameworkComponent 계층, 컴포넌트 주입, InitState 시스템, Lyra 활용 |
+| [game_features.md](game_features.md) | `Engine/Plugins/Experimental/GameFeatures/` | UGameFeaturesSubsystem, UGameFeatureAction, Lyra Experience 시스템 전체 흐름 |

@@ -528,5 +528,48 @@ ActiveRequests.Empty();  // Handle 소멸 → 자동 제거
 ```
 
 ### Actor opt-in 필요한 이유
+
 - ReceiverClass == AActor 강제 차단 (ensure로 막음) — 성능 문제
 - Actor 개발자가 명시적 지원 선언 필요: `BeginPlay()`에서 `AddGameFrameworkComponentReceiver(this)`
+
+---
+
+## 13. GameFeatures 플러그인 — UGameFeaturesSubsystem
+
+> 출처: `Source/LyraGame/GameModes/LyraExperienceManagerComponent.cpp`, `LyraExperienceDefinition.h`
+
+### ModularGameplay와의 관계
+- **GameFeatures** = 트리거 ("언제/왜 플러그인 켜고 끄는가") — `UGameFeaturesSubsystem`
+- **ModularGameplay** = 메커니즘 ("어떻게 컴포넌트 주입하는가") — `UGameFrameworkComponentManager`
+- `UGameFeatureAction_AddComponents`가 연결고리: GameFeatures 활성화 시 ModularGameplay API 호출
+
+### 플러그인 상태 머신
+```
+Uninitialized → Installed → Registered → Loaded → Active
+```
+`Active` 진입 시 `UGameFeatureAction::OnGameFeatureActivating()` 실행
+
+### 핵심 API
+```cpp
+UGameFeaturesSubsystem::Get().LoadAndActivateGameFeaturePlugin(PluginURL, Callback);
+UGameFeaturesSubsystem::Get().GetPluginURLByName(PluginName, PluginURL);
+```
+
+### Lyra Experience 흐름 (LyraExperienceManagerComponent.cpp:269)
+```
+SetCurrentExperience() → StartExperienceLoad() → 에셋 비동기 로드
+  → OnExperienceLoadComplete()
+       → Experience.GameFeaturesToEnable 목록 순회
+       → LoadAndActivateGameFeaturePlugin() (비동기)
+  → OnExperienceFullLoadCompleted()
+       → Experience.Actions 직접 실행
+       → OnExperienceLoaded Broadcast
+```
+
+### ULyraExperienceDefinition (DataAsset)
+```cpp
+TArray<FString> GameFeaturesToEnable;          // 활성화할 플러그인 이름
+TArray<UGameFeatureAction*> Actions;           // 직접 실행할 Action
+TArray<ULyraExperienceActionSet*> ActionSets;  // 재사용 가능한 Action 묶음
+TObjectPtr<ULyraPawnData> DefaultPawnData;
+```
