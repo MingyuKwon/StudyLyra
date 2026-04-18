@@ -573,3 +573,10 @@ TArray<UGameFeatureAction*> Actions;           // 직접 실행할 Action
 TArray<ULyraExperienceActionSet*> ActionSets;  // 재사용 가능한 Action 묶음
 TObjectPtr<ULyraPawnData> DefaultPawnData;
 ```
+
+### UGameFeatureAction 구현 패턴 (AddAbilities.cpp 기반)
+- **AddComponentRequest 패턴**: 활성화 시 Handle 저장, 비활성화 시 Empty() → RAII 자동 제거
+- **AddExtensionHandler 패턴**: Actor 이벤트(NAME_ExtensionAdded, NAME_LyraAbilityReady) 시 GA/AttributeSet 부여
+- **WorldActionBase 패턴**: OnGameFeatureActivating에서 현재 월드 전체 + 이후 월드 모두 AddToWorld() 호출
+- **FPerContextData 패턴**: `TMap<FGameFeatureStateChangeContext, FPerContextData>` — PIE 서버/클라 독립 상태 관리
+- AddAbilities 흐름: `OnGameFeatureActivating → AddToWorld → AddExtensionHandler 등록 → HandleActorExtension → AddActorAbilities(ASC에 GiveAbility)`

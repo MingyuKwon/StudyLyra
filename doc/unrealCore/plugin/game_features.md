@@ -188,10 +188,169 @@ Experience_TeamDeathmatch:
 
 ---
 
+## UGameFeatureAction 사용 예시
+
+### 패턴 1 — AddComponentRequest (컴포넌트 주입)
+
+가장 단순한 형태. Actor에 컴포넌트를 붙이고, 비활성화 시 자동으로 떼어낸다.
+
+```cpp
+UCLASS()
+class UMyGameFeatureAction_AddComponents : public UGameFeatureAction
+{
+    GENERATED_BODY()
+
+    // 활성화 시 요청 핸들을 보관
+    TArray<TSharedPtr<FComponentRequestHandle>> ActiveRequests;
+
+public:
+    virtual void OnGameFeatureActivating(FGameFeatureActivatingContext& Context) override
+    {
+        UGameFrameworkComponentManager* Manager = 
+            UGameInstance::GetSubsystem<UGameFrameworkComponentManager>(GEngine->GetCurrentPlayWorld()->GetGameInstance());
+
+        // "ALyraCharacter 인스턴스에 UMyComponent를 붙여라" 요청
+        ActiveRequests.Add(
+            Manager->AddComponentRequest(ALyraCharacter::StaticClass(), UMyComponent::StaticClass())
+        );
+    }
+
+    virtual void OnGameFeatureDeactivating(FGameFeatureDeactivatingContext& Context) override
+    {
+        // Handle 소멸 → AddComponentRequest 자동 취소 → 컴포넌트 자동 제거
+        ActiveRequests.Empty();
+    }
+};
+```
+
+---
+
+### 패턴 2 — AddExtensionHandler (Actor 준비 후 작업)
+
+컴포넌트 추가가 아니라 **"Actor가 준비됐을 때 어떤 작업을 하겠다"**는 콜백을 등록하는 패턴.  
+`UGameFeatureAction_AddAbilities`가 이 방식을 사용한다.
+
+```cpp
+void UGameFeatureAction_AddAbilities::AddToWorld(const FWorldContext& WorldContext, ...)
+{
+    UGameFrameworkComponentManager* ComponentMan = ...;
+
+    for (const FGameFeatureAbilitiesEntry& Entry : AbilitiesList)
+    {
+        // "ALyraPlayerState Actor가 특정 이벤트를 받으면 HandleActorExtension 호출해라"
+        TSharedPtr<FComponentRequestHandle> Handle = ComponentMan->AddExtensionHandler(
+            Entry.ActorClass,                                      // 대상 Actor 클래스
+            FExtensionHandlerDelegate::CreateUObject(this, &ThisClass::HandleActorExtension, EntryIndex, ChangeContext)
+        );
+        ActiveData.ComponentRequests.Add(Handle);
+    }
+}
+
+void UGameFeatureAction_AddAbilities::HandleActorExtension(AActor* Actor, FName EventName, ...)
+{
+    if (EventName == NAME_ExtensionAdded || EventName == NAME_LyraAbilityReady)
+    {
+        AddActorAbilities(Actor, Entry, ActiveData);  // GA/AttributeSet/AbilitySet 부여
+    }
+    else if (EventName == NAME_ExtensionRemoved || EventName == NAME_ReceiverRemoved)
+    {
+        RemoveActorAbilities(Actor, ActiveData);      // GA/AttributeSet 제거
+    }
+}
+```
+
+`AddComponentRequest`와의 차이:
+
+| | `AddComponentRequest` | `AddExtensionHandler` |
+|--|----------------------|----------------------|
+| 하는 일 | 컴포넌트 인스턴스 자동 생성/제거 | 이벤트 발생 시 콜백 호출 |
+| 사용 시점 | 컴포넌트를 동적으로 붙여야 할 때 | 컴포넌트가 이미 있고 추가 작업(GA 부여 등)이 필요할 때 |
+
+---
+
+### 패턴 3 — WorldActionBase (멀티 월드 지원)
+
+PIE(에디터에서 플레이)에서는 서버/클라이언트가 별도 World로 존재한다.  
+`UGameFeatureAction_WorldActionBase`를 상속하면 **현재 존재하는 모든 월드 + 이후 시작되는 월드** 모두에 자동으로 적용된다.
+
+```cpp
+// WorldActionBase.cpp
+void UGameFeatureAction_WorldActionBase::OnGameFeatureActivating(FGameFeatureActivatingContext& Context)
+{
+    // 이후 시작되는 GameInstance용 델리게이트 등록
+    GameInstanceStartHandles.FindOrAdd(Context) = 
+        FWorldDelegates::OnStartGameInstance.AddUObject(this, &ThisClass::HandleGameInstanceStart, ...);
+
+    // 현재 살아있는 모든 WorldContext에 즉시 적용
+    for (const FWorldContext& WorldContext : GEngine->GetWorldContexts())
+    {
+        if (Context.ShouldApplyToWorldContext(WorldContext))
+            AddToWorld(WorldContext, Context);  // 서브클래스가 구현
+    }
+}
+```
+
+구현 방법:
+```cpp
+UCLASS()
+class UMyGameFeatureAction : public UGameFeatureAction_WorldActionBase
+{
+    // AddToWorld만 구현하면 됨 — 월드 반복 처리는 부모가 담당
+    virtual void AddToWorld(const FWorldContext& WorldContext, const FGameFeatureStateChangeContext& ChangeContext) override
+    {
+        UWorld* World = WorldContext.World();
+        if (!World || !World->IsGameWorld()) return;
+
+        // 월드별 처리 로직
+        UGameFrameworkComponentManager* Manager = ...;
+        Manager->AddComponentRequest(...);
+    }
+};
+```
+
+`Lyra의 GameFeatureAction_AddAbilities`, `AddInputBinding`, `AddWidget` 등이 모두 이 패턴을 쓴다.
+
+---
+
+### FPerContextData 패턴 — 컨텍스트별 상태 분리
+
+PIE에서 서버/클라이언트 World가 따로 존재하기 때문에, 같은 Action 인스턴스가 여러 컨텍스트에서 실행된다.  
+Lyra는 `TMap<FGameFeatureStateChangeContext, FPerContextData>`로 컨텍스트마다 상태를 독립적으로 관리한다.
+
+```cpp
+// AddAbilities.h
+struct FPerContextData
+{
+    TMap<AActor*, FActorExtensions> ActiveExtensions;     // Actor별 부여된 핸들
+    TArray<TSharedPtr<FComponentRequestHandle>> ComponentRequests;  // RAII 핸들
+};
+
+TMap<FGameFeatureStateChangeContext, FPerContextData> ContextData;
+```
+
+활성화/비활성화 시:
+```cpp
+void OnGameFeatureActivating(FGameFeatureActivatingContext& Context)
+{
+    FPerContextData& ActiveData = ContextData.FindOrAdd(Context);  // 컨텍스트별 독립 데이터
+    Super::OnGameFeatureActivating(Context);  // → AddToWorld() 호출
+}
+
+void OnGameFeatureDeactivating(FGameFeatureDeactivatingContext& Context)
+{
+    Super::OnGameFeatureDeactivating(Context);
+    FPerContextData* ActiveData = ContextData.Find(Context);
+    Reset(*ActiveData);  // 이 컨텍스트(월드)에서만 제거
+}
+```
+
+---
+
 ## 요약
 
 - **UGameFeaturesSubsystem**: 플러그인 상태 머신 관리 (Installed → Active)
 - **UGameFeatureAction**: 활성화/비활성화 시 실행할 작업의 추상 인터페이스
+- **UGameFeatureAction_WorldActionBase**: 멀티 월드(PIE) 지원 베이스 — `AddToWorld()`만 구현
 - **ULyraExperienceDefinition**: 어떤 플러그인이 필요한지 DataAsset으로 선언
 - **ULyraExperienceManagerComponent**: Experience 로드 → 플러그인 활성화 → Action 실행 조율
 - GameFeatures는 **트리거**, ModularGameplay는 **메커니즘** — 함께 써야 완성
