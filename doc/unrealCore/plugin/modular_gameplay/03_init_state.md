@@ -18,6 +18,55 @@
 
 ---
 
+## 왜 State인가 — 설계 의도
+
+### 구조
+
+Manager가 **(Actor, Feature) 쌍의 State를 전부 들고 있고**, 누구든 남의 State를 구독하거나 직접 조회할 수 있다.
+
+```
+ALyraCharacter
+  ├─ PawnExtensionComponent  → CurrentState: DataInitialized   ← Manager가 관리
+  ├─ HeroComponent           → CurrentState: DataAvailable
+  └─ ...
+```
+
+State는 각 컴포넌트가 자기 안에 들고 있는 게 아니라, **Manager가 외부에서 (Actor, FeatureName) 키로 관리**한다.
+
+### 왜 단순 이벤트/델리게이트로 안 되나
+
+A가 B의 초기화 완료를 기다릴 때, 단순 이벤트를 쓰면 타이밍 역전이 발생한다:
+
+```
+[타이밍 1] PawnExtension → DataInitialized 도달 → 이벤트 발생
+[타이밍 2] HeroComponent BeginPlay → 구독 등록 시도... 이미 지나감 → 영원히 대기
+```
+
+네트워크 환경에서 컴포넌트들이 BeginPlay를 타는 순서는 보장되지 않는다. State가 있으면 구독 시점에 "이미 지나갔는지" 즉시 확인할 수 있다:
+
+```cpp
+BindOnActorInitStateChanged(
+    NAME_PawnExtension,
+    TAG_DataInitialized,
+    bCallIfAlreadyReached: true  // 이미 도달해 있으면 즉시 콜백
+);
+```
+
+### Lyra 실제 예시
+
+```
+PawnExtensionComponent가 DataInitialized로 가려면?
+  → HaveAllFeaturesReachedInitState(Actor, DataAvailable) 체크
+  → 같은 Actor 위의 모든 Feature가 DataAvailable 이상인지 Manager에 물어봄
+  → HeroComponent가 아직 DataAvailable 미달 → 대기
+  → HeroComponent가 DataAvailable 도달 → PawnExtension에 알림
+  → PawnExtension 다시 체크 → 전원 통과 → DataInitialized로 전이
+```
+
+컴포넌트들이 서로를 직접 참조하지 않고, **Manager를 중간에 두고 State로만 대화**한다.
+
+---
+
 ## 전역 상태 순서 등록
 
 상태 순서는 게임 시작 시 Manager에 명시적으로 등록해야 한다.
