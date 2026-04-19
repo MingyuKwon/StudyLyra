@@ -705,3 +705,57 @@ ComponentRequests TSharedPtr Handle 소멸 시 AddExtensionHandler 자동 해제
 
 ### PIE 중복 방지
 `ULyraExperienceManager`(EngineSubsystem): 에디터에서만 플러그인 활성화 참조 카운트 관리
+
+---
+
+## 14. Experience 로드 완료 후 폰 스폰 제어 (LyraGameMode.cpp)
+
+출처: `Source/LyraGame/GameModes/LyraGameMode.cpp`
+
+### 핵심 구조: 두 개의 가드
+
+**가드 1 — HandleStartingNewPlayer (L391)**
+```cpp
+void ALyraGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer)
+{
+    if (IsExperienceLoaded())  // Experience 미완료 시 Super 호출 안 함 → 스폰 안 됨
+        Super::HandleStartingNewPlayer_Implementation(NewPlayer);
+}
+```
+- Experience 로드 전 접속한 플레이어는 스폰이 아예 막힘
+
+**가드 2 — OnExperienceLoaded (L305)**
+```cpp
+void ALyraGameMode::OnExperienceLoaded(const ULyraExperienceDefinition* CurrentExperience)
+{
+    for (FConstPlayerControllerIterator Iterator = ...)
+    {
+        if (PC->GetPawn() == nullptr && PlayerCanRestart(PC))
+            RestartPlayer(PC);  // 이미 접속해 있던 PC들을 사후에 스폰
+    }
+}
+```
+- Experience 완료 시점에 폰 없는 PC 전원 스폰
+
+### 등록 시점 (InitGameState, L452)
+```cpp
+ExperienceComponent->CallOrRegister_OnExperienceLoaded(
+    FDelegate::CreateUObject(this, &ThisClass::OnExperienceLoaded));
+```
+- `InitGameState()`에서 `ExperienceManagerComponent`의 OnExperienceLoaded 델리게이트에 등록
+
+### GetDefaultPawnClassForController (L332)
+```cpp
+// Experience 미로드 시 nullptr 반환 → 스폰 실패 → FailedToRestartPlayer → 다음 프레임 재시도
+if (!ExperienceComponent->IsExperienceLoaded()) return nullptr;
+```
+
+### 전체 흐름 요약
+```
+InitGame → (NextTick) HandleMatchAssignmentIfNotExpectingOne → ExperienceManagerComponent 로드 시작
+InitGameState → OnExperienceLoaded 델리게이트 등록
+플레이어 접속 → HandleStartingNewPlayer → IsExperienceLoaded() false → 스폰 대기
+Experience 완료 → OnExperienceLoaded 브로드캐스트
+  → ALyraGameMode::OnExperienceLoaded → 대기 중 PC 전원 RestartPlayer
+  → 이후 접속자는 HandleStartingNewPlayer에서 즉시 통과
+```

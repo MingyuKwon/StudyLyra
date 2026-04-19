@@ -7,6 +7,45 @@
 
 ---
 
+## 왜 "Feature"인가 — 네이밍 의도
+
+언리얼 플러그인은 원래 **엔진 기능 확장** 단위다 (GAS, CommonUI, Chaos 등).  
+GameFeature 플러그인은 그 구조를 **게임 콘텐츠 패키지** 배포 단위로 재활용한다.
+
+```
+일반 플러그인:  엔진 기능 추가  (GAS, Chaos, CommonUI...)
+GameFeature:   게임 콘텐츠 묶음 (ShooterCore, TopDownArena...)
+```
+
+"Feature"는 기술적 단위(플러그인)가 아니라 **게임 기획 단위(기능)**를 나타낸다.  
+`GameFeaturesToEnable` = "켤 플러그인 목록"이 아니라 "이 Experience에서 켤 게임 기능 목록".
+
+ShooterCore 플러그인 안에는:
+- `.uplugin` — 플러그인 메타
+- `Content/` — 총기 에셋, 애니메이션, 사운드
+- `Source/` — 사격 관련 GA, GE 코드
+- `GameFeatureData` — 활성화 시 실행할 Action 목록
+
+이 전체가 "슈터 기능 팩" 하나다.
+
+---
+
+## 왜 Action만 켜고 끄는 게 아닌가
+
+"Action만 동적으로 켰다 껐다 하면 되지 않냐"는 질문이 자연스럽다.  
+핵심 차이는 **에셋과 코드의 메모리 로드 단위**다.
+
+| | Action만 제어 | 플러그인 단위 제어 |
+|---|---|---|
+| C++ 코드 | 빌드 타임에 항상 포함 | 런타임에 로드/언로드 가능 |
+| 에셋 (Mesh, Anim, Sound) | 이미 메모리에 있어야 함 | 필요할 때만 로드 |
+| 독립 패키징 | 불가 | DLC/모드로 추가 가능 |
+
+Epic이 플러그인 구조를 택한 이유는 **독립 빌드, 의존성 선언, 에셋 격리** 인프라가 이미 갖춰져 있어서다.  
+새로 만들 필요 없이 기존 플러그인 시스템을 콘텐츠 팩 개념으로 재활용한 것.
+
+---
+
 ## ModularGameplay와의 관계
 
 ```
@@ -497,6 +536,36 @@ void OnGameFeatureDeactivating(FGameFeatureDeactivatingContext& Context)
     ContextData.Remove(Context);
 }
 ```
+
+---
+
+## StartExperienceLoad — BundleAssetList에 ActionSet을 따로 추가하는 이유
+
+```cpp
+BundleAssetList.Add(CurrentExperience->GetPrimaryAssetId());
+for (const TObjectPtr<ULyraExperienceActionSet>& ActionSet : CurrentExperience->ActionSets)
+{
+    BundleAssetList.Add(ActionSet->GetPrimaryAssetId());
+}
+AssetManager.ChangeBundleStateForPrimaryAssets(BundleAssetList, BundlesToLoad, ...);
+```
+
+`ActionSets`는 `TObjectPtr` — 하드 레퍼런스다. `CurrentExperience`가 로드되면 ActionSet 오브젝트 자체도 이미 메모리에 있다.  
+그럼에도 따로 추가하는 이유는 `ChangeBundleStateForPrimaryAssets`가 **번들 로드**를 하기 때문이다.
+
+**번들(Bundle)** = Primary Asset 내부에서 태그로 묶인 **소프트 레퍼런스 그룹**
+
+```
+ULyraExperienceActionSet (오브젝트 자체) → 이미 로드됨 (하드 레퍼런스)
+  └─ [Client 번들] TSoftClassPtr<UGameplayAbility>  ← 아직 안 로드됨
+  └─ [Client 번들] TSoftObjectPtr<UInputAction>     ← 아직 안 로드됨
+  └─ [Server 번들] TSoftObjectPtr<UDataTable>       ← 아직 안 로드됨
+```
+
+ActionSet을 `BundleAssetList`에 추가하는 것은:  
+"이 ActionSet 안에 선언된 Client/Server 번들의 소프트 레퍼런스 에셋들도 지금 로드해라"는 의미다.
+
+**오브젝트 로드 ≠ 번들 로드.** 오브젝트는 이미 있어도, 그 안의 소프트 레퍼런스들은 번들 요청이 있어야 따라서 로드된다.
 
 ---
 
