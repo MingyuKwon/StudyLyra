@@ -655,3 +655,39 @@ TryToInitializeUser(Params)
 - `W_LyraStartup` → `ListenForLoginKeyInput()` (Press Start 화면)
 - `W_ExperienceSelectionScreen` → `QuickPlaySession()` / `HostSession()`
 - `W_SessionBrowserScreen` → `FindSessions()` + `JoinSession()`
+
+---
+
+## 21. Lyra Experience 시스템 전체 흐름
+
+출처: `Source/LyraGame/GameModes/` 전체
+상세 문서: `doc/LyraImpl/experience.md`
+
+### Experience vs GameFeature 관계
+- Experience = Lyra DataAsset. "어떤 GameFeature 플러그인이 필요하고, 어떤 Action을 실행할지" 선언
+- GameFeature = 엔진 플러그인 컨테이너. Experience와 M:N 관계 — 하나의 플러그인을 여러 Experience가 공유
+- 비유: Experience = 레시피, GameFeature = 재료
+
+### ExperienceId 결정 우선순위 (LyraGameMode.cpp:HandleMatchAssignmentIfNotExpectingOne)
+1. URL Option (`?Experience=...`)
+2. PIE DeveloperSettings (에디터 전용)
+3. 커맨드라인 (`-Experience=...`)
+4. `ALyraWorldSettings::DefaultGameplayExperience`
+5. `B_LyraDefaultExperience` (하드코딩 폴백)
+
+### 로드 파이프라인 (ELyraExperienceLoadState)
+```
+Unloaded → Loading(에셋 로드) → LoadingGameFeatures(플러그인 활성화) → ExecutingActions(Action 직접 실행) → Loaded
+```
+- 서버: `SetCurrentExperience()` → `StartExperienceLoad()`
+- 클라이언트: `CurrentExperience` 복제 수신 → `OnRep_CurrentExperience()` → `StartExperienceLoad()`
+
+### GameFeature Actions vs Experience Actions
+- **플러그인 Actions**: `.uplugin` → `UGameFeatureData` — 엔진이 자동 실행, 플러그인 Active 동안 항상
+- **Experience Actions**: `ULyraExperienceDefinition.Actions` — Lyra가 직접 실행, 해당 Experience 동안만
+
+### OnExperienceLoaded 3단계 델리게이트
+`CallOrRegister_OnExperienceLoaded_HighPriority` / `_OnExperienceLoaded` / `_LowPriority` — 우선순위별 초기화 순서 보장
+
+### PIE 중복 방지
+`ULyraExperienceManager`(EngineSubsystem): 에디터에서만 플러그인 활성화 참조 카운트 관리
