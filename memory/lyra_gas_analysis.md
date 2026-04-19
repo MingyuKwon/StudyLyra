@@ -611,3 +611,47 @@ UWorld (UObject, 컨테이너)
 - `ALyraWorldSettings::DefaultGameplayExperience` — 레벨별 기본 Experience 에셋
 - `ALyraGameMode::HandleMatchAssignmentIfNotExpectingOne()` — URL > DeveloperSettings > CommandLine > WorldSettings > 하드코딩 폴백 순으로 ExperienceId 결정
 - `ALyraGameState`가 `ULyraExperienceManagerComponent` 보유 → Experience 로드 + GameFeature 활성화
+
+---
+
+## 20. CommonUser 플러그인
+
+출처: `Plugins/CommonUser/Source/CommonUser/Public/`
+상세 문서: `doc/unrealCore/plugin/common_user/`
+
+### 구조
+- `UCommonUserSubsystem` — 로그인/권한/초기화 스테이트 머신 (GameInstanceSubsystem)
+- `UCommonUserInfo` — 유저 1명의 상태 오브젝트. `LocalUserInfos` TMap에 보관
+- `UCommonSessionSubsystem` — 세션 호스팅/검색/참여 (GameInstanceSubsystem)
+- `UAsyncAction_CommonUserInitialize` — BP용 비동기 래퍼
+
+### 핵심 열거형
+- `ECommonUserInitializationState`: Unknown → DoingInitialLogin → LoggedInLocalOnly → DoingNetworkLogin → LoggedInOnline
+- `ECommonUserOnlineContext`: Game / Default / Service / Platform — 콘솔에서 플랫폼·서비스 레이어 분리
+- `ECommonUserPrivilege`: CanPlay / CanPlayOnline / CanCommunicateViaTextOnline 등
+- `ECommonUserAvailability`: NowAvailable / CurrentlyUnavailable / AlwaysUnavailable
+
+### 초기화 함수 체인
+```
+TryToInitializeUser(Params)
+  → ProcessLoginRequest()
+      → AutoLogin() / ShowLoginUI() / QueryUserPrivilege()
+  → HandleLoginForUserInitialize()
+  → OnUserInitializeComplete 브로드캐스트
+```
+
+### 세션 흐름
+- `HostSession()` → `CreateOnlineSessionInternal()` → `ServerTravel()`
+- `QuickPlaySession()` → `FindSessions()` → 빈자리 있으면 `JoinSession()`, 없으면 `HostSession()`
+- `JoinSession()` → `JoinSessionInternal()` → 비콘 예약 → `ClientTravel()`
+- `bUseBeacons=true`(기본): `APartyBeaconHost/Client`로 입장 전 자리 예약
+
+### OSSv1/v2 분기
+- `CommonUser.Build.cs`의 `bUseOnlineSubsystemV1`으로 전환
+- 코드 전체에 `#if COMMONUSER_OSSV1` 분기 — `using` alias로 공통 타입 추상화
+
+### Lyra 연결
+- `ULyraFrontendStateComponent` → `UCommonUserSubsystem` 직접 접근
+- `W_LyraStartup` → `ListenForLoginKeyInput()` (Press Start 화면)
+- `W_ExperienceSelectionScreen` → `QuickPlaySession()` / `HostSession()`
+- `W_SessionBrowserScreen` → `FindSessions()` + `JoinSession()`
