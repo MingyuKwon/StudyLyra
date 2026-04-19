@@ -686,6 +686,20 @@ Unloaded → Loading(에셋 로드) → LoadingGameFeatures(플러그인 활성�
 - **플러그인 Actions**: `.uplugin` → `UGameFeatureData` — 엔진이 자동 실행, 플러그인 Active 동안 항상
 - **Experience Actions**: `ULyraExperienceDefinition.Actions` — Lyra가 직접 실행, 해당 Experience 동안만
 
+### GameFeatureAction 7종 (Source/LyraGame/GameFeatures/)
+| Action | 대상 | 핵심 API |
+|--------|------|----------|
+| AddAbilities | ALyraPlayerState | ASC->GiveAbility, GiveToAbilitySystem — 서버에서만, GA는 SetRemoveAbilityOnEnd |
+| AddInputBinding | APawn | HeroComponent->AddAdditionalInputConfig |
+| AddInputContextMapping | LocalPlayer | EnhancedInputSubsystem->AddMappingContext — Registering 단계부터 동작 |
+| AddWidgets | ALyraHUD | PushContentToLayer_ForPlayer, RegisterExtensionAsWidgetForContext |
+| AddGameplayCuePath | GCM | AddGameplayCueNotifyPath — LyraGameFeaturePolicy가 Registering에서 처리 |
+| SplitscreenConfig | GameViewportClient | SetForceDisableSplitscreen — 전역 투표 카운트(GlobalDisableVotes) |
+| WorldActionBase | (추상) | AddToWorld() — 모든 Action의 PIE 안전 베이스 |
+
+모든 Action은 `TMap<FGameFeatureStateChangeContext, FPerContextData>`로 PIE 멀티 월드 안전 처리.
+ComponentRequests TSharedPtr Handle 소멸 시 AddExtensionHandler 자동 해제.
+
 ### OnExperienceLoaded 3단계 델리게이트
 `CallOrRegister_OnExperienceLoaded_HighPriority` / `_OnExperienceLoaded` / `_LowPriority` — 우선순위별 초기화 순서 보장
 
