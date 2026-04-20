@@ -10,111 +10,147 @@
 
 ### 존재 이유
 
-기본 GAS에서는 어빌리티 간 차단/취소 관계를 **각 어빌리티 에셋 안에** 직접 태그로 설정한다. 게임이 복잡해지면 여러 어빌리티에 흩어진 관계를 추적하고 수정하기가 어려워진다.
+기본 GAS에서는 어빌리티 간 차단/취소 관계를 **각 어빌리티 에셋 안에** 직접 태그로 설정한다.  
+게임이 복잡해지면 여러 어빌리티에 흩어진 관계를 추적하고 수정하기가 어려워진다.
 
-Lyra는 이 관계를 **하나의 DataAsset으로 분리**해서 중앙 관리한다.
+| 방식 | 문제 |
+|------|------|
+| GA 직접 설정 (`BlockAbilitiesWithTag` 등) | GA 클래스 수정 필요. 블루프린트 GA는 더 번거로움 |
+| **TagRelationshipMapping** | DataAsset만 수정. GA 수정 없이 규칙 교체 가능. PawnData마다 다른 규칙 적용 가능 |
 
 ```cpp
 // LyraAbilityTagRelationshipMapping.h
 struct FLyraAbilityTagRelationship
 {
-    FGameplayTag AbilityTag;               // 이 태그를 가진 어빌리티에 적용
-
-    FGameplayTagContainer AbilityTagsToBlock;   // 이 태그를 가진 어빌리티들을 차단
-    FGameplayTagContainer AbilityTagsToCancel;  // 이 태그를 가진 어빌리티들을 취소
-
-    FGameplayTagContainer ActivationRequiredTags; // 활성화에 이 태그들이 필요
-    FGameplayTagContainer ActivationBlockedTags;  // 이 태그들이 있으면 활성화 차단
-};
-
-UCLASS()
-class ULyraAbilityTagRelationshipMapping : public UDataAsset
-{
-    UPROPERTY(EditAnywhere, meta=(TitleProperty="AbilityTag"))
-    TArray<FLyraAbilityTagRelationship> AbilityTagRelationships;
+    FGameplayTag AbilityTag;                    // 이 태그를 가진 GA에 적용
+    FGameplayTagContainer AbilityTagsToBlock;   // → 이 태그 가진 GA들을 차단
+    FGameplayTagContainer AbilityTagsToCancel;  // → 이 태그 가진 GA들을 취소
+    FGameplayTagContainer ActivationRequiredTags; // → ASC에 이 태그 있어야 활성화 가능
+    FGameplayTagContainer ActivationBlockedTags;  // → ASC에 이 태그 있으면 활성화 차단
 };
 ```
 
-### 실제 조회 로직
+---
+
+### 1단계 — ASC에 꽂히는 경로
 
 ```cpp
-// LyraAbilityTagRelationshipMapping.cpp
-
-// 이 어빌리티 태그들이 있을 때 차단/취소할 태그 계산
-void ULyraAbilityTagRelationshipMapping::GetAbilityTagsToBlockAndCancel(
-    const FGameplayTagContainer& AbilityTags,
-    FGameplayTagContainer* OutTagsToBlock,
-    FGameplayTagContainer* OutTagsToCancel) const
+// LyraPawnExtensionComponent.cpp:146
+// InitState: DataInitialized 전이 시 호출
+void ULyraPawnExtensionComponent::InitializeAbilitySystem(...)
 {
-    for (const FLyraAbilityTagRelationship& Tags : AbilityTagRelationships)
-    {
-        if (AbilityTags.HasTag(Tags.AbilityTag))
-        {
-            if (OutTagsToBlock)  OutTagsToBlock->AppendTags(Tags.AbilityTagsToBlock);
-            if (OutTagsToCancel) OutTagsToCancel->AppendTags(Tags.AbilityTagsToCancel);
-        }
-    }
-}
+    InASC->InitAbilityActorInfo(InOwnerActor, Pawn);
 
-// 이 어빌리티 태그들에 대한 활성화 필수/차단 태그 계산
-void ULyraAbilityTagRelationshipMapping::GetRequiredAndBlockedActivationTags(
-    const FGameplayTagContainer& AbilityTags,
-    FGameplayTagContainer* OutActivationRequired,
-    FGameplayTagContainer* OutActivationBlocked) const
-{
-    for (const FLyraAbilityTagRelationship& Tags : AbilityTagRelationships)
-    {
-        if (AbilityTags.HasTag(Tags.AbilityTag))
-        {
-            if (OutActivationRequired) OutActivationRequired->AppendTags(Tags.ActivationRequiredTags);
-            if (OutActivationBlocked)  OutActivationBlocked->AppendTags(Tags.ActivationBlockedTags);
-        }
-    }
-}
-
-// ActionTag가 이 어빌리티를 취소하는지 확인
-bool ULyraAbilityTagRelationshipMapping::IsAbilityCancelledByTag(
-    const FGameplayTagContainer& AbilityTags, const FGameplayTag& ActionTag) const
-{
-    for (const FLyraAbilityTagRelationship& Tags : AbilityTagRelationships)
-    {
-        if (Tags.AbilityTag == ActionTag && Tags.AbilityTagsToCancel.HasAny(AbilityTags))
-            return true;
-    }
-    return false;
+    if (ensure(PawnData))
+        InASC->SetTagRelationshipMapping(PawnData->TagRelationshipMapping);
+        // → ASC.TagRelationshipMapping 멤버에 저장. 이후 두 훅에서 참조됨
 }
 ```
 
-### ASC에서 호출하는 시점
+---
 
-`DoesAbilitySatisfyTagRequirements()`에서 Mapping을 통해 추가 태그 요구사항을 확장한다:
+### 2단계 — 훅 A: `CanActivateAbility` 체크 시 (활성화 전)
+
+GA 활성화 시도 → `CanActivateAbility` → `DoesAbilitySatisfyTagRequirements` 에서 매핑 조회:
 
 ```cpp
-// LyraGameplayAbility.cpp
+// LyraGameplayAbility.cpp:316
 bool ULyraGameplayAbility::DoesAbilitySatisfyTagRequirements(...) const
 {
-    static FGameplayTagContainer AllRequiredTags = ActivationRequiredTags;
-    static FGameplayTagContainer AllBlockedTags  = ActivationBlockedTags;
+    AllRequiredTags = ActivationRequiredTags;  // GA 자체 설정값 복사
+    AllBlockedTags  = ActivationBlockedTags;
 
-    // Mapping에서 추가 필수/차단 태그를 가져와 확장
+    // 매핑에서 이 GA의 태그 기준으로 추가 조건 주입
     if (LyraASC)
         LyraASC->GetAdditionalActivationTagRequirements(GetAssetTags(), AllRequiredTags, AllBlockedTags);
 
-    // 확장된 태그로 검사
-    if (AbilitySystemComponentTags.HasAny(AllBlockedTags))  bBlocked = true;
+    // ASC 현재 보유 태그와 대조
+    AbilitySystemComponent.GetOwnedGameplayTags(AbilitySystemComponentTags);
+    if (AbilitySystemComponentTags.HasAny(AllBlockedTags))   bBlocked = true;
     if (!AbilitySystemComponentTags.HasAll(AllRequiredTags)) bMissing = true;
     ...
 }
+
+// LyraAbilitySystemComponent.cpp:379
+void ULyraAbilitySystemComponent::GetAdditionalActivationTagRequirements(...) const
+{
+    if (TagRelationshipMapping)
+        TagRelationshipMapping->GetRequiredAndBlockedActivationTags(AbilityTags, &OutRequired, &OutBlocked);
+}
 ```
 
-### 연결 방법
+---
 
-`ULyraPawnData` 에셋에 지정 → 폰 빙의 시 해당 ASC에 자동 세팅:
+### 3단계 — 훅 B: `PreActivate` / `EndAbility` 시 (Block/Cancel 실행)
+
+GA가 실제 활성화되거나 종료될 때 엔진이 `ApplyAbilityBlockAndCancelTags`를 호출한다.  
+Lyra ASC가 이를 오버라이드해 매핑 기반 태그를 합산한다:
+
+```cpp
+// 엔진 — PreActivate() 내 (GameplayAbility.cpp:992)
+Comp->ApplyAbilityBlockAndCancelTags(GetAssetTags(), this,
+    true, BlockAbilitiesWithTag,   // bEnable=true → Block ON
+    true, CancelAbilitiesWithTag); // bExecute=true → 취소 실행
+
+// 엔진 — EndAbility() 내 (GameplayAbility.cpp:888)
+Comp->ApplyAbilityBlockAndCancelTags(GetAssetTags(), this,
+    false, BlockAbilitiesWithTag,  // bEnable=false → Block OFF
+    false, CancelAbilitiesWithTag); // bExecute=false → 취소 안 함
+```
+
+```cpp
+// LyraAbilitySystemComponent.cpp:356 — 오버라이드
+void ULyraAbilitySystemComponent::ApplyAbilityBlockAndCancelTags(
+    const FGameplayTagContainer& AbilityTags, ...,
+    const FGameplayTagContainer& BlockTags,
+    const FGameplayTagContainer& CancelTags)
+{
+    FGameplayTagContainer ModifiedBlockTags  = BlockTags;   // GA 직접 설정값 복사
+    FGameplayTagContainer ModifiedCancelTags = CancelTags;
+
+    if (TagRelationshipMapping)
+    {
+        // GA의 AbilityTag 기준으로 매핑 조회 → BlockTags / CancelTags 확장
+        TagRelationshipMapping->GetAbilityTagsToBlockAndCancel(
+            AbilityTags, &ModifiedBlockTags, &ModifiedCancelTags);
+    }
+
+    // 합산된 태그로 실제 Block/Cancel 실행
+    Super::ApplyAbilityBlockAndCancelTags(..., ModifiedBlockTags, ..., ModifiedCancelTags);
+    // Super: BlockAbilitiesWithTags(카운터+1) + CancelAbilities(강제종료)
+}
+```
+
+---
+
+### 전체 흐름 요약
 
 ```
-PawnData.TagRelationshipMapping (DataAsset 레퍼런스)
-  → 폰 빙의 시 ULyraAbilitySystemComponent에 세팅
-  → CanActivateAbility() 호출 시마다 적용
+[PawnData DataAsset]
+    TagRelationshipMapping ──── SetTagRelationshipMapping() ──▶ ASC.TagRelationshipMapping
+
+──── GA 활성화 시도 ────────────────────────────────────────────────────
+TryActivateAbility()
+  → CanActivateAbility()
+      → DoesAbilitySatisfyTagRequirements()       [훅 A]
+            GetAdditionalActivationTagRequirements()
+              → Mapping.GetRequiredAndBlockedActivationTags()
+                  GA AbilityTag 기준 조회
+                  → ActivationRequiredTags / ActivationBlockedTags 주입
+            ASC 보유 태그 대조 → 통과 or 거부
+
+──── GA 활성화 확정 ────────────────────────────────────────────────────
+PreActivate()
+  → ApplyAbilityBlockAndCancelTags(bEnable=true, bCancel=true)  [훅 B]
+        Mapping.GetAbilityTagsToBlockAndCancel()
+          → BlockTags 확장, CancelTags 확장
+        Super() → BlockAbilitiesWithTags(+1) + CancelAbilities()
+
+──── GA 종료 ────────────────────────────────────────────────────────────
+EndAbility()
+  → ApplyAbilityBlockAndCancelTags(bEnable=false, bCancel=false)
+        Mapping.GetAbilityTagsToBlockAndCancel()  ← 동일 매핑 재조회
+        Super() → UnBlockAbilitiesWithTags(-1)     ← 차단 해제만, 취소 없음
 ```
 
 ---

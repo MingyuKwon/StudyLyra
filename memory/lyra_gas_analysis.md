@@ -789,6 +789,31 @@ return Character->GetActorLocation() + FVector::UpVector * HeightAdjustment;
 
 ---
 
+## 25. ULyraAbilityTagRelationshipMapping 전체 흐름
+
+> 출처: `AbilitySystem/LyraAbilityTagRelationshipMapping.h/cpp`, `LyraAbilitySystemComponent.cpp:356,379`, `Abilities/LyraGameplayAbility.cpp:316`, `Character/LyraPawnExtensionComponent.cpp:146`  
+> 상세 문서: `doc/LyraImpl/gas/04_tag_systems.md`
+
+### 구조
+- DataAsset. 행마다: AbilityTag(키) + AbilityTagsToBlock + AbilityTagsToCancel + ActivationRequiredTags + ActivationBlockedTags
+- `ULyraPawnData.TagRelationshipMapping` → `InitializeAbilitySystem()` → `ASC->SetTagRelationshipMapping()`
+
+### 훅 A — CanActivateAbility 체크 (활성화 전)
+`DoesAbilitySatisfyTagRequirements` (LyraGA 오버라이드)
+→ `GetAdditionalActivationTagRequirements()` (LyraASC)
+→ `Mapping.GetRequiredAndBlockedActivationTags(GA의 AbilityTags)`
+→ GA 자체 Required/Blocked에 매핑 결과 합산 → ASC 보유 태그 대조
+
+### 훅 B — PreActivate / EndAbility (Block/Cancel 실행)
+엔진 `PreActivate()` → `ApplyAbilityBlockAndCancelTags(bEnable=true, bCancel=true)` (LyraASC 오버라이드)
+→ `Mapping.GetAbilityTagsToBlockAndCancel(GA의 AbilityTags)` → BlockTags/CancelTags 확장
+→ `Super()` → `BlockAbilitiesWithTags(+1)` + `CancelAbilities()`
+
+엔진 `EndAbility()` → `ApplyAbilityBlockAndCancelTags(bEnable=false, bCancel=false)`
+→ 동일 매핑 재조회 → `UnBlockAbilitiesWithTags(-1)` 카운터 감소, 취소는 없음
+
+---
+
 ## 24. GameplayMessageSubsystem — pub/sub 메시지 버스
 
 > 출처: `Plugins/GameplayMessageRouter/Source/GameplayMessageRuntime/`  
