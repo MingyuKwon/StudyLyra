@@ -16,6 +16,7 @@ GA는 캐릭터가 수행하는 **하나의 능력 단위**다. 공격, 점프, 
 | [04. Cost & AdditionalCost](04_cost.md) | GE Cost, ULyraAbilityCost, ShouldOnlyApplyCostOnHit |
 | [05. 태그 조건 (9가지)](05_tag_conditions.md) | GA 태그 컨테이너 + TagRelationshipMapping 확장 |
 | [06. Lyra 구현 예시](06_examples.md) | Death, Jump, FromEquipment, GamePhaseAbility |
+| [07. 태그 기반 차단/취소 플로우](07_block_cancel_flow.md) | BlockedAbilityTags 카운터, CancelAbilities, ApplyAbilityBlockAndCancelTags 생애주기 |
 
 ---
 
