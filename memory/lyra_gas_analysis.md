@@ -789,6 +789,36 @@ return Character->GetActorLocation() + FVector::UpVector * HeightAdjustment;
 
 ---
 
+## 24. GameplayMessageSubsystem — pub/sub 메시지 버스
+
+> 출처: `Plugins/GameplayMessageRouter/Source/GameplayMessageRuntime/`  
+> 상세 문서: `doc/unrealCore/plugin/gameplay_message/README.md`
+
+### 핵심 구조
+- `UGameplayMessageSubsystem` (UGameInstanceSubsystem): 게임 인스턴스 수명. `TMap<FGameplayTag, FChannelListenerList> ListenerMap`
+- `FGameplayMessageListenerHandle`: (WeakPtr<Subsystem>, Channel, ID) — 등록 해제용 불투명 핸들
+- `EGameplayMessageMatch`: ExactMatch(기본) / PartialMatch(하위 태그 전체 수신)
+
+### BroadcastMessage 흐름
+- 브로드캐스트 태그에서 부모 방향으로 올라가며 순회 (`A.B.C` → `A.B` → `A`)
+- 초기 태그: ExactMatch + PartialMatch 모두 호출. 상위 태그: PartialMatch만 호출
+- 이터레이션 중 Unregister 안전: 리스너 배열 복사 후 순회
+
+### RegisterListener 오버로드 3가지
+1. 람다: `RegisterListener<T>(Channel, TFunction)`
+2. 멤버 함수 + WeakPtr 자동 보호: `RegisterListener<T>(Channel, this, &Class::Func)`
+3. 고급: `RegisterListener(Channel, FGameplayMessageListenerParams<T>)`
+
+### 타입 안전
+- 수신 측 등록 타입 저장 → 브로드캐스트 시 `StructType->IsChildOf(ListenerStructType)` 검증
+- 타입 불일치 → 에러 로그 후 콜백 스킵
+
+### Lyra 활용
+- `LyraHealthSet::PostGameplayEffectExecute` → `BroadcastMessage(TAG_Lyra_Damage_Message, FLyraVerbMessage)`
+- AttributeSet은 수신자를 모름. HUD·킬피드 등이 각자 RegisterListener로 구독
+
+---
+
 ## 22. TargetData — 타겟팅 결과 패킷 & ASC 저장 구조
 
 > 출처: `Engine/Plugins/Runtime/GameplayAbilities/.../GameplayAbilityTargetTypes.h`, `AbilitySystemComponent_Abilities.cpp`  
