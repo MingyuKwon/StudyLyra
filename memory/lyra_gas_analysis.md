@@ -759,3 +759,36 @@ Experience 완료 → OnExperienceLoaded 브로드캐스트
   → ALyraGameMode::OnExperienceLoaded → 대기 중 PC 전원 RestartPlayer
   → 이후 접속자는 HandleStartingNewPlayer에서 즉시 통과
 ```
+
+---
+
+## 22. TargetData — 타겟팅 결과 패킷 & ASC 저장 구조
+
+> 출처: `Engine/Plugins/Runtime/GameplayAbilities/.../GameplayAbilityTargetTypes.h`, `AbilitySystemComponent_Abilities.cpp`  
+> Lyra: `AbilitySystem/LyraGameplayAbilityTargetData_SingleTargetHit.h/cpp`, `AbilitySystem/LyraAbilitySystemComponent.cpp:520`  
+> 상세 문서: `doc/gas/ability_task/02_target_data.md`
+
+### FGameplayAbilityTargetData
+- `USTRUCT` + 가상 함수 → UObject 없이 폴리모픽
+- `GetActors()`, `GetHitResult()`, `GetEndPoint()`, `GetOrigin()` 가상 함수로 타겟 정보 추출
+- `ApplyGameplayEffectSpec()` — TargetData 안의 모든 타겟에 GE 일괄 적용
+- `FGameplayAbilityTargetDataHandle`으로 감싸서 사용 (`TArray<TSharedPtr<...>, TInlineAllocator<1>>`)
+
+### ASC가 AbilityTargetDataMap에 캐싱하는 이유
+- 클라→서버 RPC 타이밍이 GA 실행 흐름과 비동기: RPC 도착 시 GA가 이미 다른 단계
+- `AbilityTargetDataMap` 키: `(FGameplayAbilitySpecHandle, FPredictionKey)` 쌍
+- 값: `FAbilityReplicatedDataCache` — TargetData, ApplicationTag, bTargetConfirmed, bTargetCancelled, TargetSetDelegate, PredictionKey
+
+### WaitTargetData 두 경로
+- RPC 먼저 도착 → `CallReplicatedTargetDataDelegatesIfSet()` 즉시 발동
+- RPC 미도착 → `AbilityTargetDataSetDelegate`에 바인딩 대기, 나중에 `ServerSetReplicatedTargetData_Implementation`에서 Broadcast
+
+### LyraAbilitySystemComponent::GetAbilityTargetData (cpp:520)
+```cpp
+AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(Handle, PredKey))
+  → ReplicatedData->TargetData 반환
+```
+
+### FLyraGameplayAbilityTargetData_SingleTargetHit
+- `FGameplayAbilityTargetData_SingleHit` 서브클래스
+- `int32 CartridgeID` 추가 — 산탄총 펠릿처럼 한 발사에서 나온 여러 히트를 묶기 위한 ID

@@ -1,6 +1,7 @@
 # AbilityTask
 
-> 참고: [GAS Doc 캐시](../cache/gas_doc_cache.md) | 소스: `AbilityTask_GrantNearbyInteraction.h/cpp`
+> 참고: [GAS Doc 캐시](../cache/gas_doc_cache.md) | 소스: `AbilityTask_GrantNearbyInteraction.h/cpp`  
+> 관련: [TargetData](02_target_data.md) — WaitTargetData가 다루는 타겟팅 결과 패킷 구조
 
 ---
 
