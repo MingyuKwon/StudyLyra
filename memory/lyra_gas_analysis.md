@@ -762,6 +762,33 @@ Experience 완료 → OnExperienceLoaded 브로드캐스트
 
 ---
 
+## 23. Lyra 카메라 시스템 — CameraMode / CameraModeStack
+
+> 출처: `Camera/LyraCameraMode.h/cpp`, `Camera/LyraCameraComponent.h/cpp`, `Camera/LyraCameraMode_ThirdPerson.h`  
+> 상세 문서: `doc/LyraImpl/camera/01_camera_mode.md`
+
+### 클래스 역할
+- `ULyraCameraMode` (UObject): "하나의 카메라 시점 행동". Outer = ULyraCameraComponent. `UpdateView`+`UpdateBlending` 매 프레임 실행
+- `FLyraCameraModeView`: 모드 출력값 (Location, Rotation, ControlRotation, FOV). `Blend(Other, Weight)`로 보간
+- `ULyraCameraModeStack` (UObject): 모드 블렌드 스택. `CameraModeInstances`(풀) + `CameraModeStack`(활성) 분리
+- `ULyraCameraComponent` (UCameraComponent): 스택 소유. 매 프레임 `DetermineCameraModeDelegate.Execute()` → PushCameraMode
+- `ULyraCameraMode_ThirdPerson`: 실제 구현체. TargetOffsetCurve(피치→오프셋), PreventPenetration, PredictiveAvoidance
+
+### 핵심 설계
+- **Outer 패턴**: 모드가 `CastChecked<ULyraCameraComponent>(GetOuter())`로 자신의 컴포넌트 접근
+- **DetermineCameraModeDelegate**: 카메라가 "어떤 모드 쓸지" 스스로 결정 안 함. ULyraHeroComponent가 바인딩
+- **BlendStack 방향**: 스택 바닥(인덱스 끝)부터 꼭대기로 올라가며 블렌딩. 최상단 BlendWeight=1.0 도달 시 하위 모드 제거
+- **인스턴스 풀링**: 한 번 생성된 모드는 `CameraModeInstances`에 보관 후 재사용
+- **CameraTypeTag**: GameplayTag로 현재 모드 상태 외부 조회 가능 (GAS 연동)
+
+### GetPivotLocation 웅크림 보정 (cpp:99)
+```cpp
+float HeightAdjustment = (DefaultHalfHeight - ActualHalfHeight) + CDO->BaseEyeHeight;
+return Character->GetActorLocation() + FVector::UpVector * HeightAdjustment;
+```
+
+---
+
 ## 22. TargetData — 타겟팅 결과 패킷 & ASC 저장 구조
 
 > 출처: `Engine/Plugins/Runtime/GameplayAbilities/.../GameplayAbilityTargetTypes.h`, `AbilitySystemComponent_Abilities.cpp`  
