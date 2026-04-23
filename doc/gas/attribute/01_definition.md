@@ -7,12 +7,13 @@
 ## 개념 요약
 
 <a name="concepts-a-definition"></a>
-#### 4.3.1 Attribute Definition
-`Attributes` are float values defined by the struct [`FGameplayAttributeData`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/FGameplayAttributeData/index.html). These can represent anything from the amount of health a character has to the character's level to the number of charges that a potion has. If it is a gameplay-related numerical value belonging to an `Actor`, you should consider using an `Attribute` for it. `Attributes` should generally only be modified by [`GameplayEffects`](#concepts-ge) so that the ASC can [predict](#concepts-p) the changes.
+#### 4.3.1 Attribute 정의
 
-`Attributes` are defined by and live in an [`AttributeSet`](#concepts-as). The `AttributeSet` is responsible for replicating `Attributes` that are marked for replication. See the section on [`AttributeSets`](#concepts-as) for how to define `Attributes`.
+`Attribute`는 [`FGameplayAttributeData`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/FGameplayAttributeData/index.html) 구조체로 정의되는 float 값이다. 캐릭터의 체력, 캐릭터의 레벨, 포션의 충전 횟수 등 무엇이든 표현할 수 있다. Actor에 속하는 게임플레이 관련 수치라면 Attribute 사용을 고려해야 한다. Attribute는 ASC가 변경 사항을 [예측(predict)](#concepts-p)할 수 있도록 원칙적으로 [`GameplayEffect`](#concepts-ge)를 통해서만 수정해야 한다.
 
-**Tip:** If you don't want an `Attribute` to show up in the Editor's list of `Attributes`, you can use the `Meta = (HideInDetailsView)` `property specifier`.
+Attribute는 [`AttributeSet`](#concepts-as) 안에 정의되고 소속된다. AttributeSet은 복제 대상으로 표시된 Attribute의 복제를 담당한다. Attribute를 정의하는 방법은 [`AttributeSet`](#concepts-as) 섹션을 참고한다.
+
+**팁:** 에디터의 Attribute 목록에 표시하고 싶지 않은 Attribute는 `Meta = (HideInDetailsView)` 프로퍼티 지정자를 사용한다.
 
 **[⬆ Back to Top](#table-of-contents)**
 

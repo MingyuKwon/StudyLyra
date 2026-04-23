@@ -8,29 +8,30 @@
 
 <a name="concepts-ga-instancing"></a>
 #### 4.6.7 Instancing Policy
-A `GameplayAbility's` `Instancing Policy` determines if and how the `GameplayAbility` is instanced when activated.
 
-| `Instancing Policy`     | Description                                                                                      | Example of when to use                                                                                                                                                                                                                                                                                                                                                                                             |
+GA의 `Instancing Policy`는 GA가 활성화될 때 인스턴스를 생성하는지 여부와 방식을 결정한다.
+
+| `Instancing Policy` | 설명 | 사용 시기 |
 | ----------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Instanced Per Actor     | Each `ASC` only has one instance of the `GameplayAbility` that is reused between activations.    | This will probably be the `Instancing Policy` that you use the most. You can use it for any ability and provides persistence between activations. The designer is responsible for manually resetting any variables between activations that need it.                                                                                                                                                               |
-| Instanced Per Execution | Every time a `GameplayAbility` is activated, a new instance of the `GameplayAbility` is created. | The benefit of these `GameplayAbilities` is that the variables are reset everytime you activate. These provide worse performance than `Instanced Per Actor` since they will spawn new `GameplayAbilities` every time they activate. The Sample Project does not use any of these.                                                                                                                                 |
-| Non-Instanced           | The `GameplayAbility` operates on its `ClassDefaultObject`. No instances are created.            | This has the best performance of the three but is the most restrictive in what can be done with it. `Non-Instanced` `GameplayAbilities` cannot store state, meaning no dynamic variables and no binding to `AbilityTask` delegates. The best place to use them is for frequently used simple abilities like minion basic attacks in a MOBA or RTS. The Sample Project's Jump `GameplayAbility` is `Non-Instanced`. |
+| Instanced Per Actor | 각 ASC는 GA 인스턴스를 하나만 가지며, 활성화 간에 재사용된다. | 가장 일반적으로 사용하게 될 Instancing Policy다. 어떤 어빌리티에도 사용할 수 있으며 활성화 간에 상태를 유지한다. 단, 활성화 간에 초기화가 필요한 변수는 디자이너가 직접 리셋해야 한다. |
+| Instanced Per Execution | GA가 활성화될 때마다 새 인스턴스가 생성된다. | 변수가 매번 초기화된다는 장점이 있지만, 활성화할 때마다 새 GA가 스폰되므로 성능이 가장 나쁘다. 샘플 프로젝트에서는 이 방식을 사용하지 않는다. |
+| Non-Instanced | GA가 `ClassDefaultObject`에서 직접 실행된다. 인스턴스가 생성되지 않는다. | 세 가지 중 성능이 가장 좋지만 사용 가능한 기능에 제약이 가장 많다. Non-Instanced GA는 상태를 저장할 수 없으며, 동적 변수를 가질 수 없고 AbilityTask 델리게이트에 바인딩할 수 없다. MOBA나 RTS의 미니언 기본 공격처럼 자주 사용되는 단순한 어빌리티에 적합하다. 샘플 프로젝트의 Jump GA는 Non-Instanced다. |
 
 **[⬆ Back to Top](#table-of-contents)**
 
 <a name="concepts-ga-net"></a>
 #### 4.6.8 Net Execution Policy
-A `GameplayAbility's` `Net Execution Policy` determines who runs the `GameplayAbility` and in what order.
 
-| `Net Execution Policy` | Description                                                                                                                                                                                                         |
+GA의 `Net Execution Policy`는 GA를 어디서 실행하는지와 그 순서를 결정한다.
+
+| `Net Execution Policy` | 설명 |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Local Only`           | The `GameplayAbility` is only run on the owning client. This could be useful for abilities that only make local cosmetic changes. Single player games should use `Server Only`.                                     |
-| `Local Predicted`      | `Local Predicted` `GameplayAbilities` activate first on the owning client and then on the server. The server's version will correct anything that the client predicted incorrectly. See [Prediction](#concepts-p). |
-| `Server Only`          | The `GameplayAbility` is only run on the server. Passive `GameplayAbilities` will typically be `Server Only`. Single player games should use this.                                                                  |
-| `Server Initiated`     | `Server Initiated` `GameplayAbilities` activate first on the server and then on the owning client. I personally haven't used these much if any.                                                                     | 
+| `Local Only` | GA가 owning client에서만 실행된다. 로컬 코스메틱 변경만 이루어지는 어빌리티에 유용하다. 싱글플레이어 게임은 `Server Only`를 사용할 것. |
+| `Local Predicted` | `Local Predicted` GA는 owning client에서 먼저 활성화된 후 서버에서 활성화된다. 서버는 클라이언트가 잘못 예측한 내용을 수정한다. [Prediction](#concepts-p) 참조. |
+| `Server Only` | GA가 서버에서만 실행된다. 패시브 GA는 일반적으로 `Server Only`를 사용한다. 싱글플레이어 게임에 권장한다. |
+| `Server Initiated` | `Server Initiated` GA는 서버에서 먼저 활성화된 후 owning client에서 활성화된다. 개인적으로 거의 사용하지 않는 방식이다. |
 
 **[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

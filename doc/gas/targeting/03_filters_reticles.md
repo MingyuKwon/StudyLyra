@@ -8,7 +8,9 @@
 
 <a name="concepts-target-data-filters"></a>
 #### 4.11.3 Target Data Filters
-Using both the `Make GameplayTargetDataFilter` and `Make Filter Handle` nodes, you can filter out the player's `Pawn` or select only a specific class. If you need more advanced filtering, you can subclass `FGameplayTargetDataFilter` and override the `FilterPassesForActor` function. 
+
+`Make GameplayTargetDataFilter`와 `Make Filter Handle` 노드를 모두 사용하면 플레이어의 `Pawn`을 필터링하거나 특정 클래스만 선택할 수 있다. 더 고급 필터링이 필요하다면 `FGameplayTargetDataFilter`를 서브클래싱하고 `FilterPassesForActor` 함수를 오버라이드한다.
+
 ```c++
 USTRUCT(BlueprintType)
 struct GASDOCUMENTATION_API FGDNameTargetDataFilter : public FGameplayTargetDataFilter
@@ -20,7 +22,8 @@ struct GASDOCUMENTATION_API FGDNameTargetDataFilter : public FGameplayTargetData
 };
 ```
 
-However, this will not work directly into the `Wait Target Data` node as it requires a `FGameplayTargetDataFilterHandle`. A new custom `Make Filter Handle` must be made to accept the subclass:
+그러나 이것은 `FGameplayTargetDataFilterHandle`이 필요하기 때문에 `Wait Target Data` 노드에 직접 연결되지 않는다. 서브클래스를 받아들이는 새로운 커스텀 `Make Filter Handle`을 만들어야 한다:
+
 ```c++
 FGameplayTargetDataFilterHandle UGDTargetDataFilterBlueprintLibrary::MakeGDNameFilterHandle(FGDNameTargetDataFilter Filter, AActor* FilterActor)
 {
@@ -37,12 +40,12 @@ FGameplayTargetDataFilterHandle UGDTargetDataFilterBlueprintLibrary::MakeGDNameF
 
 <a name="concepts-targeting-reticles"></a>
 #### 4.11.4 Gameplay Ability World Reticles
-[`AGameplayAbilityWorldReticles`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/AGameplayAbilityWorldReticle/index.html) (`Reticles`) visualize **who** you are targeting when targeting with non-`Instant` confirmed [`TargetActors`](#concepts-targeting-actors). `TargetActors` are responsible for the spawn and destroy lifetimes for all `Reticles`. `Reticles` are `AActors` so they can use any kind of visual component for representation. A common implementation as seen in [GASShooter](https://github.com/tranek/GASShooter) is to use a `WidgetComponent` to display a UMG Widget in screen space (always facing the player's camera). `Reticles` do not know which `AActor` that they're on, but you could subclass in that functionality on a custom `TargetActor`. `TargetActors` will typically update the `Reticle`'s location to the target's location on every `Tick()`.
 
-GASShooter uses `Reticles` to show locked-on targets for the rocket launcher's secondary ability's homing rockets. The red indicator on the enemy is the `Reticle`. The similar white image is the rocket launcher's crosshair.
-![Reticles in GASShooter](https://github.com/tranek/GASDocumentation/raw/master/Images/gameplayabilityworldreticle.png)
+[`AGameplayAbilityWorldReticles`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/AGameplayAbilityWorldReticle/index.html)(`Reticle`)는 `Instant`가 아닌 확인 타입의 [`TargetActor`](#concepts-targeting-actors)로 타게팅할 때 **누구를 타게팅하고 있는지** 시각화한다. `TargetActor`는 모든 `Reticle`의 스폰 및 파괴 수명을 관리한다. `Reticle`은 `AActor`이므로 시각적 표현을 위해 어떤 종류의 시각 컴포넌트도 사용할 수 있다. [GASShooter](https://github.com/tranek/GASShooter)에서 볼 수 있는 일반적인 구현은 `WidgetComponent`를 사용하여 화면 공간에 UMG 위젯을 표시하는 것이다(항상 플레이어의 카메라를 향한다). `Reticle`은 자신이 어떤 `AActor` 위에 있는지 알지 못하지만, 커스텀 `TargetActor`에서 그 기능을 서브클래싱하여 추가할 수 있다. `TargetActor`는 일반적으로 매 `Tick()`마다 `Reticle`의 위치를 타겟의 위치로 업데이트한다.
 
-`Reticles` come with a handful of `BlueprintImplementableEvents` for designers (they're intended to be developed in Blueprints):
+GASShooter는 로켓 런처의 보조 어빌리티 유도 로켓의 락온 타겟을 표시하기 위해 `Reticle`을 사용한다. 적 위의 빨간 지시자가 `Reticle`이다. 유사한 흰색 이미지는 로켓 런처의 조준선이다.
+
+`Reticle`에는 디자이너가 Blueprint에서 구현할 수 있는 여러 `BlueprintImplementableEvent`가 있다(Blueprint에서 개발하도록 의도됨):
 
 ```c++
 /** Called whenever bIsTargetValid changes value. */
@@ -63,11 +66,11 @@ UFUNCTION(BlueprintImplementableEvent, Category = Reticle)
 void SetReticleMaterialParamVector(FName ParamName, FVector value);
 ```
 
-`Reticles` can optionally use [`FWorldReticleParameters`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/FWorldReticleParameters/index.html) provided by the `TargetActor` for configuration. The default struct only provides one variable `FVector AOEScale`. While you can technically subclass this struct, the `TargetActor` will only accept the base struct. It seems a little short-sighted to not allow this to be subclassed with default `TargetActors`. However, if you make your own custom `TargetActor`, you can provide your own custom reticle parameters struct and manually pass it to your subclass of `AGameplayAbilityWorldReticles` when you spawn them.
+`Reticle`은 선택적으로 `TargetActor`가 제공하는 [`FWorldReticleParameters`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/FWorldReticleParameters/index.html)를 구성에 사용할 수 있다. 기본 구조체는 `FVector AOEScale`이라는 변수 하나만 제공한다. 기술적으로는 이 구조체를 서브클래싱할 수 있지만, `TargetActor`는 기본 구조체만 허용한다. 기본 `TargetActor`에서 이를 서브클래싱하지 못하도록 한 것은 다소 근시안적인 설계처럼 보인다. 그러나 커스텀 `TargetActor`를 만들면 직접 커스텀 Reticle 파라미터 구조체를 제공하고 스폰 시 `AGameplayAbilityWorldReticles`의 서브클래스에 수동으로 전달할 수 있다.
 
-`Reticles` are not replicated by default, but can be made replicated if it makes sense for your game to show other players who the local player is targeting.
+`Reticle`은 기본적으로 복제되지 않지만, 다른 플레이어에게 로컬 플레이어가 누구를 타게팅하는지 보여주는 것이 게임에 의미가 있다면 복제하도록 만들 수 있다.
 
-`Reticles` will only display on the current valid target with the default `TargetActors`. For example, if you're using a `AGameplayAbilityTargetActor_SingleLineTrace` to trace for a target, the `Reticle` will only appear when the enemy is directly in the trace path. If you look away, the enemy is no longer a valid target and the `Reticle` will disappear. If you want the `Reticle` to stay on the last valid target, you will want to customize your `TargetActor` to remember the last valid target and keep the `Reticle` on them. I refer to these as persistent targets as they will persist until the `TargetActor` receives confirmation or cancellation, the `TargetActor` finds a new valid target in its trace/overlap, or the target is no longer valid (destroyed).  GASShooter uses persistent targets for its rocket launcher's secondary ability's homing rockets targeting.
+`Reticle`은 기본 `TargetActor`를 사용하면 현재 유효한 타겟에만 표시된다. 예를 들어 `AGameplayAbilityTargetActor_SingleLineTrace`를 사용하여 타겟을 추적하는 경우, `Reticle`은 적이 트레이스 경로 안에 직접 있을 때만 나타난다. 시선을 돌리면 적은 더 이상 유효한 타겟이 아니고 `Reticle`은 사라진다. 마지막으로 유효했던 타겟에 `Reticle`이 남아 있게 하고 싶다면, `TargetActor`를 커스텀하여 마지막으로 유효했던 타겟을 기억하고 `Reticle`을 그 위에 유지하도록 해야 한다. 이를 "persistent target"이라고 부르는데, `TargetActor`가 확인 또는 취소를 받거나, `TargetActor`가 트레이스/오버랩에서 새로운 유효 타겟을 찾거나, 타겟이 더 이상 유효하지 않을 때(파괴될 때)까지 유지된다. GASShooter는 로켓 런처의 보조 어빌리티 유도 로켓 타게팅에 persistent target을 사용한다.
 
 **[⬆ Back to Top](#table-of-contents)**
 

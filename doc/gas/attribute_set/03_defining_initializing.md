@@ -7,8 +7,9 @@
 ## 개념 요약
 
 <a name="concepts-as-attributes"></a>
-#### 4.4.3 Defining Attributes
-**`Attributes` can only be defined in C++** in the `AttributeSet's` header file. It is recommended to add this block of macros to the top of every `AttributeSet` header file. It will automatically generate getter and setter functions for your `Attributes`.
+#### 4.4.3 Attribute 선언
+
+**`Attribute`는 `AttributeSet`의 헤더 파일에서 C++로만 정의할 수 있다.** 모든 `AttributeSet` 헤더 파일 상단에 다음 매크로 블록을 추가하는 것을 권장한다. 이 매크로는 각 `Attribute`에 대한 getter 및 setter 함수를 자동으로 생성해 준다.
 
 ```c++
 // Uses macros from AttributeSet.h
@@ -19,7 +20,7 @@
 	GAMEPLAYATTRIBUTE_VALUE_INITTER(PropertyName)
 ```
 
-A replicated health attribute would be defined like this:
+복제 가능한 Health Attribute는 다음과 같이 정의한다:
 
 ```c++
 UPROPERTY(BlueprintReadOnly, Category = "Health", ReplicatedUsing = OnRep_Health)
@@ -27,13 +28,13 @@ FGameplayAttributeData Health;
 ATTRIBUTE_ACCESSORS(UGDAttributeSetBase, Health)
 ```
 
-Also define the `OnRep` function in the header:
+헤더에 `OnRep` 함수도 선언한다:
 ```c++
 UFUNCTION()
 virtual void OnRep_Health(const FGameplayAttributeData& OldHealth);
 ```
 
-The .cpp file for the `AttributeSet` should fill in the `OnRep` function with the `GAMEPLAYATTRIBUTE_REPNOTIFY` macro used by the prediction system:
+`AttributeSet`의 .cpp 파일에서는 예측 시스템이 사용하는 `GAMEPLAYATTRIBUTE_REPNOTIFY` 매크로로 `OnRep` 함수를 구현한다:
 ```c++
 void UGDAttributeSetBase::OnRep_Health(const FGameplayAttributeData& OldHealth)
 {
@@ -41,7 +42,7 @@ void UGDAttributeSetBase::OnRep_Health(const FGameplayAttributeData& OldHealth)
 }
 ```
 
-Finally, the `Attribute` needs to be added to `GetLifetimeReplicatedProps`:
+마지막으로 `GetLifetimeReplicatedProps`에 `Attribute`를 추가한다:
 ```c++
 void UGDAttributeSetBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -51,28 +52,29 @@ void UGDAttributeSetBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 }
 ```
 
-`REPNOTIFY_Always` tells the `OnRep` function to trigger if the local value is already equal to the value being repped down from the Server (due to prediction). By default it won't trigger the `OnRep` function if the local value is the same as the value being repped down from the Server.
+`REPNOTIFY_Always`는 예측으로 인해 로컬 값이 이미 서버에서 복제된 값과 동일한 경우에도 `OnRep` 함수를 발동시키도록 지시한다. 기본적으로는 로컬 값이 서버에서 복제된 값과 동일하면 `OnRep` 함수가 발동되지 않는다.
 
-If the `Attribute` is not replicated like a `Meta Attribute`, then the `OnRep` and `GetLifetimeReplicatedProps` steps can be skipped.
+`Meta Attribute`처럼 복제가 필요 없는 `Attribute`라면 `OnRep`와 `GetLifetimeReplicatedProps` 단계는 생략해도 된다.
 
 **[⬆ Back to Top](#table-of-contents)**
 
 <a name="concepts-as-init"></a>
-#### 4.4.4 Initializing Attributes
-There are multiple ways to initialize `Attributes` (set their `BaseValue` and consequently their `CurrentValue` to some initial value). Epic recommends using an instant `GameplayEffect`. This is the method used in the Sample Project too.
+#### 4.4.4 Attribute 초기화
 
-See `GE_HeroAttributes` Blueprint in the Sample Project for how to make an instant `GameplayEffect` to initialize `Attributes`. Application of this `GameplayEffect` happens in C++.
+`Attribute`를 초기화(즉, `BaseValue`와 그에 따른 `CurrentValue`를 초기값으로 설정)하는 방법은 여러 가지가 있다. Epic은 인스턴트 `GameplayEffect`를 사용하는 방식을 권장하며, 샘플 프로젝트에서도 이 방식을 사용한다.
 
-If you used the `ATTRIBUTE_ACCESSORS` macro when you defined your `Attributes`, an initialization function will automatically be generated on the `AttributeSet` for each `Attribute` that you can call at your leisure in C++.
+샘플 프로젝트의 `GE_HeroAttributes` 블루프린트를 통해 인스턴트 `GameplayEffect`로 `Attribute`를 초기화하는 방법을 확인할 수 있다. 이 `GameplayEffect`의 적용은 C++에서 이루어진다.
+
+`Attribute`를 정의할 때 `ATTRIBUTE_ACCESSORS` 매크로를 사용했다면, 각 `Attribute`에 대한 초기화 함수가 `AttributeSet`에 자동으로 생성되므로 C++에서 원하는 시점에 직접 호출할 수 있다.
 
 ```c++
 // InitHealth(float InitialValue) is an automatically generated function for an Attribute 'Health' defined with the `ATTRIBUTE_ACCESSORS` macro
 AttributeSet->InitHealth(100.0f);
 ```
 
-See `AttributeSet.h` for more ways to initialize `Attributes`.
+`Attribute`를 초기화하는 더 많은 방법은 `AttributeSet.h`를 참고한다.
 
-**Note:** Prior to 4.24, `FAttributeSetInitterDiscreteLevels` did not work with `FGameplayAttributeData`. It was created when `Attributes` were raw floats and will complain about `FGameplayAttributeData` not being `Plain Old Data` (`POD`). This is fixed in 4.24 https://issues.unrealengine.com/issue/UE-76557.
+**참고:** 언리얼 4.24 이전에는 `FAttributeSetInitterDiscreteLevels`가 `FGameplayAttributeData`와 호환되지 않았다. `Attribute`가 raw float이던 시절에 만들어진 것으로, `FGameplayAttributeData`가 Plain Old Data(`POD`)가 아니라는 오류가 발생했다. 이 문제는 4.24에서 수정되었다: https://issues.unrealengine.com/issue/UE-76557.
 
 **[⬆ Back to Top](#table-of-contents)**
 

@@ -8,7 +8,8 @@
 
 <a name="concepts-asc-setup"></a>
 ### 4.1.2 Setup and Initialization
-`ASCs` are typically constructed in the `OwnerActor's` constructor and explicitly marked replicated. **This must be done in C++**.
+
+`ASC`는 일반적으로 `OwnerActor`의 생성자에서 생성하고 명시적으로 복제 대상으로 표시한다. **이 작업은 반드시 C++에서 해야 한다.**
 
 ```c++
 AGDPlayerState::AGDPlayerState()
@@ -20,9 +21,9 @@ AGDPlayerState::AGDPlayerState()
 }
 ```
 
-The `ASC` needs to be initialized with its `OwnerActor` and `AvatarActor` on both the server and the client. You want to initialize after the `Pawn's` `Controller` has been set (after possession). Single player games only need to worry about the server path.
+`ASC`는 서버와 클라이언트 양쪽에서 `OwnerActor`와 `AvatarActor`로 초기화해야 한다. `Pawn`의 `Controller`가 설정된 이후(빙의 이후)에 초기화해야 한다. 싱글플레이어 게임은 서버 경로만 신경 쓰면 된다.
 
-For player controlled characters where the `ASC` lives on the `Pawn`, I typically initialize on the server in the `Pawn's` `PossessedBy()` function and initialize on the client in the `PlayerController's` `AcknowledgePossession()` function.
+`ASC`가 `Pawn`에 있는 플레이어 제어 캐릭터의 경우, 일반적으로 서버에서는 `Pawn`의 `PossessedBy()` 함수에서, 클라이언트에서는 `PlayerController`의 `AcknowledgePossession()` 함수에서 초기화한다.
 
 ```c++
 void APACharacterBase::PossessedBy(AController * NewController)
@@ -54,7 +55,7 @@ void APAPlayerControllerBase::AcknowledgePossession(APawn* P)
 }
 ```
 
-For player controlled characters where the `ASC` lives on the `PlayerState`, I typically initialize the server in the `Pawn's` `PossessedBy()` function and initialize on the client in the `Pawn's` `OnRep_PlayerState()` function. This ensures that the `PlayerState` exists on the client.
+`ASC`가 `PlayerState`에 있는 플레이어 제어 캐릭터의 경우, 일반적으로 서버에서는 `Pawn`의 `PossessedBy()` 함수에서, 클라이언트에서는 `Pawn`의 `OnRep_PlayerState()` 함수에서 초기화한다. `OnRep_PlayerState()`를 사용하면 클라이언트에 `PlayerState`가 존재함을 보장할 수 있다.
 
 ```c++
 // Server only
@@ -96,7 +97,7 @@ void AGDHeroCharacter::OnRep_PlayerState()
 }
 ```
 
-If you get the error message `LogAbilitySystem: Warning: Can't activate LocalOnly or LocalPredicted ability %s when not local!` then you did not initialize your `ASC` on the client.
+`LogAbilitySystem: Warning: Can't activate LocalOnly or LocalPredicted ability %s when not local!` 에러 메시지가 발생하면 클라이언트에서 `ASC`를 초기화하지 않은 것이다.
 
 **[⬆ Back to Top](#table-of-contents)**
 

@@ -7,29 +7,27 @@
 ## 개념 요약
 
 <a name="troubleshooting"></a>
-## 9. Troubleshooting
+## 9. 트러블슈팅
 
 <a name="troubleshooting-notlocal"></a>
 ### 9.1 `LogAbilitySystem: Warning: Can't activate LocalOnly or LocalPredicted ability %s when not local!`
-You need to [initialize the `ASC` on the client](#concepts-asc-setup).
 
-**[⬆ Back to Top](#table-of-contents)**
+클라이언트에서 ASC 초기화가 누락된 경우에 발생한다. 클라이언트 측 ASC 셋업을 확인한다.
 
 <a name="troubleshooting-scriptstructcache"></a>
-### 9.2 `ScriptStructCache` errors
-You need to call [`UAbilitySystemGlobals::InitGlobalData()`](#concepts-asg-initglobaldata).
+### 9.2 `ScriptStructCache` 오류
 
-**[⬆ Back to Top](#table-of-contents)**
+`UAbilitySystemGlobals::InitGlobalData()`가 호출되지 않아서 발생한다. 프로젝트 초기화 시 반드시 호출해야 한다.
 
 <a name="troubleshooting-replicatinganimmontages"></a>
-### 9.3 Animation Montages are not replicating to clients
-Make sure that you're using the `PlayMontageAndWait` Blueprint node instead of `PlayMontage` in your [GameplayAbilities](#concepts-ga). This [AbilityTask](#concepts-at) replicates the montage through the `ASC` automatically whereas the `PlayMontage` node does not.
+### 9.3 애니메이션 몽타주가 클라이언트에 복제되지 않음
 
-**[⬆ Back to Top](#table-of-contents)**
+GameplayAbility 내부에서 `PlayMontage` 노드 대신 `PlayMontageAndWait` Blueprint 노드를 사용해야 한다. 이 AbilityTask는 ASC를 통해 몽타주를 자동으로 복제하지만, `PlayMontage` 노드는 그렇지 않다.
 
 <a name="troubleshooting-duplicatingblueprintactors"></a>
-### 9.4 Duplicating Blueprint Actors is setting AttributeSets to nullptr
-There is a [bug in Unreal Engine](https://issues.unrealengine.com/issue/UE-81109) that will set `AttributeSet` pointers on your classes to nullptr for Blueprint Actor classes that are duplicated from existing Blueprint Actor classes. There are a few workarounds for this. I've had success not creating bespoke `AttributeSet` pointers on my classes (no pointer in the .h, not calling `CreateDefaultSubobject` in the constructor) and instead just directly adding `AttributeSets` to the `ASC` in `PostInitializeComponents()` (not shown in the Sample Project). The replicated `AttributeSets` will still live in the `ASC's` `SpawnedAttributes` array. It would look something like this:
+### 9.4 블루프린트 액터 복제 시 AttributeSet 포인터가 nullptr이 되는 문제
+
+기존 블루프린트 액터 클래스를 복제(Duplicate)하면 해당 클래스의 AttributeSet 포인터가 nullptr로 설정되는 [언리얼 엔진 버그](https://issues.unrealengine.com/issue/UE-81109)가 있다. 몇 가지 해결 방법이 있는데, 필자가 효과를 확인한 방법은 클래스에 별도의 AttributeSet 포인터를 선언하지 않는 것이다(.h에 포인터 선언 없음, 생성자에서 `CreateDefaultSubobject` 미호출). 대신 `PostInitializeComponents()`에서 AttributeSet을 ASC에 직접 추가한다(샘플 프로젝트에는 나와 있지 않음). 복제된 AttributeSet은 ASC의 `SpawnedAttributes` 배열에 계속 유지된다. 코드 예시는 다음과 같다:
 
 ```c++
 void AGDPlayerState::PostInitializeComponents()
@@ -44,7 +42,7 @@ void AGDPlayerState::PostInitializeComponents()
 }
 ```
 
-In this scenario, you would read and set the values in the `AttributeSet` using the functions on the `ASC` instead of [calling functions on the `AttributeSet` made from the macros](#concepts-as-attributes).
+이 방식에서는 매크로로 생성된 AttributeSet의 함수를 사용하는 대신, ASC의 함수를 통해 AttributeSet의 값을 읽고 쓴다.
 
 ```c++
 /** Returns current (final) value of an attribute */
@@ -54,7 +52,7 @@ float GetNumericAttribute(const FGameplayAttribute &Attribute) const;
 void SetNumericAttributeBase(const FGameplayAttribute &Attribute, float NewBaseValue);
 ```
 
-So the `GetHealth()` would look something like:
+예를 들어 `GetHealth()`는 다음과 같이 구현할 수 있다:
 
 ```c++
 float AGDPlayerState::GetHealth() const
@@ -68,7 +66,7 @@ float AGDPlayerState::GetHealth() const
 }
 ```
 
-Setting (initializing) the health `Attribute` would look something like:
+체력 Attribute를 설정(초기화)하는 코드는 다음과 같다:
 
 ```c++
 const float NewHealth = 100.0f;
@@ -78,58 +76,52 @@ if (AbilitySystemComponent)
 }
 ```
 
-As a reminder, the `ASC` only ever expects at most one `AttributeSet` object per `AttributeSet` class.
-
-**[⬆ Back to Top](#table-of-contents)**
+참고로 ASC는 AttributeSet 클래스당 최대 하나의 객체만 허용한다.
 
 <a name="troubleshooting-unresolvedexternalsymbolmarkpropertydirty"></a>
-### 9.5 Unresolved external symbol UEPushModelPrivate::MarkPropertyDirty(int,int)
+### 9.5 링커 오류: `UEPushModelPrivate::MarkPropertyDirty(int,int)` unresolved external symbol
 
-If you get a compiler error like:
+다음과 같은 컴파일 오류가 발생하는 경우:
 
 ```
 error LNK2019: unresolved external symbol "__declspec(dllimport) void __cdecl UEPushModelPrivate::MarkPropertyDirty(int,int)" (__imp_?MarkPropertyDirty@UEPushModelPrivate@@YAXHH@Z) referenced in function "public: void __cdecl FFastArraySerializer::IncrementArrayReplicationKey(void)" (?IncrementArrayReplicationKey@FFastArraySerializer@@QEAAXXZ)
 ```
 
-This is from trying to call `MarkItemDirty()` on a `FFastArraySerializer`. I've encountered this from updating an `ActiveGameplayEffect` such as when updating the cooldown duration.
+이 오류는 `FFastArraySerializer`에서 `MarkItemDirty()`를 호출할 때 발생한다. 쿨다운 지속 시간 업데이트 등 `ActiveGameplayEffect`를 갱신하는 경우에 주로 나타난다.
 
 ```c++
 ActiveGameplayEffects.MarkItemDirty(*AGE);
 ```
 
-What's happening is that `WITH_PUSH_MODEL` is getting defined in more than one place. `PushModelMacros.h` is defining it as 0 while it's defined as 1 in multiple places. `PushModel.h` is seeing it as 1 but `PushModel.cpp` is seeing it as 0.
+원인은 `WITH_PUSH_MODEL` 매크로가 여러 곳에서 서로 다른 값으로 정의되는 것이다. `PushModelMacros.h`에서는 0으로 정의하지만, 다른 여러 곳에서는 1로 정의한다. `PushModel.h`는 1로 인식하지만 `PushModel.cpp`는 0으로 인식한다.
 
-The solution is to add `NetCore` to your project's `PublicDependencyModuleNames` in the `Build.cs`.
-
-**[⬆ Back to Top](#table-of-contents)**
+해결책은 프로젝트의 `Build.cs`에서 `PublicDependencyModuleNames`에 `NetCore`를 추가하는 것이다.
 
 <a name="troubleshooting-enumnamesarenowpathnames"></a>
-### 9.6 Enum names are now represented by path name
+### 9.6 Enum 이름이 이제 경로명으로 표현됨 (UE 5.1+)
 
-If you get a compiler warning like:
+다음과 같은 컴파일 경고가 발생하는 경우:
 
 ```
 warning C4996: 'FGameplayAbilityInputBinds::FGameplayAbilityInputBinds': Enum names are now represented by path names. Please use a version of FGameplayAbilityInputBinds constructor that accepts FTopLevelAssetPath. Please update your code to the new API before upgrading to the next release, otherwise your project will no longer compile.
 ```
 
-UE 5.1 deprecated using `FString` in the constructor for `BindAbilityActivationToInputComponent()`. Instead, we must pass in an `FTopLevelAssetPath`.
+UE 5.1부터 `BindAbilityActivationToInputComponent()`의 생성자에서 `FString`을 사용하는 방식이 deprecated되었다. 대신 `FTopLevelAssetPath`를 사용해야 한다.
 
-Old, deprecated way:
+기존 방식 (deprecated):
 ```c++
 AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent, FGameplayAbilityInputBinds(FString("ConfirmTarget"),
 	FString("CancelTarget"), FString("EGDAbilityInputID"), static_cast<int32>(EGDAbilityInputID::Confirm), static_cast<int32>(EGDAbilityInputID::Cancel)));
 ```
 
-New way:
+신규 방식:
 ```c++
 FTopLevelAssetPath AbilityEnumAssetPath = FTopLevelAssetPath(FName("/Script/GASDocumentation"), FName("EGDAbilityInputID"));
 AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent, FGameplayAbilityInputBinds(FString("ConfirmTarget"),
 	FString("CancelTarget"), AbilityEnumAssetPath, static_cast<int32>(EGDAbilityInputID::Confirm), static_cast<int32>(EGDAbilityInputID::Cancel)));
 ```
 
-See `Engine\Source\Runtime\CoreUObject\Public\UObject\TopLevelAssetPath.h` for more info.
-
-**[⬆ Back to Top](#table-of-contents)**
+자세한 내용은 `Engine\Source\Runtime\CoreUObject\Public\UObject\TopLevelAssetPath.h`를 참조한다.
 
 ---
 

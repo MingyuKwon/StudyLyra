@@ -7,40 +7,41 @@
 ## 개념 요약
 
 <a name="concepts-gc-events"></a>
-#### 4.8.8 Gameplay Cue Events
-`GameplayCues` respond to specific `EGameplayCueEvents`:
+#### 4.8.8 GameplayCue 이벤트
 
-| `EGameplayCueEvent` | Description                                                                                                                                                                                                                                                                                                                         |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OnActive`          | Called when a `GameplayCue` is activated (added).                                                                                                                                                                                                                                                                                   |
-| `WhileActive`       | Called when `GameplayCue` is active, even if it wasn't actually just applied (Join in progress, etc). This is not `Tick`! It's called once just like `OnActive` when a `GameplayCueNotify_Actor` is added or becomes relevant. If you need `Tick()`, just use the `GameplayCueNotify_Actor`'s `Tick()`. It's an `AActor` after all. |
-| `Removed`           | Called when a `GameplayCue` is removed. The Blueprint `GameplayCue` function that responds to this event is `OnRemove`.                                                                                                                                                                                                             |
-| `Executed`          | Called when a `GameplayCue` is executed: instant effects or periodic `Tick()`. The Blueprint `GameplayCue` function that responds to this event is `OnExecute`.                                                                                                                                                                     |
+`GameplayCue`는 특정 `EGameplayCueEvent`에 반응한다:
 
-Use `OnActive` for anything in your `GameplayCue` that happen at the start of the `GameplayCue` but is okay if late joiners miss. Use `WhileActive` for ongoing effects in the `GameplayCue` that you would want late joiners to see. For example, if you have a `GameplayCue` for a tower structure in a MOBA exploding, you would put the initial explosion particle system and explosion sound in `OnActive` and you would put any residual ongoing fire particles or sounds in the `WhileActive`. In this scenario, it wouldn't make sense for late joiners to replay the initial explosion from `OnActive`, but you would want them to see the persistent, looping fire effects on the ground after the explosion happened from `WhileActive`. `OnRemove` should clean up anything added in `OnActive` and `WhileActive`. `WhileActive` will be called every time an Actor enters the relevancy range of a `GameplayCueNotify_Actor`. `OnRemove` will be called every time an Actor leaves relevancy range of a `GameplayCueNotify_Actor`.
+| `EGameplayCueEvent` | 설명 |
+| --- | --- |
+| `OnActive` | `GameplayCue`가 활성화(추가)될 때 호출된다. |
+| `WhileActive` | `GameplayCue`가 방금 적용된 것이 아니더라도(인게임 진입 등) 활성 상태일 때 호출된다. `Tick`이 아니다! `GameplayCueNotify_Actor`가 추가되거나 관련성이 생길 때 `OnActive`처럼 한 번만 호출된다. `Tick()`이 필요하다면 `GameplayCueNotify_Actor`의 `Tick()`을 그냥 사용하면 된다. 어차피 `AActor`이기 때문이다. |
+| `Removed` | `GameplayCue`가 제거될 때 호출된다. 이 이벤트에 반응하는 블루프린트 `GameplayCue` 함수는 `OnRemove`다. |
+| `Executed` | `GameplayCue`가 실행될 때 호출된다: 즉발(instant) 효과 또는 주기적(Periodic) `Tick()`. 이 이벤트에 반응하는 블루프린트 `GameplayCue` 함수는 `OnExecute`다. |
+
+`GameplayCue` 시작 시 발생하는 것들 중 늦게 접속한 플레이어가 놓쳐도 괜찮은 것들은 `OnActive`에 배치하라. `GameplayCue`의 지속 효과 중 늦게 접속한 플레이어도 봐야 하는 것들은 `WhileActive`에 배치하라. 예를 들어 MOBA에서 타워 구조물이 폭발하는 `GameplayCue`가 있다면, 초기 폭발 파티클 시스템과 폭발 사운드는 `OnActive`에 넣고, 잔류하는 불꽃 파티클이나 사운드는 `WhileActive`에 넣는다. 이 시나리오에서 늦게 접속한 플레이어는 `OnActive`의 초기 폭발을 다시 재생할 필요가 없지만, 폭발 이후 바닥에서 계속 타오르는 불꽃 효과는 `WhileActive`에서 볼 수 있어야 한다. `OnRemove`는 `OnActive`와 `WhileActive`에서 추가한 모든 것을 정리해야 한다. `WhileActive`는 Actor가 `GameplayCueNotify_Actor`의 관련성 범위에 들어올 때마다 호출된다. `OnRemove`는 Actor가 `GameplayCueNotify_Actor`의 관련성 범위를 벗어날 때마다 호출된다.
 
 **[⬆ Back to Top](#table-of-contents)**
 
 <a name="concepts-gc-reliability"></a>
-#### 4.8.9 Gameplay Cue Reliability
+#### 4.8.9 GameplayCue 신뢰성
 
-`GameplayCues` in general should be considered unreliable and thus unsuited for anything that directly affects gameplay.
+`GameplayCue`는 일반적으로 비신뢰성으로 취급해야 하며, 게임플레이에 직접 영향을 주는 모든 것에 적합하지 않다.
 
-**Executed `GameplayCues`:** These `GameplayCues` are applied via unreliable multicasts and are always unreliable.
+**실행된(Executed) `GameplayCue`:** 비신뢰성 멀티캐스트로 적용되므로 항상 비신뢰성이다.
 
-**`GameplayCues` applied from `GameplayEffects`:**
-* Autonomous proxy reliably receives `OnActive`, `WhileActive`, and `OnRemove`  
-`FActiveGameplayEffectsContainer::NetDeltaSerialize()` calls `UAbilitySystemComponent::HandleDeferredGameplayCues()` to call `OnActive` and `WhileActive`. `FActiveGameplayEffectsContainer::RemoveActiveGameplayEffectGrantedTagsAndModifiers()` makes the call to `OnRemoved`.
-* Simulated proxies reliably receive `WhileActive` and `OnRemove`  
-`UAbilitySystemComponent::MinimalReplicationGameplayCues`'s replication calls `WhileActive` and `OnRemove`. The `OnActive` event is called by an unreliable multicast.
+**`GameplayEffect`에서 적용된 `GameplayCue`:**
+* Autonomous proxy는 `OnActive`, `WhileActive`, `OnRemove`를 신뢰성 있게 수신한다.  
+`FActiveGameplayEffectsContainer::NetDeltaSerialize()`가 `UAbilitySystemComponent::HandleDeferredGameplayCues()`를 호출하여 `OnActive`와 `WhileActive`를 호출한다. `FActiveGameplayEffectsContainer::RemoveActiveGameplayEffectGrantedTagsAndModifiers()`가 `OnRemoved`를 호출한다.
+* Simulated proxy는 `WhileActive`와 `OnRemove`를 신뢰성 있게 수신한다.  
+`UAbilitySystemComponent::MinimalReplicationGameplayCues`의 복제가 `WhileActive`와 `OnRemove`를 호출한다. `OnActive` 이벤트는 비신뢰성 멀티캐스트로 호출된다.
 
-**`GameplayCues` applied without a `GameplayEffect`:**
-* Autonomous proxy reliably receives `OnRemove`  
-The `OnActive` and `WhileActive` events are called by an unreliable multicast.
-* Simulated proxies reliably receive `WhileActive` and `OnRemove`  
-`UAbilitySystemComponent::MinimalReplicationGameplayCues`'s replication calls `WhileActive` and `OnRemove`. The `OnActive` event is called by an unreliable multicast.
+**`GameplayEffect` 없이 적용된 `GameplayCue`:**
+* Autonomous proxy는 `OnRemove`를 신뢰성 있게 수신한다.  
+`OnActive`와 `WhileActive` 이벤트는 비신뢰성 멀티캐스트로 호출된다.
+* Simulated proxy는 `WhileActive`와 `OnRemove`를 신뢰성 있게 수신한다.  
+`UAbilitySystemComponent::MinimalReplicationGameplayCues`의 복제가 `WhileActive`와 `OnRemove`를 호출한다. `OnActive` 이벤트는 비신뢰성 멀티캐스트로 호출된다.
 
-If you need something in a `GameplayCue` to be 'reliable', then apply it from a `GameplayEffect` and use `WhileActive` to add the FX and `OnRemove` to remove the FX.
+`GameplayCue`에서 '신뢰성 있는' 무언가가 필요하다면, `GameplayEffect`를 통해 적용하고 `WhileActive`에서 FX를 추가하고 `OnRemove`에서 FX를 제거하는 방식을 사용하라.
 
 **[⬆ Back to Top](#table-of-contents)**
 

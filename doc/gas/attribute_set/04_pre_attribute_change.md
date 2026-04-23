@@ -8,9 +8,10 @@
 
 <a name="concepts-as-preattributechange"></a>
 #### 4.4.5 PreAttributeChange()
-`PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)` is one of the main functions in the `AttributeSet` to respond to changes to an `Attribute's` `CurrentValue` before the change happens. It is the ideal place to clamp incoming changes to `CurrentValue` via the reference parameter `NewValue`.
 
-For example to clamp movespeed modifiers the Sample Project does it like so:
+`PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)`는 `AttributeSet`에서 `Attribute`의 `CurrentValue` 변경에 응답하는 주요 함수 중 하나로, 변경이 일어나기 **전에** 호출된다. 참조 파라미터 `NewValue`를 통해 들어오는 `CurrentValue` 변경을 클램핑하기에 이상적인 위치다.
+
+예를 들어, 샘플 프로젝트에서 이동속도 Modifier를 클램핑하는 방식은 다음과 같다:
 ```c++
 if (Attribute == GetMoveSpeedAttribute())
 {
@@ -18,13 +19,13 @@ if (Attribute == GetMoveSpeedAttribute())
 	NewValue = FMath::Clamp<float>(NewValue, 150, 1000);
 }
 ```
-The `GetMoveSpeedAttribute()` function is created by the macro block that we added to the `AttributeSet.h` ([Defining Attributes](#concepts-as-attributes)).
+`GetMoveSpeedAttribute()` 함수는 `AttributeSet.h`에 추가한 매크로 블록([Attribute 선언](#concepts-as-attributes))에 의해 생성된다.
 
-This is triggered from any changes to `Attributes`, whether using `Attribute` setters (defined by the macro block in `AttributeSet.h` ([Defining Attributes](#concepts-as-attributes))) or using [`GameplayEffects`](#concepts-ge).
+이 함수는 `Attribute` setter([Attribute 선언](#concepts-as-attributes)의 매크로 블록에 의해 정의된)를 사용하거나 [`GameplayEffect`](#concepts-ge)를 통한 것 등 `Attribute`의 모든 변경에서 발동된다.
 
-**Note:** Any clamping that happens here does not permanently change the modifier on the `ASC`. It only changes the value returned from querying the modifier. This means anything that recalculates the `CurrentValue` from all of the modifiers like [`GameplayEffectExecutionCalculations`](#concepts-ge-ec) and [`ModifierMagnitudeCalculations`](#concepts-ge-mmc) need to implement clamping again.
+**참고:** 여기서 수행하는 클램핑은 `ASC`의 Modifier를 영구적으로 변경하지 않는다. 단지 Modifier를 쿼리할 때 반환되는 값만 변경할 뿐이다. 즉, [`GameplayEffectExecutionCalculations`](#concepts-ge-ec)나 [`ModifierMagnitudeCalculations`](#concepts-ge-mmc)처럼 모든 Modifier에서 `CurrentValue`를 재계산하는 코드에서는 클램핑을 별도로 구현해야 한다.
 
-**Note:** Epic's comments for `PreAttributeChange()` say not to use it for gameplay events and instead use it mainly for clamping. The recommended place for gameplay events on `Attribute` change is `UAbilitySystemComponent::GetGameplayAttributeValueChangeDelegate(FGameplayAttribute Attribute)` ([Responding to Attribute Changes](#concepts-a-changes)).
+**참고:** Epic의 `PreAttributeChange()`에 대한 주석에는 게임플레이 이벤트에는 사용하지 말고 주로 클램핑 용도로만 사용하라고 명시되어 있다. `Attribute` 변경에 대한 게임플레이 이벤트의 권장 위치는 `UAbilitySystemComponent::GetGameplayAttributeValueChangeDelegate(FGameplayAttribute Attribute)`([Attribute 변경에 응답하기](#concepts-a-changes))이다.
 
 **[⬆ Back to Top](#table-of-contents)**
 

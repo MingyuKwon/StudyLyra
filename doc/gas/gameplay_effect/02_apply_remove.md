@@ -7,40 +7,44 @@
 ## 개념 요약
 
 <a name="concepts-ge-applying"></a>
-#### 4.5.2 Applying Gameplay Effects
-`GameplayEffects` can be applied in many ways from functions on [`GameplayAbilities`](#concepts-ga) and functions on the `ASC` and usually take the form of `ApplyGameplayEffectTo`. The different functions are essentially convenience functions that will eventually call `UAbilitySystemComponent::ApplyGameplayEffectSpecToSelf()` on the `Target`.
+#### 4.5.2 GameplayEffect 적용
 
-To apply `GameplayEffects` outside of a `GameplayAbility` for example from a projectile, you need to get the `Target's` `ASC` and use one of its functions to `ApplyGameplayEffectToSelf`.
+`GameplayEffect`는 [GameplayAbility](#concepts-ga)의 함수나 ASC의 함수를 통해 다양한 방식으로 적용할 수 있으며, 보통 `ApplyGameplayEffectTo` 형태의 함수를 사용한다. 이 함수들은 결국 Target의 `UAbilitySystemComponent::ApplyGameplayEffectSpecToSelf()`를 호출하는 편의 래퍼다.
 
-You can listen for when any `Duration` or `Infinite` `GameplayEffects` are applied to an `ASC` by binding to its delegate:
+GameplayAbility 외부(예: 발사체)에서 GE를 적용하려면, Target의 ASC를 직접 가져와 `ApplyGameplayEffectToSelf` 계열 함수를 사용한다.
+
+ASC에 `Duration` 또는 `Infinite` GE가 적용되는 시점을 감지하려면 델리게이트를 바인딩한다.
+
 ```c++
 AbilitySystemComponent->OnActiveGameplayEffectAddedDelegateToSelf.AddUObject(this, &APACharacterBase::OnActiveGameplayEffectAddedCallback);
 ```
-The callback function:
+콜백 함수:
 ```c++
 virtual void OnActiveGameplayEffectAddedCallback(UAbilitySystemComponent* Target, const FGameplayEffectSpec& SpecApplied, FActiveGameplayEffectHandle ActiveHandle);
 ```
 
-The server will always call this function regardless of replication mode. The autonomous proxy will only call this for replicated `GameplayEffects` in `Full` and `Mixed` replication modes. Simulated proxies will only call this in `Full` [replication mode](#concepts-asc-rm).
+서버는 복제 모드와 무관하게 항상 이 함수를 호출한다. Autonomous Proxy는 `Full` 및 `Mixed` 복제 모드에서 복제된 GameplayEffect에 대해서만 호출된다. Simulated Proxy는 `Full` [복제 모드](#concepts-asc-rm)에서만 호출된다.
 
 **[⬆ Back to Top](#table-of-contents)**
 
 <a name="concepts-ga-removing"></a>
-#### 4.5.3 Removing Gameplay Effects
-`GameplayEffects` can be removed in many ways from functions on [`GameplayAbilities`](#concepts-ga) and functions on the `ASC` and usually take the form of `RemoveActiveGameplayEffect`. The different functions are essentially convenience functions that will eventually call `FActiveGameplayEffectsContainer::RemoveActiveEffects()` on the `Target`.
+#### 4.5.3 GameplayEffect 제거
 
-To remove `GameplayEffects` outside of a `GameplayAbility`, you need to get the `Target's` `ASC` and use one of its functions to `RemoveActiveGameplayEffect`.
+`GameplayEffect`도 [GameplayAbility](#concepts-ga)의 함수나 ASC의 함수를 통해 다양한 방식으로 제거할 수 있으며, 보통 `RemoveActiveGameplayEffect` 형태의 함수를 사용한다. 이 함수들은 결국 Target의 `FActiveGameplayEffectsContainer::RemoveActiveEffects()`를 호출하는 편의 래퍼다.
 
-You can listen for when any `Duration` or `Infinite` `GameplayEffects` are removed from an `ASC` by binding to its delegate:
+GameplayAbility 외부에서 GE를 제거하려면, Target의 ASC를 직접 가져와 해당 함수를 호출한다.
+
+ASC에서 `Duration` 또는 `Infinite` GE가 제거되는 시점을 감지하려면 델리게이트를 바인딩한다.
+
 ```c++
 AbilitySystemComponent->OnAnyGameplayEffectRemovedDelegate().AddUObject(this, &APACharacterBase::OnRemoveGameplayEffectCallback);
 ```
-The callback function:
+콜백 함수:
 ```c++
 virtual void OnRemoveGameplayEffectCallback(const FActiveGameplayEffect& EffectRemoved);
 ```
 
-The server will always call this function regardless of replication mode. The autonomous proxy will only call this for replicated `GameplayEffects` in `Full` and `Mixed` replication modes. Simulated proxies will only call this in `Full` [replication mode](#concepts-asc-rm).
+서버는 복제 모드와 무관하게 항상 이 함수를 호출한다. Autonomous Proxy는 `Full` 및 `Mixed` 복제 모드에서 복제된 GameplayEffect에 대해서만 호출된다. Simulated Proxy는 `Full` [복제 모드](#concepts-asc-rm)에서만 호출된다.
 
 **[⬆ Back to Top](#table-of-contents)**
 

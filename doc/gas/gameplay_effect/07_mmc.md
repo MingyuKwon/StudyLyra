@@ -8,22 +8,23 @@
 
 <a name="concepts-ge-mmc"></a>
 #### 4.5.11 Modifier Magnitude Calculation
-[`ModifierMagnitudeCalculations`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayModMagnitudeCalculation/index.html) (`ModMagCalc` or `MMC`) are powerful classes used as [`Modifiers`](#concepts-ge-mods) in `GameplayEffects`. They function similarly to [`GameplayEffectExecutionCalculations`](#concepts-ge-ec) but are less powerful and most importantly they can be [predicted](#concepts-p). Their sole purpose is to return a float value from `CalculateBaseMagnitude_Implementation()`. You can subclass and override this function in Blueprint and C++.
 
-`MMCs` can be used in any duration of `GameplayEffects` - `Instant`, `Duration`, `Infinite`, or `Periodic`.
+[`ModifierMagnitudeCalculations`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayModMagnitudeCalculation/index.html)(`ModMagCalc` 또는 `MMC`)는 `GameplayEffects`에서 [`Modifiers`](#concepts-ge-mods)로 사용되는 강력한 클래스다. [`GameplayEffectExecutionCalculations`](#concepts-ge-ec)와 비슷하게 동작하지만 그보다 기능이 제한적이며, 무엇보다 중요한 장점은 [예측(predicted)](#concepts-p)이 가능하다는 것이다. MMC의 유일한 목적은 `CalculateBaseMagnitude_Implementation()`에서 float 값을 반환하는 것이다. Blueprint와 C++ 모두에서 서브클래스로 만들어 이 함수를 오버라이드할 수 있다.
 
-`MMCs'` strength lies in their capability to capture the value of any number of `Attributes` on the `Source` or the `Target` of `GameplayEffect` with full access to the `GameplayEffectSpec` to read `GameplayTags` and `SetByCallers`. `Attributes` can either be snapshotted or not. Snapshotted `Attributes` are captured when the `GameplayEffectSpec` is created whereas non snapshotted `Attributes` are captured when the `GameplayEffectSpec` is applied and automatically update when the `Attribute` changes for `Infinite` and `Duration` `GameplayEffects`. Capturing `Attributes` recalculates their `CurrentValue` from existing mods on the `ASC`. This recalculation will **not** run [`PreAttributeChange()`](#concepts-as-preattributechange) in the `AbilitySet` so any clamping must be done here again.
+`MMC`는 `Instant`, `Duration`, `Infinite`, `Periodic` 등 모든 지속 시간 유형의 `GameplayEffects`에서 사용할 수 있다.
 
-| Snapshot | Source or Target | Captured on `GameplayEffectSpec` | Automatically updates when `Attribute` changes for `Infinite` or `Duration` `GE` |
-| -------- | ---------------- | -------------------------------- | -------------------------------------------------------------------------------- |
-| Yes      | Source           | Creation                         | No                                                                               |
-| Yes      | Target           | Application                      | No                                                                               |
-| No       | Source           | Application                      | Yes                                                                              |
-| No       | Target           | Application                      | Yes                                                                              |
+`MMC`의 강점은 `GameplayEffect`의 Source 또는 Target에 있는 Attribute 값을 얼마든지 캡처할 수 있으며, `GameplayEffectSpec`에 완전히 접근하여 `GameplayTags`와 `SetByCallers`를 읽을 수 있다는 데 있다. `Attributes`는 스냅샷(snapshotted)으로 캡처하거나 그렇지 않게 캡처할 수 있다. 스냅샷된 `Attributes`는 `GameplayEffectSpec`이 생성될 때 캡처되는 반면, 스냅샷되지 않은 `Attributes`는 `GameplayEffectSpec`이 적용될 때 캡처되며, `Infinite`와 `Duration` `GameplayEffects`에서 `Attribute`가 변경될 때 자동으로 업데이트된다. `Attributes`를 캡처하면 `ASC`에 존재하는 기존 mod들로부터 `CurrentValue`를 재계산한다. 이 재계산은 `AbilitySet`의 [`PreAttributeChange()`](#concepts-as-preattributechange)를 **실행하지 않으므로**, 클램핑이 필요하다면 이 안에서 다시 수행해야 한다.
 
-The resultant float from an `MMC` can further be modified in the `GameplayEffect's` `Modifier` by a coefficient and a pre and post coefficient addition.
+| Snapshot 여부 | Source/Target | `GameplayEffectSpec` 캡처 시점 | `Infinite`/`Duration` GE에서 Attribute 변경 시 자동 업데이트 |
+| ------------- | ------------- | ------------------------------ | ------------------------------------------------------------- |
+| Yes           | Source        | 생성 시                        | No                                                            |
+| Yes           | Target        | 적용 시                        | No                                                            |
+| No            | Source        | 적용 시                        | Yes                                                           |
+| No            | Target        | 적용 시                        | Yes                                                           |
 
-An example `MMC` that captures the `Target's` mana `Attribute` reduces it from a poison effect where the amount reduced changes depending on how much mana the `Target` has and a tag that the `Target` might have:
+`MMC`에서 반환된 float 값은 `GameplayEffect`의 `Modifier`에서 계수(coefficient)와 사전/사후 계수 가산값(pre and post coefficient addition)으로 추가 보정할 수 있다.
+
+Target의 마나 `Attribute`를 캡처하여 독(Poison) 효과로 감소시키는 `MMC` 예시 — Target이 보유한 마나 양과 특정 태그 여부에 따라 감소량이 달라진다:
 ```c++
 UPAMMC_PoisonMana::UPAMMC_PoisonMana()
 {
@@ -77,7 +78,7 @@ float UPAMMC_PoisonMana::CalculateBaseMagnitude_Implementation(const FGameplayEf
 }
 ```
 
-If you don't add the `FGameplayEffectAttributeCaptureDefinition` to `RelevantAttributesToCapture` in the `MMC's` constructor and try to capture `Attributes`, you will get an error about a missing Spec while capturing. If you don't need to capture `Attributes`, then you don't have to add anything to `RelevantAttributesToCapture`.
+`MMC` 생성자에서 `FGameplayEffectAttributeCaptureDefinition`을 `RelevantAttributesToCapture`에 추가하지 않은 채로 `Attributes`를 캡처하려 하면, 캡처 시 Spec 누락 오류가 발생한다. `Attributes`를 캡처할 필요가 없다면 `RelevantAttributesToCapture`에 아무것도 추가하지 않아도 된다.
 
 **[⬆ Back to Top](#table-of-contents)**
 

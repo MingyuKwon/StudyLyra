@@ -7,15 +7,16 @@
 ## 개념 요약
 
 <a name="concepts-gc-local"></a>
-#### 4.8.3 Local Gameplay Cues
-The exposed functions for firing `GameplayCues` from `GameplayAbilities` and the `ASC` are replicated by default. Each `GameplayCue` event is a multicast RPC. This can cause a lot of RPCs. GAS also enforces a maximum of two of the same `GameplayCue` RPCs per net update. We avoid this by using local `GameplayCues` where we can. Local `GameplayCues` only `Execute`, `Add`, or `Remove` on the individual client.
+#### 4.8.3 로컬 GameplayCue
 
-Scenarios where we can use local `GameplayCues`:
-* Projectile impacts
-* Melee collision impacts
-* `GameplayCues` fired from animation montages
+`GameplayAbility`와 ASC에서 `GameplayCue`를 발동하는 노출된 함수들은 기본적으로 복제된다. 각 `GameplayCue` 이벤트는 멀티캐스트 RPC로 전송된다. 이로 인해 대량의 RPC가 발생할 수 있다. GAS는 또한 네트 업데이트당 동일한 `GameplayCue` RPC를 최대 두 개로 제한한다. 가능한 경우 로컬 `GameplayCue`를 사용하여 이를 방지한다. 로컬 `GameplayCue`는 개별 클라이언트에서만 `Execute`, `Add`, `Remove`가 실행된다.
 
-Local `GameplayCue` functions that you should add to your `ASC` subclass:
+로컬 `GameplayCue`를 사용할 수 있는 상황:
+* 발사체 임팩트
+* 근접 충돌 임팩트
+* 애니메이션 몽타주에서 발동하는 `GameplayCue`
+
+ASC 서브클래스에 추가해야 하는 로컬 `GameplayCue` 함수:
 
 ```c++
 UFUNCTION(BlueprintCallable, Category = "GameplayCue", Meta = (AutoCreateRefTerm = "GameplayCueParameters", GameplayTagFilter = "GameplayCue"))
@@ -46,26 +47,27 @@ void UPAAbilitySystemComponent::RemoveGameplayCueLocal(const FGameplayTag Gamepl
 }
 ```
 
-If a `GameplayCue` was `Added` locally, it should be `Removed` locally. If it was `Added` via replication, it should be `Removed` via replication.
+`GameplayCue`가 로컬로 `Added`되었다면 반드시 로컬로 `Removed`해야 한다. 복제를 통해 `Added`되었다면 복제를 통해 `Removed`해야 한다.
 
 **[⬆ Back to Top](#table-of-contents)**
 
 <a name="concepts-gc-parameters"></a>
-#### 4.8.4 Gameplay Cue Parameters
-`GameplayCues` receive a `FGameplayCueParameters` structure containing extra information for the `GameplayCue` as a parameter. If you manually trigger the `GameplayCue` from a function on the `GameplayAbility` or the `ASC`, then you must manually fill in the `GameplayCueParameters` structure that is passed to the `GameplayCue`. If the `GameplayCue` is triggered by a `GameplayEffect`, then the following variables are automatically filled in on the `GameplayCueParameters` structure:
+#### 4.8.4 GameplayCue Parameters
+
+`GameplayCue`는 파라미터로 `FGameplayCueParameters` 구조체를 받아 `GameplayCue`에 필요한 추가 정보를 전달한다. `GameplayAbility` 또는 ASC의 함수를 통해 `GameplayCue`를 수동으로 트리거하는 경우 `GameplayCue`에 전달되는 `GameplayCueParameters` 구조체를 직접 채워야 한다. `GameplayCue`가 `GameplayEffect`에 의해 트리거되는 경우에는 `GameplayCueParameters` 구조체의 다음 변수들이 자동으로 채워진다:
 
 * AggregatedSourceTags
 * AggregatedTargetTags
 * GameplayEffectLevel
 * AbilityLevel
 * [EffectContext](#concepts-ge-context)
-* Magnitude (if the `GameplayEffect` has an `Attribute` for magnitude selected in the dropdown above the `GameplayCue` tag container and a corresponding `Modifier` that affects that `Attribute`)
+* Magnitude (`GameplayEffect`에 드롭다운에서 선택한 Magnitude용 `Attribute`가 있고, 해당 `Attribute`에 영향을 주는 `Modifier`가 있는 경우)
 
-The `SourceObject` variable in the `GameplayCueParameters` structure is potentially a good place to pass arbitrary data to the `GameplayCue` when triggering the `GameplayCue` manually.
+`GameplayCue`를 수동으로 트리거할 때 임의 데이터를 `GameplayCue`에 전달하기에 `GameplayCueParameters` 구조체의 `SourceObject` 변수가 적합한 위치가 될 수 있다.
 
-**Note:** Some of the variables in the parameters structure like `Instigator` might already exist in the `EffectContext`. The `EffectContext` can also contain a `FHitResult` for location of where to spawn the `GameplayCue` in the world. Subclassing `EffectContext` is potentially a good way to pass more data to `GameplayCues`, especially those triggered by a `GameplayEffect`.
+**참고:** 파라미터 구조체의 `Instigator` 같은 일부 변수는 이미 `EffectContext`에 존재할 수 있다. `EffectContext`는 `GameplayCue`가 월드에서 스폰될 위치 정보로 `FHitResult`를 포함할 수도 있다. `EffectContext`를 서브클래싱하는 것은 특히 `GameplayEffect`에 의해 트리거되는 `GameplayCue`에 더 많은 데이터를 전달하는 좋은 방법이 될 수 있다.
 
-See the 3 functions in [`UAbilitySystemGlobals`](#concepts-asg) that populate the `GameplayCueParameters` structure for more information. They are virtual so you can override them to autopopulate more information.
+`GameplayCueParameters` 구조체를 채우는 [`UAbilitySystemGlobals`](#concepts-asg)의 세 가지 함수를 참고하라. 이 함수들은 virtual이므로 더 많은 정보를 자동으로 채우도록 오버라이드할 수 있다.
 
 ```c++
 /** Initialize GameplayCue Parameters */

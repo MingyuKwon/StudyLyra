@@ -8,9 +8,10 @@
 
 <a name="concepts-as-onattributeaggregatorcreated"></a>
 #### 4.4.7 OnAttributeAggregatorCreated()
-`OnAttributeAggregatorCreated(const FGameplayAttribute& Attribute, FAggregator* NewAggregator)` triggers when an `Aggregator` is created for an `Attribute` in this set. It allows custom setup of [`FAggregatorEvaluateMetaData`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/FAggregatorEvaluateMetaData/index.html). `AggregatorEvaluateMetaData` is used by the `Aggregator` in evaluating the `CurrentValue` of an `Attribute` based on all the [`Modifiers`](#concepts-ge-mods) applied to it. By default, `AggregatorEvaluateMetaData` is only used by the `Aggregator` to determine which `Modifiers` qualify with the example of `MostNegativeMod_AllPositiveMods` which allows all positive `Modifiers` but restricts negative `Modifiers` to only the most negative one. This was used by Paragon to only allow the most negative move speed slow effect to apply to a player regardless of how many slow effects where on them at any one time while applying all positive move speed buffs. `Modifiers` that don't qualify still exist on the `ASC`, they just aren't aggregated into the final `CurrentValue`. They can potentially qualify later once conditions change, like in the case if the most negative `Modifier` expires, the next most negative `Modifier` (if one exists) then qualifies.
 
-To use AggregatorEvaluateMetaData in the example of only allowing the most negative `Modifier` and all positive `Modifiers`:
+`OnAttributeAggregatorCreated(const FGameplayAttribute& Attribute, FAggregator* NewAggregator)`는 이 AttributeSet 내 `Attribute`에 대해 `Aggregator`가 생성될 때 발동된다. 이 함수를 통해 [`FAggregatorEvaluateMetaData`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/FAggregatorEvaluateMetaData/index.html)를 커스텀 설정할 수 있다. `AggregatorEvaluateMetaData`는 `Aggregator`가 적용된 모든 [`Modifier`](#concepts-ge-mods)를 기반으로 `Attribute`의 `CurrentValue`를 평가할 때 어떤 Modifier가 조건을 충족하는지 결정하는 데 사용된다. 기본적으로 `AggregatorEvaluateMetaData`는 `MostNegativeMod_AllPositiveMods`를 예시로 하여, 모든 양수 Modifier는 허용하되 음수 Modifier는 가장 음수인 것 하나만 허용하는 조건에서 어떤 Modifier가 자격을 갖추는지 결정하기 위해 `Aggregator`에서만 사용된다. Paragon은 이를 활용하여 플레이어에게 슬로우 효과가 몇 개나 걸려 있더라도 가장 강한 이동속도 감속 효과 하나만 적용하면서, 모든 양수 이동속도 버프는 모두 적용시켰다. 자격을 갖추지 못한 Modifier들은 여전히 `ASC`에 존재하며, 단지 최종 `CurrentValue`로 집계되지 않을 뿐이다. 조건이 변경되면(예: 가장 음수인 Modifier가 만료되면) 그 다음으로 음수인 Modifier(존재하는 경우)가 자격을 얻는다.
+
+가장 음수인 Modifier와 모든 양수 Modifier만 허용하는 예시에서 `AggregatorEvaluateMetaData`를 사용하려면:
 
 ```c++
 virtual void OnAttributeAggregatorCreated(const FGameplayAttribute& Attribute, FAggregator* NewAggregator) const override;
@@ -33,7 +34,7 @@ void UGSAttributeSetBase::OnAttributeAggregatorCreated(const FGameplayAttribute&
 }
 ```
 
-Your custom `AggregatorEvaluateMetaData` for qualifiers should be added to `FAggregatorEvaluateMetaDataLibrary` as static variables.
+조건 판별을 위한 커스텀 `AggregatorEvaluateMetaData`는 `FAggregatorEvaluateMetaDataLibrary`에 정적 변수로 추가해야 한다.
 
 **[⬆ Back to Top](#table-of-contents)**
 

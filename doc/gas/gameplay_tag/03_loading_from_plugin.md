@@ -7,10 +7,11 @@
 ## 개념 요약
 
 <a name="concepts-gt-loadfromplugin"></a>
-### 4.2.2 Loading Gameplay Tags from Plugin .ini Files
-If you create a plugin with its own .ini files with `GameplayTags`, you can load that plugin's `GameplayTag` .ini directory in your plugin's `StartupModule()` function.
+### 4.2.2 플러그인 .ini 파일에서 GameplayTag 로드하기
 
-For example, this is how the CommonConversation plugin that comes with Unreal Engine does it:
+자체 .ini 파일에 GameplayTag를 포함하는 플러그인을 만든다면, 플러그인의 `StartupModule()` 함수에서 해당 플러그인의 GameplayTag .ini 디렉터리를 로드할 수 있다.
+
+예를 들어, 언리얼 엔진에 포함된 CommonConversation 플러그인은 다음과 같이 처리한다.
 
 ```c++
 void FCommonConversationRuntimeModule::StartupModule()
@@ -24,7 +25,7 @@ void FCommonConversationRuntimeModule::StartupModule()
 }
 ```
 
-This would look for the directory `Plugins\CommonConversation\Config\Tags` and load any .ini files with `GameplayTags` in them into your project when the Engine starts up if the plugin is enabled.
+이 코드는 `Plugins\CommonConversation\Config\Tags` 디렉터리를 검색하여, 플러그인이 활성화된 상태에서 엔진이 시작될 때 해당 디렉터리의 GameplayTag가 담긴 .ini 파일을 프로젝트에 로드한다.
 
 **[⬆ Back to Top](#table-of-contents)**
 

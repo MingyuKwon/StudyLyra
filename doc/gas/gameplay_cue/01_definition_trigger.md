@@ -7,42 +7,43 @@
 ## 개념 요약
 
 <a name="concepts-gc-definition"></a>
-#### 4.8.1 Gameplay Cue Definition
-`GameplayCues` (`GC`) execute non-gameplay related things like sound effects, particle effects, camera shakes, etc. `GameplayCues` are typically replicated (unless explicitly `Executed`, `Added`, or `Removed` locally) and predicted.
+#### 4.8.1 GameplayCue 정의
 
-We trigger `GameplayCues` by sending a corresponding `GameplayTag` with the **mandatory parent name of `GameplayCue.`** and an event type (`Execute`, `Add`, or `Remove`) to the `GameplayCueManager` via the `ASC`. `GameplayCueNotify` objects and other `Actors` that implement the `IGameplayCueInterface` can subscribe to these events based on the `GameplayCue's` `GameplayTag` (`GameplayCueTag`).
+`GameplayCues` (`GC`)는 사운드 이펙트, 파티클 이펙트, 카메라 흔들림 등 게임플레이와 직접 관련 없는 효과를 실행한다. `GameplayCues`는 명시적으로 로컬에서 `Executed`, `Added`, `Removed`되지 않는 한 일반적으로 복제(replicated)되며, 예측(predicted)도 지원한다.
 
-**Note:** Just to reiterate, `GameplayCue` `GameplayTags` need to start with the parent `GameplayTag` of `GameplayCue`. So for example, a valid `GameplayCue` `GameplayTag` might be `GameplayCue.A.B.C`.
+`GameplayCues`는 **반드시 `GameplayCue.`로 시작하는 부모 이름**을 가진 `GameplayTag`와 이벤트 타입(`Execute`, `Add`, `Remove`)을 ASC를 통해 `GameplayCueManager`로 전달함으로써 트리거된다. `GameplayCueNotify` 오브젝트 및 `IGameplayCueInterface`를 구현한 다른 `Actor`들은 `GameplayCue`의 `GameplayTag`(`GameplayCueTag`)를 기반으로 해당 이벤트를 구독하여 반응할 수 있다.
 
-There are two classes of `GameplayCueNotifies`, `Static` and `Actor`. They respond to different events and different types of `GameplayEffects` can trigger them. Override the corresponding event with your logic.
+**참고:** 다시 한번 강조하지만, `GameplayCue`의 `GameplayTag`는 반드시 부모 `GameplayTag`인 `GameplayCue`로 시작해야 한다. 예를 들어 유효한 `GameplayCue` `GameplayTag`는 `GameplayCue.A.B.C`와 같은 형태다.
 
-| `GameplayCue` Class                                                                                                                  | Event             | `GameplayEffect` Type    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------ | ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`GameplayCueNotify_Static`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayCueNotify_Static/index.html) | `Execute`         | `Instant` or `Periodic`  | Static `GameplayCueNotifies` operate on the `ClassDefaultObject` (meaning no instances) and are perfect for one-off effects like hit impacts.                                                                                                                                                                                                                                                                                                                                                                        |
-| [`GameplayCueNotify_Actor`](https://docs.unrealengine.com/en-US/BlueprintAPI/GameplayCueNotify/index.html)                           | `Add` or `Remove` | `Duration` or `Infinite` | Actor `GameplayCueNotifies` spawn a new instance when `Added`. Because these are instanced, they can do actions over time until they are `Removed`. These are good for looping sounds and particle effects that will be removed when the backing `Duration` or `Infinite` `GameplayEffect` is removed or by manually calling remove. These also come with options to manage how many are allowed to be `Added` at the same time so that multiple applications of the same effect only start the sounds or particles once. |
+`GameplayCueNotify`에는 `Static`과 `Actor` 두 가지 클래스가 있다. 각각 서로 다른 이벤트에 반응하며, 서로 다른 타입의 `GameplayEffect`가 이를 트리거할 수 있다. 해당 이벤트에 맞는 로직으로 오버라이드하여 사용한다.
 
-`GameplayCueNotifies` technically can respond to any of the events but this is typically how we use them.
+| `GameplayCue` 클래스 | 이벤트 | `GameplayEffect` 타입 | 설명 |
+| --- | --- | --- | --- |
+| [`GameplayCueNotify_Static`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayCueNotify_Static/index.html) | `Execute` | `Instant` 또는 `Periodic` | Static `GameplayCueNotify`는 `ClassDefaultObject`(인스턴스 없음)에서 동작하며, 히트 임팩트처럼 일회성 효과에 적합하다. |
+| [`GameplayCueNotify_Actor`](https://docs.unrealengine.com/en-US/BlueprintAPI/GameplayCueNotify/index.html) | `Add` 또는 `Remove` | `Duration` 또는 `Infinite` | Actor `GameplayCueNotify`는 `Added`될 때 새 인스턴스를 스폰한다. 인스턴스가 존재하므로 `Removed`될 때까지 시간에 걸친 동작이 가능하다. Duration 또는 Infinite `GameplayEffect`가 제거되거나 수동으로 Remove를 호출할 때 함께 제거되는 루핑 사운드나 파티클 이펙트에 적합하다. 동시에 `Added`될 수 있는 수를 관리하는 옵션도 있어, 동일 효과가 여러 번 적용되어도 사운드나 파티클이 한 번만 시작되도록 할 수 있다. |
 
-**Note:** When using `GameplayCueNotify_Actor`, check `Auto Destroy on Remove` otherwise subsequent calls to `Add` that `GameplayCueTag` won't work.
+`GameplayCueNotify`는 기술적으로 어떤 이벤트에도 반응할 수 있지만, 일반적으로 위와 같이 사용한다.
 
-When using an `ASC` [Replication Mode](#concepts-asc-rm) other than `Full`, `Add` and `Remove` `GC` events will fire twice on Server players (listen server) - once for applying the `GE` and again from the "Minimal" `NetMultiCast` to the clients. However, `WhileActive` events will still only fire once. All events will only fire once on clients.
+**참고:** `GameplayCueNotify_Actor`를 사용할 때는 `Auto Destroy on Remove`를 반드시 체크해야 한다. 그렇지 않으면 이후에 동일한 `GameplayCueTag`로 `Add`를 호출해도 동작하지 않는다.
 
-The Sample Project includes a `GameplayCueNotify_Actor` for stun and sprint effects. It also has a `GameplayCueNotify_Static` for the FireGun's projectile impact. These `GCs` can be optimized further by [triggering them locally](#concepts-gc-local) instead of replicating them through a `GE`. I opted for showing the beginner way of using them in the Sample Project.
+`Full` 이외의 ASC [Replication Mode](#concepts-asc-rm)를 사용할 때, `Add` 및 `Remove` `GC` 이벤트는 서버 플레이어(리슨 서버)에서 두 번 발생한다. 한 번은 `GE` 적용 시, 또 한 번은 클라이언트에게 "Minimal" `NetMultiCast`를 통해서다. 단, `WhileActive` 이벤트는 여전히 한 번만 발생한다. 클라이언트에서는 모든 이벤트가 한 번씩만 발생한다.
+
+샘플 프로젝트에는 스턴과 스프린트 효과를 위한 `GameplayCueNotify_Actor`와, FireGun의 발사체 임팩트를 위한 `GameplayCueNotify_Static`이 포함되어 있다. 이 `GC`들은 `GE`를 통해 복제하는 대신 [로컬에서 트리거](#concepts-gc-local)하는 방식으로 추가 최적화가 가능하다. 샘플 프로젝트에서는 초보자 친화적인 방식을 보여주기 위해 이 방식을 선택했다.
 
 **[⬆ Back to Top](#table-of-contents)**
 
 <a name="concepts-gc-trigger"></a>
-#### 4.8.2 Triggering Gameplay Cues
+#### 4.8.2 GameplayCue 트리거
 
-From inside of a `GameplayEffect` when it is successfully applied (not blocked by tags or immunity), fill in the `GameplayTags` of all the `GameplayCues` that should be triggered.
+`GameplayEffect`가 성공적으로 적용될 때(태그에 의해 차단되거나 면역 상태가 아닌 경우), 트리거되어야 하는 모든 `GameplayCue`의 `GameplayTag`를 `GameplayEffect` 내 `GameplayCue` 태그 컨테이너에 채워 넣는다.
 
 ![GameplayCue Triggered from a GameplayEffect](https://github.com/tranek/GASDocumentation/raw/master/Images/gcfromge.png)
 
-`UGameplayAbility` offers Blueprint nodes to `Execute`, `Add`, or `Remove` `GameplayCues`.
+`UGameplayAbility`는 `GameplayCue`를 `Execute`, `Add`, `Remove`하는 블루프린트 노드를 제공한다.
 
 ![GameplayCue Triggered from a GameplayAbility](https://github.com/tranek/GASDocumentation/raw/master/Images/gcfromga.png)
 
-In C++, you can call functions directly on the `ASC` (or expose them to Blueprint in your `ASC` subclass):
+C++에서는 ASC의 함수를 직접 호출하거나(또는 ASC 서브클래스에서 블루프린트에 노출), 다음과 같이 사용할 수 있다:
 
 ```c++
 /** GameplayCues can also come on their own. These take an optional effect context to pass through hit result, etc */

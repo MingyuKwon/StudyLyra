@@ -7,43 +7,55 @@
 ## 개념 요약
 
 <a name="concepts-gt"></a>
-### 4.2 Gameplay Tags
-[`FGameplayTags`](https://docs.unrealengine.com/en-US/API/Runtime/GameplayTags/FGameplayTag/index.html) are hierarchical names in the form of `Parent.Child.Grandchild...` that are registered with the `GameplayTagManager`. These tags are incredibly useful for classifying and describing the state of an object. For example, if a character is stunned, we could give it a `State.Debuff.Stun` `GameplayTag` for the duration of the stun.
+### 4.2 GameplayTag
 
-You will find yourself replacing things that you used to handle with booleans or enums with `GameplayTags` and doing boolean logic on whether or not objects have certain `GameplayTags`.
+[`FGameplayTag`](https://docs.unrealengine.com/en-US/API/Runtime/GameplayTags/FGameplayTag/index.html)는 `Parent.Child.Grandchild...` 형태의 계층적 이름으로, `GameplayTagManager`에 등록된다. 이 태그는 객체의 상태를 분류하고 기술하는 데 매우 유용하다. 예를 들어 캐릭터가 스턴 상태라면 스턴 지속 시간 동안 `State.Debuff.Stun` GameplayTag를 부여할 수 있다.
 
-When giving tags to an object, we typically add them to its `ASC` if it has one so that GAS can interact with them. `UAbilitySystemComponent` implements the `IGameplayTagAssetInterface` giving functions to access its owned `GameplayTags`.
+기존에 불리언이나 열거형으로 처리하던 것들을 GameplayTag로 대체하고, 특정 GameplayTag의 보유 여부로 불리언 논리를 수행하게 될 것이다.
 
-Multiple `GameplayTags` can be stored in an `FGameplayTagContainer`. It is preferable to use a `GameplayTagContainer` over a `TArray<FGameplayTag>` since the `GameplayTagContainers` add some efficiency magic. While tags are standard `FNames`, they can be efficiently packed together in `FGameplayTagContainers` for replication if `Fast Replication` is enabled in the project settings. `Fast Replication` requires that the server and the clients have the same list of `GameplayTags`. This generally shouldn't be a problem so you should enable this option. `GameplayTagContainers` can also return a `TArray<FGameplayTag>` for iteration.
+태그를 객체에 부여할 때는 ASC가 있는 경우 보통 ASC에 추가하여 GAS가 태그와 상호작용할 수 있게 한다. `UAbilitySystemComponent`는 `IGameplayTagAssetInterface`를 구현하여 소유한 GameplayTag에 접근하는 함수를 제공한다.
 
-`GameplayTags` stored in `FGameplayTagCountContainer` have a `TagMap` that stores the number of instances of that `GameplayTag`. A `FGameplayTagCountContainer` may still have the `GameplayTag` in it but its `TagMapCount` is zero. You may encounter this while debugging if an `ASC` still has a `GameplayTag`. Any of the `HasTag()` or `HasMatchingTag()` or similar functions will check the `TagMapCount` and return false if the `GameplayTag` is not present or its `TagMapCount` is zero.
+#### FGameplayTagContainer
 
-`GameplayTags` must be defined ahead of time in the `DefaultGameplayTags.ini`. The Unreal Engine Editor provides an interface in the project settings to let developers manage `GameplayTags` without needing to manually edit the `DefaultGameplayTags.ini`. The `GameplayTag` editor can create, rename, search for references, and delete `GameplayTags`.
+여러 GameplayTag는 `FGameplayTagContainer`에 저장할 수 있다. `TArray<FGameplayTag>`보다 `GameplayTagContainer`를 사용하는 것이 바람직한데, GameplayTagContainer에는 효율을 높이는 최적화가 내장되어 있기 때문이다. 태그는 표준 `FName`이지만, 프로젝트 설정에서 `Fast Replication`을 활성화하면 복제 시 `FGameplayTagContainer` 안에 효율적으로 패킹된다. Fast Replication을 사용하려면 서버와 클라이언트의 GameplayTag 목록이 동일해야 하는데, 일반적으로 문제가 되지 않으므로 이 옵션을 활성화하는 것이 좋다. `GameplayTagContainer`는 순회를 위해 `TArray<FGameplayTag>`를 반환하는 것도 지원한다.
+
+#### FGameplayTagCountContainer와 TagMapCount
+
+`FGameplayTagCountContainer`에 저장된 GameplayTag는 해당 GameplayTag의 인스턴스 수를 저장하는 `TagMap`을 가진다. `FGameplayTagCountContainer`에 GameplayTag가 들어 있더라도 `TagMapCount`가 0일 수 있다. ASC에 GameplayTag가 남아 있는 상태를 디버깅할 때 이런 상황을 마주칠 수 있다. `HasTag()`나 `HasMatchingTag()` 같은 함수들은 `TagMapCount`를 확인하여, GameplayTag가 없거나 `TagMapCount`가 0이면 false를 반환한다.
+
+#### 태그 등록 및 에디터
+
+GameplayTag는 `DefaultGameplayTags.ini`에 미리 정의해야 한다. 언리얼 엔진 에디터는 프로젝트 설정에서 `DefaultGameplayTags.ini`를 직접 수정하지 않고도 개발자가 GameplayTag를 관리할 수 있는 인터페이스를 제공한다. GameplayTag 에디터에서 GameplayTag를 생성, 이름 변경, 레퍼런스 검색, 삭제할 수 있다.
 
 ![GameplayTag Editor in Project Settings](https://github.com/tranek/GASDocumentation/raw/master/Images/gameplaytageditor.png)
 
-Searching for `GameplayTag` references will bring up the familiar `Reference Viewer` graph in the Editor showing all the assets that reference the `GameplayTag`. This will not however show any C++ classes that reference the `GameplayTag`.
+GameplayTag 레퍼런스를 검색하면 에디터의 친숙한 `Reference Viewer` 그래프가 열려 해당 GameplayTag를 참조하는 모든 에셋을 보여준다. 단, GameplayTag를 참조하는 C++ 클래스는 표시되지 않는다.
 
-Renaming `GameplayTags` creates a redirect so that assets still referencing the original `GameplayTag` can redirect to the new `GameplayTag`. I prefer if possible to instead create a new `GameplayTag`, update all the references manually to the new `GameplayTag`, and then delete the old `GameplayTag` to avoid creating a redirect.
+GameplayTag 이름을 변경하면 리다이렉트가 생성되어, 기존 GameplayTag를 참조하는 에셋이 새 GameplayTag로 리다이렉트될 수 있다. 가능하면 새 GameplayTag를 만들고, 모든 레퍼런스를 수동으로 새 GameplayTag로 업데이트한 뒤, 기존 GameplayTag를 삭제하는 방식을 권장한다. 이렇게 하면 리다이렉트 생성을 피할 수 있다.
 
-In addition to `Fast Replication`, the `GameplayTag` editor has an option to fill in commonly replicated `GameplayTags` to optimize them further.
+`Fast Replication` 외에도, GameplayTag 에디터에는 흔히 복제되는 GameplayTag를 등록하여 추가 최적화하는 옵션이 있다.
 
-`GameplayTags` are replicated if they're added from a `GameplayEffect`. The `ASC` allows you to add `LooseGameplayTags` that are not replicated and must be managed manually. The Sample Project uses a `LooseGameplayTag` for `State.Dead` so that the owning clients can immediately respond to when their health drops to zero. Respawning manually sets the `TagMapCount` back to zero. Only manually adjust the `TagMapCount` when working with `LooseGameplayTags`. It is preferable to use the `UAbilitySystemComponent::AddLooseGameplayTag()` and `UAbilitySystemComponent::RemoveLooseGameplayTag()` functions than manually adjusting the `TagMapCount`.
+#### 복제 방식 — GE 경유 vs LooseGameplayTag
 
-Getting a reference to a `GameplayTag` in C++:
+GameplayTag는 GameplayEffect를 통해 추가된 경우 복제된다. ASC에는 복제되지 않으며 수동으로 관리해야 하는 `LooseGameplayTag`를 추가하는 기능도 있다. 샘플 프로젝트에서는 `State.Dead`에 `LooseGameplayTag`를 사용하여, 체력이 0이 됐을 때 소유 클라이언트가 즉시 반응할 수 있게 한다. 리스폰 시에는 `TagMapCount`를 수동으로 0으로 초기화한다. `LooseGameplayTag`를 다룰 때만 `TagMapCount`를 수동으로 조정해야 한다. `TagMapCount`를 직접 조작하기보다는 `UAbilitySystemComponent::AddLooseGameplayTag()`와 `UAbilitySystemComponent::RemoveLooseGameplayTag()` 함수를 사용하는 것이 바람직하다.
+
+#### C++에서 태그 참조
+
 ```c++
 FGameplayTag::RequestGameplayTag(FName("Your.GameplayTag.Name"))
 ```
 
-For advanced `GameplayTag` manipulation like getting the parent or children `GameplayTags`, look at the functions offered by the `GameplayTagManager`. To access the `GameplayTagManager`, include `GameplayTagManager.h` and call it with `UGameplayTagManager::Get().FunctionName`. The `GameplayTagManager` actually stores the `GameplayTags` as relational nodes (parent, child, etc) for faster processing than constant string manipulation and comparisons.
+부모나 자식 GameplayTag를 가져오는 등 고급 GameplayTag 조작이 필요하다면 `GameplayTagManager`가 제공하는 함수들을 활용한다. `GameplayTagManager`에 접근하려면 `GameplayTagManager.h`를 인클루드하고 `UGameplayTagManager::Get().FunctionName`으로 호출한다. GameplayTagManager는 GameplayTag를 관계 노드(부모, 자식 등)로 저장하여 지속적인 문자열 조작 및 비교보다 빠르게 처리한다.
 
-`GameplayTags` and `GameplayTagContainers` can have the optional `UPROPERTY` specifier `Meta = (Categories = "GameplayCue")` that filters the tags in the Blueprint to show only `GameplayTags` that have the parent tag of `GameplayCue`. This is useful when you know the `GameplayTag` or `GameplayTagContainer` variable should only be used for `GameplayCues`.
+#### Blueprint 필터링
 
-Alternatively, there's a separate structure called `FGameplayCueTag` that encapsulates a `FGameplayTag` and also automatically filters `GameplayTags` in Blueprint to only show those tags with the parent tag of `GameplayCue`.
+GameplayTag와 GameplayTagContainer에는 선택적 `UPROPERTY` 지정자 `Meta = (Categories = "GameplayCue")`를 사용할 수 있다. 이를 지정하면 블루프린트에서 `GameplayCue` 부모 태그를 가진 GameplayTag만 표시되도록 필터링된다. 해당 GameplayTag 또는 GameplayTagContainer 변수가 GameplayCue에만 사용된다는 것을 알고 있을 때 유용하다.
 
-If you want to filter a `GameplayTag` parameter in a function, use the `UFUNCTION` specifier `Meta = (GameplayTagFilter = "GameplayCue")`. `GameplayTagContainer` parameters in functions can not be filtered. If you would like to edit your engine to allow this, look at how `SGameplayTagGraphPin::ParseDefaultValueData()` from `Engine\Plugins\Editor\GameplayTagsEditor\Source\GameplayTagsEditor\Private\SGameplayTagGraphPin.cpp` calls `FilterString = UGameplayTagsManager::Get().GetCategoriesMetaFromField(PinStructType);` and passes `FilterString` to `SGameplayTagWidget` in `SGameplayTagGraphPin::GetListContent()`. The `GameplayTagContainer` version of these functions in `Engine\Plugins\Editor\GameplayTagsEditor\Source\GameplayTagsEditor\Private\SGameplayTagContainerGraphPin.cpp` do not check for the meta field properties and pass along the filter.
+또한 `FGameplayCueTag`라는 별도 구조체가 있어 `FGameplayTag`를 감싸며, 블루프린트에서 `GameplayCue` 부모 태그를 가진 태그만 자동으로 필터링한다.
 
-The Sample Project extensively uses `GameplayTags`.
+함수의 GameplayTag 파라미터를 필터링하려면 `UFUNCTION` 지정자에 `Meta = (GameplayTagFilter = "GameplayCue")`를 사용한다. 함수의 `GameplayTagContainer` 파라미터는 필터링할 수 없다. 엔진을 수정하여 이를 가능하게 하려면, `Engine\Plugins\Editor\GameplayTagsEditor\Source\GameplayTagsEditor\Private\SGameplayTagGraphPin.cpp`의 `SGameplayTagGraphPin::ParseDefaultValueData()`가 `FilterString = UGameplayTagsManager::Get().GetCategoriesMetaFromField(PinStructType);`를 호출하고 `SGameplayTagGraphPin::GetListContent()`에서 `FilterString`을 `SGameplayTagWidget`에 전달하는 방식을 참고한다. `Engine\Plugins\Editor\GameplayTagsEditor\Source\GameplayTagsEditor\Private\SGameplayTagContainerGraphPin.cpp`의 GameplayTagContainer 버전 함수들은 메타 필드 프로퍼티를 확인하지 않고 필터를 그대로 전달한다.
+
+샘플 프로젝트는 GameplayTag를 광범위하게 사용한다.
 
 **[⬆ Back to Top](#table-of-contents)**
 

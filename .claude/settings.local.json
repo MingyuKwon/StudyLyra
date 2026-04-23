@@ -35,7 +35,11 @@
       "Bash(git commit *)",
       "Bash(wc *)",
       "WebFetch(domain:github.com)",
-      "Bash(curl -k -s \"https://raw.githubusercontent.com/tranek/GASDocumentation/master/README.md\")"
+      "Bash(curl -k -s \"https://raw.githubusercontent.com/tranek/GASDocumentation/master/README.md\")",
+      "Bash(python _fill_content.py)",
+      "Bash(python3 *)",
+      "Edit",
+      "Write"
     ]
   }
 }

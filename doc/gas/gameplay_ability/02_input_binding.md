@@ -7,14 +7,15 @@
 ## 개념 요약
 
 <a name="concepts-ga-input"></a>
-#### 4.6.2 Binding Input to the ASC
-The `ASC` allows you to directly bind input actions to it and assign those inputs to `GameplayAbilities` when you grant them. Input actions assigned to `GameplayAbilities` automatically activate those `GameplayAbilities` when pressed if the `GameplayTag` requirements are met. Assigned input actions are required to use the built-in `AbilityTasks` that respond to input.
+#### 4.6.2 ASC에 입력 바인딩
 
-In addition to input actions assigned to activate `GameplayAbilities`, the `ASC` also accepts generic `Confirm` and `Cancel` inputs. These special inputs are used by `AbilityTasks` for confirming things like [`Target Actors`](#concepts-targeting-actors) or canceling them.
+ASC는 입력 액션을 직접 바인딩하여, 부여된 GA에 해당 입력을 할당할 수 있다. 입력 액션이 할당된 GA는 GameplayTag 요건이 충족된 상태에서 해당 입력이 눌리면 자동으로 활성화된다. 또한 입력에 반응하는 내장 AbilityTask를 사용하려면 이 입력 할당이 필요하다.
 
-To bind input to an `ASC`, you must first create an enum that translates the input action name to a byte. The enum name must match exactly to the name used for the input action in the project settings. The `DisplayName` does not matter.
+GA 활성화용 입력 외에도, ASC는 범용 `Confirm`과 `Cancel` 입력을 별도로 받는다. 이는 [`Target Actor`](#concepts-targeting-actors) 확인이나 취소와 같은 AbilityTask 기능에 사용된다.
 
-From the Sample Project:
+ASC에 입력을 바인딩하려면, 먼저 InputAction 이름을 byte 값으로 변환하는 enum을 정의해야 한다. enum 이름은 프로젝트 설정의 InputAction 이름과 정확히 일치해야 한다. `DisplayName`은 일치하지 않아도 된다.
+
+샘플 프로젝트 예시:
 ```c++
 UENUM(BlueprintType)
 enum class EGDAbilityInputID : uint8
@@ -42,7 +43,7 @@ enum class EGDAbilityInputID : uint8
 };
 ```
 
-If your `ASC` lives on the `Character`, then in `SetupPlayerInputComponent()` include the function for binding to the `ASC`:
+ASC가 Character에 있는 경우, `SetupPlayerInputComponent()`에서 ASC에 바인딩하는 함수를 호출한다:
 ```c++
 // Bind to AbilitySystemComponent
 FTopLevelAssetPath AbilityEnumAssetPath = FTopLevelAssetPath(FName("/Script/GASDocumentation"), FName("EGDAbilityInputID"));
@@ -50,15 +51,16 @@ AbilitySystemComponent->BindAbilityActivationToInputComponent(PlayerInputCompone
 	FString("CancelTarget"), AbilityEnumAssetPath, static_cast<int32>(EGDAbilityInputID::Confirm), static_cast<int32>(EGDAbilityInputID::Cancel)));
 ```
 
-If your `ASC` lives on the `PlayerState`, there is a potential race condition inside of `SetupPlayerInputComponent()` where the `PlayerState` may not have replicated to the client yet. Therefore, I recommend attempting to bind to input in `SetupPlayerInputComponent()` and `OnRep_PlayerState()`. `OnRep_PlayerState()` is not sufficient by itself because there could be a case where the `Actor's` `InputComponent` could be null when `PlayerState` replicates before the `PlayerController` tells the client to call `ClientRestart()` which creates the `InputComponent`. The Sample Project demonstrates attempting to bind in both locations with a boolean gating the process so it only actually binds the input once.
+ASC가 PlayerState에 있는 경우, `SetupPlayerInputComponent()` 안에서 PlayerState가 아직 클라이언트에 복제되지 않았을 가능성이 있어 잠재적인 경쟁 조건(race condition)이 발생할 수 있다. 따라서 `SetupPlayerInputComponent()`와 `OnRep_PlayerState()` 양쪽에서 바인딩을 시도하는 것을 권장한다. `OnRep_PlayerState()` 단독으로는 충분하지 않은데, PlayerController가 클라이언트에게 `ClientRestart()`를 호출하기 전에 PlayerState가 먼저 복제될 경우 Actor의 InputComponent가 null일 수 있기 때문이다. 샘플 프로젝트는 bool 플래그를 사용하여 실제 바인딩이 한 번만 수행되도록 관리하면서 두 곳 모두에서 시도한다.
 
-**Note:** In the Sample Project `Confirm` and `Cancel` in the enum don't match the input action names in the project settings (`ConfirmTarget` and `CancelTarget`), but we supply the mapping between them in `BindAbilityActivationToInputComponent()`. These are special since we supply the mapping and they don't have to match, but they can match. All other inputs in the enum must match the input action names in the project settings.
+**참고:** 샘플 프로젝트의 enum에서 `Confirm`과 `Cancel`은 프로젝트 설정의 InputAction 이름(`ConfirmTarget`, `CancelTarget`)과 일치하지 않지만, `BindAbilityActivationToInputComponent()`에서 직접 매핑을 제공한다. 이 두 항목은 특수 케이스로 매핑을 직접 지정하기 때문에 이름이 달라도 된다(물론 같아도 된다). 나머지 입력 항목들은 프로젝트 설정의 InputAction 이름과 반드시 일치해야 한다.
 
-For `GameplayAbilities` that will only ever be activated by one input (they will always exist in the same "slot" like a MOBA), I prefer to add a variable to my `UGameplayAbility` subclass where I can define their input. I can then read this from the `ClassDefaultObject` when granting the ability.
+항상 동일한 슬롯에서만 활성화되는 GA(MOBA의 스킬 슬롯처럼)의 경우, `UGameplayAbility` 서브클래스에 입력 ID를 정의하는 변수를 추가하고 어빌리티 부여 시 `ClassDefaultObject`에서 이 값을 읽어오는 방식을 선호한다.
 
 <a name="concepts-ga-input-noactivate"></a>
-##### 4.6.2.1 Binding to Input without Activating Abilities
-If you don't want your `GameplayAbilities` to automatically activate when an input is pressed but still bind them to input to use with `AbilityTasks`, you can add a new bool variable to your `UGameplayAbility` subclass, `bActivateOnInput`, that defaults to `true` and override `UAbilitySystemComponent::AbilityLocalInputPressed()`.
+#### 4.6.2.1 활성화 없이 입력만 바인딩하기
+
+입력이 눌렸을 때 GA가 자동으로 활성화되지 않으면서도 AbilityTask에서 입력을 사용할 수 있도록 바인딩만 유지하고 싶다면, `UGameplayAbility` 서브클래스에 기본값이 `true`인 `bActivateOnInput` bool 변수를 추가하고 `UAbilitySystemComponent::AbilityLocalInputPressed()`를 오버라이드한다.
 
 ```c++
 void UGSAbilitySystemComponent::AbilityLocalInputPressed(int32 InputID)
@@ -114,7 +116,6 @@ void UGSAbilitySystemComponent::AbilityLocalInputPressed(int32 InputID)
 ```
 
 **[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

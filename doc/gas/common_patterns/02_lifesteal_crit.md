@@ -8,7 +8,8 @@
 
 <a name="cae-ls"></a>
 ### 5.4 Lifesteal
-I handle lifesteal inside of the damage [`ExecutionCalculation`](#concepts-ge-ec). The `GameplayEffect` will have a `GameplayTag` on it like `Effect.CanLifesteal`. The `ExecutionCalculation` checks if the `GameplayEffectSpec` has that `Effect.CanLifesteal` `GameplayTag`. If the `GameplayTag` exists, the `ExecutionCalculation` [creates a dynamic `Instant` `GameplayEffect`](#concepts-ge-dynamic) with the amount of health to give as the modifier and applies it back to the `Source's` `ASC`.
+
+Lifesteal은 데미지 ExecutionCalculation 내부에서 처리한다. GameplayEffect에는 `Effect.CanLifesteal`과 같은 GameplayTag가 부여된다. ExecutionCalculation은 GameplayEffectSpec에 해당 GameplayTag가 있는지 확인하고, 존재할 경우 회복할 체력량을 Modifier로 갖는 동적 Instant GameplayEffect를 생성하여 Source의 ASC에 적용한다.
 
 ```c++
 if (SpecAssetTags.HasTag(FGameplayTag::RequestGameplayTag(FName("Effect.Damage.CanLifesteal"))))
@@ -29,15 +30,12 @@ if (SpecAssetTags.HasTag(FGameplayTag::RequestGameplayTag(FName("Effect.Damage.C
 }
 ```
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="cae-crit"></a>
-### 5.6 Critical Hits
-I handle critical hits inside of the damage [`ExecutionCalculation`](#concepts-ge-ec). The `GameplayEffect` will have a `GameplayTag` on it like `Effect.CanCrit`. The `ExecutionCalculation` checks if the `GameplayEffectSpec` has that `Effect.CanCrit` `GameplayTag`. If the `GameplayTag` exists, the `ExecutionCalculation` generates a random number corresponding to the critical hit chance (`Attribute` captured from the `Source`) and adds the critical hit damage (also an `Attribute` captured from the `Source`) if it succeeded. Since I don't predict damage, I don't have to worry about synchronizing the random number generators on the client and server since the `ExecutionCalculation` will only run on the server. If you tried to do this predictively using an `MMC` to do your damage calculation, you would have to get a reference to the `random seed` from the `GameplayEffectSpec->GameplayEffectContext->GameplayAbilityInstance`.
+### 5.6 Critical Hits (치명타)
 
-See how [GASShooter](https://github.com/tranek/GASShooter) does headshots. It's the same concept except that it does not rely on a random number for chance and instead checks the `FHitResult` bone name.
+치명타는 데미지 ExecutionCalculation 내부에서 처리한다. GameplayEffect에는 `Effect.CanCrit`과 같은 GameplayTag가 부여된다. ExecutionCalculation은 GameplayEffectSpec에 해당 GameplayTag가 있는지 확인하고, 존재할 경우 Source로부터 치명타 확률 Attribute를 캡처하여 난수와 비교해 치명타 성공 여부를 판정한다. 치명타가 성공하면 역시 Source에서 캡처한 치명타 데미지 Attribute를 추가로 적용한다. 데미지를 예측(predict)하지 않으므로 클라이언트와 서버 사이의 난수 생성기 동기화를 걱정할 필요가 없다. ExecutionCalculation은 서버에서만 실행되기 때문이다. 만약 MMC를 사용해 예측 방식으로 데미지를 계산하고자 한다면, `GameplayEffectSpec->GameplayEffectContext->GameplayAbilityInstance`에서 random seed를 가져와야 한다.
 
-**[⬆ Back to Top](#table-of-contents)**
+GASShooter의 헤드샷 구현도 동일한 개념을 따르지만, 난수로 확률을 판정하는 대신 `FHitResult`의 bone name을 검사하는 방식을 사용한다.
 
 ---
 

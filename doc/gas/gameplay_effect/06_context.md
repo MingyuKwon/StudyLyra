@@ -8,18 +8,19 @@
 
 <a name="concepts-ge-context"></a>
 #### 4.5.10 Gameplay Effect Context
-The [`GameplayEffectContext`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/FGameplayEffectContext/index.html) structure holds information about a `GameplayEffectSpec's` instigator and [`TargetData`](#concepts-targeting-data). This is also a good structure to subclass to pass arbitrary data around between places like [`ModifierMagnitudeCalculations`](#concepts-ge-mmc) / [`GameplayEffectExecutionCalculations`](#concepts-ge-ec), [`AttributeSets`](#concepts-as), and [`GameplayCues`](#concepts-gc).
 
-To subclass the `GameplayEffectContext`:
+[`GameplayEffectContext`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/FGameplayEffectContext/index.html) 구조체는 `GameplayEffectSpec`의 인스티게이터(instigator)와 [`TargetData`](#concepts-targeting-data) 정보를 보유한다. 또한 [`ModifierMagnitudeCalculations`](#concepts-ge-mmc) / [`GameplayEffectExecutionCalculations`](#concepts-ge-ec), [`AttributeSets`](#concepts-as), [`GameplayCues`](#concepts-gc) 등 여러 곳에 임의의 데이터를 전달할 때 서브클래싱하기 좋은 구조체이기도 하다.
 
-1. Subclass `FGameplayEffectContext`
-1. Override `FGameplayEffectContext::GetScriptStruct()`
-1. Override `FGameplayEffectContext::Duplicate()`
-1. Override `FGameplayEffectContext::NetSerialize()` if your new data needs to be replicated
-1. Implement `TStructOpsTypeTraits` for your subclass, like the parent struct `FGameplayEffectContext` has
-1. Override `AllocGameplayEffectContext()` in your [`AbilitySystemGlobals`](#concepts-asg) class to return a new object of your subclass
+`GameplayEffectContext`를 서브클래싱하는 방법:
 
-[GASShooter](https://github.com/tranek/GASShooter) uses a subclassed `GameplayEffectContext` to add `TargetData` which can be accessed in `GameplayCues`, specifically for the shotgun since it can hit more than one enemy.
+1. `FGameplayEffectContext`를 서브클래스로 만든다
+1. `FGameplayEffectContext::GetScriptStruct()`를 오버라이드한다
+1. `FGameplayEffectContext::Duplicate()`를 오버라이드한다
+1. 새로 추가한 데이터를 복제해야 한다면 `FGameplayEffectContext::NetSerialize()`를 오버라이드한다
+1. 부모 구조체 `FGameplayEffectContext`와 마찬가지로 서브클래스에 대해 `TStructOpsTypeTraits`를 구현한다
+1. [`AbilitySystemGlobals`](#concepts-asg) 클래스에서 `AllocGameplayEffectContext()`를 오버라이드하여 서브클래스 객체를 반환하도록 한다
+
+[GASShooter](https://github.com/tranek/GASShooter)는 서브클래싱된 `GameplayEffectContext`를 사용해 `TargetData`를 추가한다. 이 `TargetData`는 `GameplayCues`에서 접근할 수 있으며, 특히 여러 적을 동시에 맞힐 수 있는 샷건에서 활용된다.
 
 **[⬆ Back to Top](#table-of-contents)**
 

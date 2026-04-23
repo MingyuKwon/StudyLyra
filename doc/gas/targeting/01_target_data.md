@@ -6,15 +6,19 @@
 
 ## 개념 요약
 
+<a name="concepts-targeting"></a>
+### 4.11 Targeting
+
 <a name="concepts-targeting-data"></a>
 #### 4.11.1 Target Data
-[`FGameplayAbilityTargetData`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/FGameplayAbilityTargetData/index.html) is a generic structure for targeting data meant to be passed across the network. `TargetData` will typically hold `AActor`/`UObject` references, `FHitResults`, and other generic location/direction/origin information. However, you can subclass it to put essentially anything that you want inside of them as a simple means to [pass data between the client and server in `GameplayAbilities`](#concepts-ga-data). The base struct `FGameplayAbilityTargetData` is not meant to be used directly but instead subclassed. `GAS` comes with a few subclassed `FGameplayAbilityTargetData` structs out of the box located in `GameplayAbilityTargetTypes.h`.
 
-`TargetData` is typically produced by [`Target Actors`](#concepts-targeting-actors) or **created manually** and consumed by [`AbilityTasks`](#concepts-at) and [`GameplayEffects`](#concepts-ge) via the [`EffectContext`](#concepts-ge-context). As a result of being in the `EffectContext`, [`Executions`](#concepts-ge-ec), [`MMCs`](#concepts-ge-mmc), [`GameplayCues`](#concepts-gc), and the functions on the backend of the [`AttributeSet`](#concepts-as) can access the `TargetData`.
+[`FGameplayAbilityTargetData`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/FGameplayAbilityTargetData/index.html)는 네트워크를 통해 전달하기 위한 범용 타게팅 데이터 구조체다. `TargetData`는 일반적으로 `AActor`/`UObject` 레퍼런스, `FHitResult`, 그 외 일반적인 위치/방향/원점 정보를 담는다. 그러나 서브클래싱을 통해 원하는 거의 모든 데이터를 넣을 수 있으며, [`GameplayAbility` 내에서 클라이언트와 서버 사이에 데이터를 전달](#concepts-ga-data)하는 간단한 수단으로 활용된다. 기본 구조체 `FGameplayAbilityTargetData`는 직접 사용하는 것이 아니라 서브클래싱하여 사용한다. `GAS`는 `GameplayAbilityTargetTypes.h`에 기본 제공하는 `FGameplayAbilityTargetData` 서브클래스 구조체들을 포함하고 있다.
 
-We don't typically pass around the `FGameplayAbilityTargetData` directly, instead we use a [`FGameplayAbilityTargetDataHandle`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/FGameplayAbilityTargetDataHandle/index.html) which has an internal TArray of pointers to `FGameplayAbilityTargetData`. This intermediate struct provides support for polymorphism of the `TargetData`.
+`TargetData`는 일반적으로 [`Target Actors`](#concepts-targeting-actors)가 생성하거나 **수동으로 생성**되며, [`AbilityTasks`](#concepts-at) 및 [`GameplayEffects`](#concepts-ge)에서 [`EffectContext`](#concepts-ge-context)를 통해 소비된다. `EffectContext`에 들어가 있기 때문에, [`Executions`](#concepts-ge-ec), [`MMCs`](#concepts-ge-mmc), [`GameplayCues`](#concepts-gc), 그리고 [`AttributeSet`](#concepts-as) 백엔드 함수들이 `TargetData`에 접근할 수 있다.
 
-An example of inheritting from `FGameplayAbilityTargetData`:
+우리는 보통 `FGameplayAbilityTargetData`를 직접 전달하지 않고, 대신 내부에 `FGameplayAbilityTargetData` 포인터의 `TArray`를 가진 [`FGameplayAbilityTargetDataHandle`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/FGameplayAbilityTargetDataHandle/index.html)을 사용한다. 이 중간 구조체는 `TargetData`의 다형성(polymorphism)을 지원한다.
+
+`FGameplayAbilityTargetData` 서브클래싱 예시:
 ```c++
 USTRUCT(BlueprintType)
 struct MYGAME_API FGameplayAbilityTargetData_CustomData : public FGameplayAbilityTargetData
@@ -57,7 +61,7 @@ struct TStructOpsTypeTraits<FGameplayAbilityTargetData_CustomData> : public TStr
 	};
 };
 ```
-For adding the target data to a handle:
+핸들에 TargetData를 추가하는 예시:
 ```c++
 UFUNCTION(BlueprintPure)
 FGameplayAbilityTargetDataHandle MakeTargetDataFromCustomName(const FName CustomName)
@@ -78,9 +82,9 @@ FGameplayAbilityTargetDataHandle MakeTargetDataFromCustomName(const FName Custom
 }
 ```
 
-For getting values it requires doing type safety checking, because the only way to get values from the handle's target data is by using generic C/C++ casting for it which is *NOT* type safe which can cause object slicing and crashes. For type checking there are multiple ways of doing this(however you want honestly) two common ways are:
-- Gameplay Tag(s): You can use a subclass hierarchy where you know that anytime a certain code architecture's functionality occurs, you can cast for the base parent type and get its gameplay tag(s) and then compare against those for casting for inherited classes.
-- Script Struct & Static Structs: You can instead do direct class comparison(which can involve a lot of IF statements or making some template functions), below is an example of doing this but basically you can get the script struct from any `FGameplayAbilityTargetData`(this is a nice advantage of it being a `USTRUCT` and requiring any inherited classes to specify the struct type in `GetScriptStruct`) and compare if its the type you're looking for. Below is an example of using these functions for type checking:
+핸들에서 값을 꺼낼 때는 타입 안전성 검사가 필요하다. 핸들의 TargetData에서 값을 가져오는 유일한 방법은 타입 안전하지 않은 일반 C/C++ 캐스팅을 사용하는 것인데, 이는 object slicing과 크래시를 유발할 수 있다. 타입 체크 방법은 여러 가지가 있으며, 대표적인 두 가지는 다음과 같다:
+- **Gameplay Tag 사용**: 특정 코드 아키텍처의 기능이 실행될 때마다 기본 부모 타입으로 캐스팅하고 그 Gameplay Tag를 가져온 뒤, 이를 상속된 클래스로의 캐스팅 여부를 비교하는 서브클래스 계층 구조를 사용할 수 있다.
+- **Script Struct & Static Struct 사용**: 직접적인 클래스 비교를 수행할 수 있다(많은 IF 문이나 템플릿 함수 작성이 필요할 수 있음). 기본적으로 어떤 `FGameplayAbilityTargetData`에서도 Script Struct를 얻어 원하는 타입인지 비교할 수 있다(이는 `USTRUCT`이고, 상속된 모든 클래스가 `GetScriptStruct`에서 구조체 타입을 명시해야 한다는 점에서 이점이 있다). 타입 체크에 이러한 함수를 활용하는 예시:
 ```c++
 UFUNCTION(BlueprintPure)
 FName GetCoolNameFromTargetData(const FGameplayAbilityTargetDataHandle& Handle, const int Index)

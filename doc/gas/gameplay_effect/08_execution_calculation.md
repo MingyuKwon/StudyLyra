@@ -8,34 +8,37 @@
 
 <a name="concepts-ge-ec"></a>
 #### 4.5.12 Gameplay Effect Execution Calculation
-[`GameplayEffectExecutionCalculations`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayEffectExecutionCalculat-/index.html) (`ExecutionCalculation`, `Execution` (you will often see this term in the plugin's source code), or `ExecCalc`) are the most powerful way for `GameplayEffects` to make changes to an `ASC`. Like [`ModifierMagnitudeCalculations`](#concepts-ge-mmc), these can capture `Attributes` and optionally snapshot them. Unlike `MMCs`, these can change more than one `Attribute` and essentially do anything else that the programmer wants. The downside to this power and flexibility is that they can not be [predicted](#concepts-p) and they must be implemented in C++.
 
-`ExecutionCalculations` can only be used with `Instant` and `Periodic` `GameplayEffects`. Anything with the word 'Execute' in it typically refers to these two types of `GameplayEffects`.
+[`GameplayEffectExecutionCalculations`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayEffectExecutionCalculat-/index.html)(`ExecutionCalculation`, `Execution` — 플러그인 소스 코드에서 이 용어를 자주 볼 수 있다 — 또는 `ExecCalc`)는 `GameplayEffects`가 `ASC`에 변화를 주는 가장 강력한 방법이다. [`ModifierMagnitudeCalculations`](#concepts-ge-mmc)처럼 `Attributes`를 캡처하고 선택적으로 스냅샷할 수 있다. `MMC`와 달리 이 방식은 하나 이상의 `Attribute`를 변경할 수 있으며, 프로그래머가 원하는 거의 모든 것을 수행할 수 있다. 이러한 강력함과 유연성의 단점은 [예측(predicted)](#concepts-p)이 불가능하고 반드시 C++로 구현해야 한다는 것이다.
 
-Snapshotting captures the `Attribute` when the `GameplayEffectSpec` is created whereas not snapshotting captures the `Attribute` when the `GameplayEffectSpec` is applied. Capturing `Attributes` recalculates their `CurrentValue` from existing mods on the `ASC`. This recalculation will **not** run [`PreAttributeChange()`](#concepts-as-preattributechange) in the `AbilitySet` so any clamping must be done here again.
+`ExecutionCalculations`는 `Instant`와 `Periodic` `GameplayEffects`에서만 사용할 수 있다. 소스 코드에서 'Execute'라는 단어가 포함된 것은 보통 이 두 가지 유형의 `GameplayEffects`를 가리킨다.
 
-| Snapshot | Source or Target | Captured on `GameplayEffectSpec` |
-| -------- | ---------------- | -------------------------------- |
-| Yes      | Source           | Creation                         |
-| Yes      | Target           | Application                      |
-| No       | Source           | Application                      |
-| No       | Target           | Application                      |
+스냅샷(Snapshotting)은 `GameplayEffectSpec`이 생성될 때 `Attribute`를 캡처하는 반면, 스냅샷하지 않으면 `GameplayEffectSpec`이 적용될 때 `Attribute`를 캡처한다. `Attributes`를 캡처하면 `ASC`에 존재하는 기존 mod들로부터 `CurrentValue`를 재계산한다. 이 재계산은 `AbilitySet`의 [`PreAttributeChange()`](#concepts-as-preattributechange)를 **실행하지 않으므로**, 클램핑이 필요하다면 이 안에서 다시 수행해야 한다.
 
-To set up `Attribute` capture, we follow a pattern set by Epic's ActionRPG Sample Project by defining a struct holding and defining how we capture the `Attributes` and creating one copy of it in the struct's constructor. You will have a struct like this for every `ExecCalc`. **Note:** Each struct needs a unique name as they share the same namespace. Using the same name for the structs will cause incorrect behavior in capturing your `Attributes` (mostly capturing the values of the wrong `Attributes`).
+| Snapshot 여부 | Source/Target | `GameplayEffectSpec` 캡처 시점 |
+| ------------- | ------------- | ------------------------------ |
+| Yes           | Source        | 생성 시                        |
+| Yes           | Target        | 적용 시                        |
+| No            | Source        | 적용 시                        |
+| No            | Target        | 적용 시                        |
 
-For `Local Predicted`, `Server Only`, and `Server Initiated` [`GameplayAbilities`](#concepts-ga), the `ExecCalc` only calls on the Server.
+`Attribute` 캡처를 설정하려면, Epic의 ActionRPG Sample Project에서 정립한 패턴을 따른다. `Attributes`를 어떻게 캡처할지 정의하는 구조체를 선언하고, 해당 구조체의 생성자에서 인스턴스를 하나 생성한다. `ExecCalc`마다 이런 구조체가 하나씩 필요하다. **주의:** 각 구조체는 같은 네임스페이스를 공유하기 때문에 반드시 고유한 이름을 가져야 한다. 이름이 충돌하면 `Attributes`를 캡처할 때 잘못된 `Attribute` 값(주로 다른 `Attribute`의 값)을 캡처하는 버그가 발생한다.
 
-Calculating damage received based on a complex formula reading from many attributes on the `Source` and the `Target` is the most common example of an `ExecCalc`. The included Sample Project has a simple `ExecCalc` for calculating damage that reads the value of damage from the `GameplayEffectSpec's` [`SetByCaller`](#concepts-ge-spec-setbycaller) and then mitigates that value based on the armor `Attribute` captured from the `Target`. See `GDDamageExecCalculation.cpp/.h`.
+`Local Predicted`, `Server Only`, `Server Initiated` [`GameplayAbilities`](#concepts-ga)의 경우, `ExecCalc`는 서버에서만 호출된다.
+
+가장 흔한 `ExecCalc` 활용 예는 Source와 Target의 여러 Attribute를 복잡한 공식으로 읽어 받는 데미지를 계산하는 것이다. 샘플 프로젝트에는 `GameplayEffectSpec`의 [`SetByCaller`](#concepts-ge-spec-setbycaller)에서 데미지 값을 읽고, Target에서 캡처한 방어구(armor) `Attribute`로 그 값을 경감하는 간단한 `ExecCalc`가 포함되어 있다. `GDDamageExecCalculation.cpp/.h`를 참고하라.
 
 **[⬆ Back to Top](#table-of-contents)**
 
 <a name="concepts-ge-ec-senddata"></a>
-##### 4.5.12.1 Sending Data to Execution Calculations
-There are a few ways to send data to an `ExecutionCalculation` in addition to capturing `Attributes`.
+##### 4.5.12.1 Execution Calculation에 데이터 전달하기
+
+`Attributes`를 캡처하는 것 외에도 `ExecutionCalculation`에 데이터를 전달하는 방법이 몇 가지 있다.
 
 <a name="concepts-ge-ec-senddata-setbycaller"></a>
 ###### 4.5.12.1.1 SetByCaller
-Any [`SetByCallers` set on the `GameplayEffectSpec`](#concepts-ge-spec-setbycaller) can be directly read in the `ExecutionCalculation`.
+
+`GameplayEffectSpec`에 설정된 [`SetByCallers`](#concepts-ge-spec-setbycaller)는 `ExecutionCalculation`에서 직접 읽을 수 있다.
 
 ```c++
 const FGameplayEffectSpec& Spec = ExecutionParams.GetOwningSpec();
@@ -44,13 +47,14 @@ float Damage = FMath::Max<float>(Spec.GetSetByCallerMagnitude(FGameplayTag::Requ
 
 <a name="concepts-ge-ec-senddata-backingdataattribute"></a>
 ###### 4.5.12.1.2 Backing Data Attribute Calculation Modifier
-If you want to hardcode values to a `GameplayEffect`, you can pass them in using a `CalculationModifier` that uses one of the captured `Attributes` as the backing data.
 
-In this screenshot example, we're adding 50 to the captured Damage `Attribute`. You could also set this to `Override` to just take in only the hardcoded value.
+`GameplayEffect`에 하드코딩된 값을 전달하고 싶다면, 캡처된 `Attributes` 중 하나를 backing data로 사용하는 `CalculationModifier`를 통해 전달할 수 있다.
+
+아래 스크린샷 예시에서는 캡처된 Damage `Attribute`에 50을 더하고 있다. `Override`로 설정하면 하드코딩된 값만 사용할 수도 있다.
 
 ![Backing Data Attribute Calculation Modifier](https://github.com/tranek/GASDocumentation/raw/master/Images/calculationmodifierbackingdataattribute.png)
 
-The `ExecutionCalculation` reads this value in when it captures the `Attribute`.
+`ExecutionCalculation`은 `Attribute`를 캡처할 때 이 값을 함께 읽는다.
 
 ```c++
 float Damage = 0.0f;
@@ -60,19 +64,20 @@ ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().Damag
 
 <a name="concepts-ge-ec-senddata-backingdatatempvariable"></a>
 ###### 4.5.12.1.3 Backing Data Temporary Variable Calculation Modifier
-If you want to hardcode values to a `GameplayEffect`, you can pass them in using a `CalculationModifier` that uses a `Temporary Variable` or `Transient Aggregator` as it's called in C++. The `Temporary Variable` is associated with a `GameplayTag`.
 
-In this screenshot example, we're adding 50 to a `Temporary Variable` using the `Data.Damage` `GameplayTag`.
+`GameplayEffect`에 하드코딩된 값을 전달하는 또 다른 방법으로, C++에서 `Transient Aggregator`라 불리는 `Temporary Variable`을 `CalculationModifier`의 backing data로 사용할 수 있다. `Temporary Variable`은 `GameplayTag`와 연결된다.
+
+아래 스크린샷 예시에서는 `Data.Damage` `GameplayTag`를 사용해 `Temporary Variable`에 50을 더하고 있다.
 
 ![Backing Data Temporary Variable Calculation Modifier](https://github.com/tranek/GASDocumentation/raw/master/Images/calculationmodifierbackingdatatempvariable.png)
 
-Add backing `Temporary Variables` to your `ExecutionCalculation`'s constructor:
+`ExecutionCalculation`의 생성자에서 backing `Temporary Variables`를 추가한다:
 
 ```c++
 ValidTransientAggregatorIdentifiers.AddTag(FGameplayTag::RequestGameplayTag("Data.Damage"));
 ```
 
-The `ExecutionCalculation` reads this value in using special capture functions similar to the `Attribute` capture functions.
+`ExecutionCalculation`은 `Attribute` 캡처 함수와 유사한 전용 캡처 함수로 이 값을 읽는다.
 
 ```c++
 float Damage = 0.0f;
@@ -81,23 +86,24 @@ ExecutionParams.AttemptCalculateTransientAggregatorMagnitude(FGameplayTag::Reque
 
 <a name="concepts-ge-ec-senddata-effectcontext"></a>
 ###### 4.5.12.1.4 Gameplay Effect Context
-You can send data to the `ExecutionCalculation` via a custom [`GameplayEffectContext` on the `GameplayEffectSpec`](#concepts-ge-context).
 
-In the `ExecutionCalculation` you can access the `EffectContext` from the `FGameplayEffectCustomExecutionParameters`.
+`GameplayEffectSpec`에 설정된 커스텀 [`GameplayEffectContext`](#concepts-ge-context)를 통해 `ExecutionCalculation`에 데이터를 전달할 수 있다.
+
+`ExecutionCalculation`에서 `FGameplayEffectCustomExecutionParameters`를 통해 `EffectContext`에 접근할 수 있다.
 
 ```c++
 const FGameplayEffectSpec& Spec = ExecutionParams.GetOwningSpec();
 FGSGameplayEffectContext* ContextHandle = static_cast<FGSGameplayEffectContext*>(Spec.GetContext().Get());
 ```
 
-If you need change something on the `GameplayEffectSpec` or the `EffectContext`:
+`GameplayEffectSpec` 또는 `EffectContext`의 내용을 변경해야 한다면:
 
 ```c++
 FGameplayEffectSpec* MutableSpec = ExecutionParams.GetOwningSpecForPreExecuteMod();
 FGSGameplayEffectContext* ContextHandle = static_cast<FGSGameplayEffectContext*>(MutableSpec->GetContext().Get());
 ```
 
-Use caution if modifying the `GameplayEffectSpec` in the `ExecutionCalculation`. See the comment for `GetOwningSpecForPreExecuteMod()`.
+`ExecutionCalculation`에서 `GameplayEffectSpec`을 수정할 때는 주의가 필요하다. `GetOwningSpecForPreExecuteMod()`의 주석을 참고하라.
 
 ```c++
 /** Non const access. Be careful with this, especially when modifying a spec after attribute capture. */
