@@ -27,8 +27,6 @@
 
 `AbilityTask` 생성자에서 `bTickingTask = true`로 설정하고 `virtual void TickTask(float DeltaTime)`를 오버라이드하면 `AbilityTask`가 `Tick`을 수행할 수 있다. 프레임에 걸쳐 값을 부드럽게 보간(lerp)해야 할 때 유용하다. 예시로 `AbilityTask_MoveToLocation.h/.cpp`를 참고하라.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

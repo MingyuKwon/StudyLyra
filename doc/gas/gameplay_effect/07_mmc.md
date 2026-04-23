@@ -80,8 +80,6 @@ float UPAMMC_PoisonMana::CalculateBaseMagnitude_Implementation(const FGameplayEf
 
 `MMC` 생성자에서 `FGameplayEffectAttributeCaptureDefinition`을 `RelevantAttributesToCapture`에 추가하지 않은 채로 `Attributes`를 캡처하려 하면, 캡처 시 Spec 누락 오류가 발생한다. `Attributes`를 캡처할 필요가 없다면 `RelevantAttributesToCapture`에 아무것도 추가하지 않아도 된다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

@@ -36,8 +36,6 @@
 
 4.24부터 `PossessedBy()`가 `Pawn`의 Owner를 새 `Controller`로 자동 설정한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

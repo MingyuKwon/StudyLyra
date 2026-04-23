@@ -40,8 +40,6 @@ TargetActor는 기본 트레이스나 콜리전 오버랩을 사용하여 타게
 
 기본 `TargetActor` 클래스에서는 `Actor`가 트레이스/오버랩 범위 안에 직접 있을 때만 유효한 타겟으로 인정된다. 트레이스/오버랩 범위를 벗어나면(이동하거나 시선을 돌리면) 더 이상 유효하지 않다. `TargetActor`가 마지막으로 유효했던 타겟을 기억하게 하려면, 커스텀 `TargetActor` 클래스에 이 기능을 추가해야 한다. 이를 "persistent target"이라고 부르는데, `TargetActor`가 확인 또는 취소를 받거나, `TargetActor`가 트레이스/오버랩에서 새로운 유효 타겟을 찾거나, 타겟이 더 이상 유효하지 않을 때(파괴될 때)까지 유지된다. GASShooter는 로켓 런처의 보조 어빌리티 유도 로켓 타게팅에 persistent target을 사용한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

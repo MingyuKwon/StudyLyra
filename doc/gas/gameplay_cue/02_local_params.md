@@ -49,8 +49,6 @@ void UPAAbilitySystemComponent::RemoveGameplayCueLocal(const FGameplayTag Gamepl
 
 `GameplayCue`가 로컬로 `Added`되었다면 반드시 로컬로 `Removed`해야 한다. 복제를 통해 `Added`되었다면 복제를 통해 `Removed`해야 한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-gc-parameters"></a>
 #### 4.8.4 GameplayCue Parameters
 
@@ -75,8 +73,6 @@ virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, co
 virtual void InitGameplayCueParameters_GESpec(FGameplayCueParameters& CueParameters, const FGameplayEffectSpec &Spec);
 virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectContextHandle& EffectContext);
 ```
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

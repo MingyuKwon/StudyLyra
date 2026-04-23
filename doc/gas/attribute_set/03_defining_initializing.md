@@ -56,8 +56,6 @@ void UGDAttributeSetBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 
 `Meta Attribute`처럼 복제가 필요 없는 `Attribute`라면 `OnRep`와 `GetLifetimeReplicatedProps` 단계는 생략해도 된다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-as-init"></a>
 #### 4.4.4 Attribute 초기화
 
@@ -75,8 +73,6 @@ AttributeSet->InitHealth(100.0f);
 `Attribute`를 초기화하는 더 많은 방법은 `AttributeSet.h`를 참고한다.
 
 **참고:** 언리얼 4.24 이전에는 `FAttributeSetInitterDiscreteLevels`가 `FGameplayAttributeData`와 호환되지 않았다. `Attribute`가 raw float이던 시절에 만들어진 것으로, `FGameplayAttributeData`가 Plain Old Data(`POD`)가 아니라는 오류가 발생했다. 이 문제는 4.24에서 수정되었다: https://issues.unrealengine.com/issue/UE-76557.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

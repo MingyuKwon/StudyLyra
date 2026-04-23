@@ -27,8 +27,6 @@ Task->ReadyForActivation();
 
 `AbilityTask`를 수동으로 취소하려면 블루프린트(Async Task Proxy 오브젝트)나 C++ 모두에서 `AbilityTask` 객체의 `EndTask()`를 호출하면 된다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

@@ -27,8 +27,6 @@ void FCommonConversationRuntimeModule::StartupModule()
 
 이 코드는 `Plugins\CommonConversation\Config\Tags` 디렉터리를 검색하여, 플러그인이 활성화된 상태에서 엔진이 시작될 때 해당 디렉터리의 GameplayTag가 담긴 .ini 파일을 프로젝트에 로드한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

@@ -37,8 +37,6 @@ GAS의 현재 알려진 문제점:
 * `GameplayEffect` 제거를 예측할 수 없다. 반대 효과를 가진 `GameplayEffect`를 추가하는 방식으로 사실상 제거하는 예측은 가능하지만, 항상 적절하거나 실현 가능하지는 않으며 여전히 문제로 남아 있다.
 * 보일러플레이트 템플릿, 멀티플레이어 예제, 문서 부족. 이 문서가 그 부분에 도움이 되길 바란다!
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="sp"></a>
 ## 2. 샘플 프로젝트
 
@@ -96,8 +94,6 @@ GAS의 현재 알려진 문제점:
 | GC_ | GameplayCue |
 | GE_ | GameplayEffect |
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="setup"></a>
 ## 3. GAS를 사용하는 프로젝트 설정
 
@@ -108,8 +104,6 @@ GAS를 사용하는 프로젝트를 설정하는 기본 단계:
 1. 4.24부터 5.2까지는 [`TargetData`](#concepts-targeting-data)를 사용하기 위해 `UAbilitySystemGlobals::Get().InitGlobalData()`를 반드시 호출해야 한다. 샘플 프로젝트는 `UAssetManager::StartInitialLoading()`에서 이를 호출한다. 5.3부터는 자동으로 호출된다. 자세한 내용은 [`InitGlobalData()`](#concepts-asg-initglobaldata)를 참조.
 
 GAS를 활성화하기 위해 해야 할 일은 이것이 전부다. 이제 `Character` 또는 `PlayerState`에 [`ASC`](#concepts-asc)와 [`AttributeSet`](#concepts-as)을 추가하고 [`GameplayAbility`](#concepts-ga)와 [`GameplayEffect`](#concepts-ge)를 만들기 시작하면 된다!
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

@@ -30,8 +30,6 @@
 
 샘플 프로젝트에는 스턴과 스프린트 효과를 위한 `GameplayCueNotify_Actor`와, FireGun의 발사체 임팩트를 위한 `GameplayCueNotify_Static`이 포함되어 있다. 이 `GC`들은 `GE`를 통해 복제하는 대신 [로컬에서 트리거](#concepts-gc-local)하는 방식으로 추가 최적화가 가능하다. 샘플 프로젝트에서는 초보자 친화적인 방식을 보여주기 위해 이 방식을 선택했다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-gc-trigger"></a>
 #### 4.8.2 GameplayCue 트리거
 
@@ -60,8 +58,6 @@ void RemoveGameplayCue(const FGameplayTag GameplayCueTag);
 /** Removes any GameplayCue added on its own, i.e. not as part of a GameplayEffect. */
 void RemoveAllGameplayCues();
 ```
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

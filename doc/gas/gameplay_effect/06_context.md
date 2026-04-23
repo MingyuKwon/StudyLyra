@@ -22,8 +22,6 @@
 
 [GASShooter](https://github.com/tranek/GASShooter)는 서브클래싱된 `GameplayEffectContext`를 사용해 `TargetData`를 추가한다. 이 `TargetData`는 `GameplayCues`에서 접근할 수 있으며, 특히 여러 적을 동시에 맞힐 수 있는 샷건에서 활용된다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

@@ -36,8 +36,6 @@ FGameplayTargetDataFilterHandle UGDTargetDataFilterBlueprintLibrary::MakeGDNameF
 }
 ```
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-targeting-reticles"></a>
 #### 4.11.4 Gameplay Ability World Reticles
 
@@ -71,8 +69,6 @@ void SetReticleMaterialParamVector(FName ParamName, FVector value);
 `Reticle`은 기본적으로 복제되지 않지만, 다른 플레이어에게 로컬 플레이어가 누구를 타게팅하는지 보여주는 것이 게임에 의미가 있다면 복제하도록 만들 수 있다.
 
 `Reticle`은 기본 `TargetActor`를 사용하면 현재 유효한 타겟에만 표시된다. 예를 들어 `AGameplayAbilityTargetActor_SingleLineTrace`를 사용하여 타겟을 추적하는 경우, `Reticle`은 적이 트레이스 경로 안에 직접 있을 때만 나타난다. 시선을 돌리면 적은 더 이상 유효한 타겟이 아니고 `Reticle`은 사라진다. 마지막으로 유효했던 타겟에 `Reticle`이 남아 있게 하고 싶다면, `TargetActor`를 커스텀하여 마지막으로 유효했던 타겟을 기억하고 `Reticle`을 그 위에 유지하도록 해야 한다. 이를 "persistent target"이라고 부르는데, `TargetActor`가 확인 또는 취소를 받거나, `TargetActor`가 트레이스/오버랩에서 새로운 유효 타겟을 찾거나, 타겟이 더 이상 유효하지 않을 때(파괴될 때)까지 유지된다. GASShooter는 로켓 런처의 보조 어빌리티 유도 로켓 타게팅에 persistent target을 사용한다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

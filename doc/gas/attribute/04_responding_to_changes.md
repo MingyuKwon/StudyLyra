@@ -25,8 +25,6 @@ virtual void HealthChanged(const FOnAttributeChangeData& Data);
 
 ![Listen for Attribute Change BP Node](https://github.com/tranek/GASDocumentation/raw/master/Images/attributechange.png)
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

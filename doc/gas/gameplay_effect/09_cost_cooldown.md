@@ -17,8 +17,6 @@
 
 `CAR`는 더 고급 기능도 수행할 수 있다. 예를 들어, 이 `GameplayEffect`의 인스턴스가 이미 Target에 적용되어 있는지 확인하고, 새 인스턴스를 적용하는 대신 기존 인스턴스의 [지속시간을 변경](#concepts-ge-duration)하는 것이 그 예다(이 경우 `CanApplyGameplayEffect()`에서 false를 반환한다).
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-cost"></a>
 #### 4.5.14 Cost Gameplay Effect
 
@@ -53,8 +51,6 @@ FScalableFloat Cost;
 ![Cost GE With MMC](https://github.com/tranek/GASDocumentation/raw/master/Images/costmmc.png)
 
 2. **`UGameplayAbility::GetCostGameplayEffect()` 오버라이드.** 이 함수를 오버라이드하여 `GameplayAbility`의 비용 값을 읽는 [런타임 `GameplayEffect`](#concepts-ge-dynamic)를 생성한다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 <a name="concepts-ge-cooldown"></a>
 #### 4.5.15 Cooldown Gameplay Effect
@@ -174,8 +170,6 @@ float UPGMMC_HeroAbilityCooldown::CalculateBaseMagnitude_Implementation(const FG
 
 ![Cooldown GE with MMC](https://github.com/tranek/GASDocumentation/raw/master/Images/cooldownmmc.png)
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-cooldown-tr"></a>
 ##### 4.5.15.1 Cooldown Gameplay Effect의 남은 시간 조회
 ```c++
@@ -237,8 +231,6 @@ bool APGPlayerState::GetCooldownRemainingForTag(FGameplayTagContainer CooldownTa
 이러한 게임플레이 상의 결과로, 레이턴시가 높은 플레이어는 쿨다운이 짧은 어빌리티에서 레이턴시가 낮은 플레이어보다 발사 속도가 느려져 불리해진다. Fortnite는 이 문제를 피하기 위해 Cooldown `GameplayEffects`를 사용하지 않는 자체 북키핑(bookkeeping) 방식을 무기에 적용했다.
 
 진정한 쿨다운 예측(로컬 쿨다운이 만료되면 서버가 아직 쿨다운 중이더라도 `GameplayAbility`를 발동할 수 있게 하는 것)은 Epic이 [GAS의 향후 개선](#concepts-p-future)에서 언젠가 구현하고 싶다고 밝힌 사항이다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

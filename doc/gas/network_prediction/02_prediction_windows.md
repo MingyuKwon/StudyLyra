@@ -21,8 +21,6 @@
 
 owning 클라이언트에서 예측된 `GameplayEffect`가 두 번 재생된다면, Prediction Key가 stale 상태인 "redo 문제"를 겪고 있는 것이다. `GameplayEffect`를 적용하기 직전에 `OnlyServerWait` 옵션의 `WaitNetSync` `AbilityTask`를 추가하여 새로운 Scoped Prediction Key를 생성하면 대개 해결할 수 있다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-p-spawn"></a>
 #### 4.10.3 액터 예측 스폰
 
@@ -38,8 +36,6 @@ bool APAReplicatedActorExceptOwner::IsNetRelevantFor(const AActor * RealViewer, 
 ```
 
 스폰된 `Actor`가 데미지 예측이 필요한 발사체처럼 게임플레이에 영향을 미친다면, 이 문서의 범위를 벗어나는 고급 로직이 필요하다. Epic Games의 GitHub에서 UnrealTournament가 발사체를 예측적으로 스폰하는 방식을 참고하라. owning 클라이언트에만 더미 발사체를 스폰하여 서버의 복제 발사체와 동기화하는 방식을 사용한다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

@@ -30,8 +30,6 @@ https://forums.unrealengine.com/development-discussion/c-gameplay-programming/17
 
 `GameplayEffect`에 등록된 모든 `GameplayCue`는 이미 하나의 RPC로 전송된다. 기본적으로 `UGameplayCueManager::InvokeGameplayCueAddedAndWhileActive_FromSpec()`은 ASC의 `Replication Mode`에 관계없이 비신뢰성 NetMulticast로 전체 `GameplayEffectSpec`(단, `FGameplayEffectSpecForRPC`로 변환된 형태)을 전송한다. `GameplayEffectSpec`의 내용에 따라 데이터량이 상당할 수 있다. cvar `AbilitySystem.AlwaysConvertGESpecToGCParams 1`을 설정하면 `GameplayEffectSpec`을 `FGameplayCueParameter` 구조체로 변환하여 전체 `FGameplayEffectSpecForRPC` 대신 이 구조체를 RPC로 전송하는 방식으로 최적화할 수 있다. 이 방식은 잠재적으로 대역폭을 절약하지만, `GESpec`이 `GameplayCueParameters`로 변환되는 방식과 `GC`가 필요로 하는 정보에 따라 일부 정보가 손실될 수 있다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

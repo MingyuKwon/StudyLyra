@@ -25,8 +25,6 @@ virtual void OnActiveGameplayEffectAddedCallback(UAbilitySystemComponent* Target
 
 서버는 복제 모드와 무관하게 항상 이 함수를 호출한다. Autonomous Proxy는 `Full` 및 `Mixed` 복제 모드에서 복제된 GameplayEffect에 대해서만 호출된다. Simulated Proxy는 `Full` [복제 모드](#concepts-asc-rm)에서만 호출된다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ga-removing"></a>
 #### 4.5.3 GameplayEffect 제거
 
@@ -45,8 +43,6 @@ virtual void OnRemoveGameplayEffectCallback(const FActiveGameplayEffect& EffectR
 ```
 
 서버는 복제 모드와 무관하게 항상 이 함수를 호출한다. Autonomous Proxy는 `Full` 및 `Mixed` 복제 모드에서 복제된 GameplayEffect에 대해서만 호출된다. Simulated Proxy는 `Full` [복제 모드](#concepts-asc-rm)에서만 호출된다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

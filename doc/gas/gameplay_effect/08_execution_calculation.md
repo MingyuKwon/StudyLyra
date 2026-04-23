@@ -28,8 +28,6 @@
 
 가장 흔한 `ExecCalc` 활용 예는 Source와 Target의 여러 Attribute를 복잡한 공식으로 읽어 받는 데미지를 계산하는 것이다. 샘플 프로젝트에는 `GameplayEffectSpec`의 [`SetByCaller`](#concepts-ge-spec-setbycaller)에서 데미지 값을 읽고, Target에서 캡처한 방어구(armor) `Attribute`로 그 값을 경감하는 간단한 `ExecCalc`가 포함되어 있다. `GDDamageExecCalculation.cpp/.h`를 참고하라.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-ec-senddata"></a>
 ##### 4.5.12.1 Execution Calculation에 데이터 전달하기
 
@@ -109,8 +107,6 @@ FGSGameplayEffectContext* ContextHandle = static_cast<FGSGameplayEffectContext*>
 /** Non const access. Be careful with this, especially when modifying a spec after attribute capture. */
 FGameplayEffectSpec* GetOwningSpecForPreExecuteMod() const;
 ```
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

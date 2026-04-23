@@ -24,7 +24,6 @@
 | `Target Required Tags`      | `Target`이 이 태그를 **모두** 보유하고 있을 때만 이 `GameplayAbility`를 활성화할 수 있다. `Target` GameplayTag는 GameplayAbility가 이벤트로 트리거된 경우에만 설정된다.                                                             |
 | `Target Blocked Tags`       | `Target`이 이 태그 중 **하나라도** 보유하고 있으면 이 `GameplayAbility`를 활성화할 수 없다. `Target` GameplayTag는 GameplayAbility가 이벤트로 트리거된 경우에만 설정된다.                                                          |
 
-**[⬆ Back to Top](#table-of-contents)**
 ---
 
 ## 내 분석

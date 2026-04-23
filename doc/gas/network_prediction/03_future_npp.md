@@ -15,14 +15,10 @@ Epic의 Dave Ratti는 쿨다운 예측에서 발생하는 `latency reconciliatio
 
 새로운 [`Network Prediction` 플러그인](#concepts-p-npp)은 과거 `CharacterMovementComponent`가 그랬듯 GAS와 완전히 상호운용(interoperable)될 것으로 기대된다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-p-npp"></a>
 #### 4.10.5 Network Prediction Plugin
 
 Epic은 최근 `CharacterMovementComponent`를 대체하기 위한 새로운 `Network Prediction` 플러그인 개발 이니셔티브를 시작했다. 이 플러그인은 아직 매우 초기 단계이지만 Unreal Engine GitHub에서 얼리 액세스로 이용할 수 있다. 어느 미래 엔진 버전에서 실험적 베타로 정식 데뷔할지는 아직 판단하기 이르다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

@@ -57,8 +57,6 @@ GameplayTag와 GameplayTagContainer에는 선택적 `UPROPERTY` 지정자 `Meta 
 
 샘플 프로젝트는 GameplayTag를 광범위하게 사용한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

@@ -25,8 +25,6 @@
 - `DynamicAssetTags`: `GameplayEffect`가 보유한 `AssetTag` 외에 `GameplayEffectSpec`이 추가로 가지는 태그
 - `SetByCaller` TMap들
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-spec-setbycaller"></a>
 ##### 4.5.9.1 SetByCallers
 
@@ -60,8 +58,6 @@ float GetSetByCallerMagnitude(FGameplayTag DataTag, bool WarnIfNotFound = true, 
 ```
 
 Blueprint에서 오탈자를 방지하기 위해 `FName` 버전보다 `GameplayTag` 버전 사용을 권장한다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

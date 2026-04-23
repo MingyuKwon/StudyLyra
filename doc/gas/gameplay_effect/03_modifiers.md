@@ -39,8 +39,6 @@ Modifier의 종류는 Scalable Float, Attribute Based, Custom Calculation Class,
 | `Custom Calculation Class` | `Custom Calculation Class`는 복잡한 Modifier에 가장 높은 유연성을 제공한다. 이 Modifier는 [`ModifierMagnitudeCalculation`](#concepts-ge-mmc) 클래스를 사용하며, 결과 float 값에 계수와 계수 전후 가산값을 추가로 적용할 수 있다 |
 | `Set By Caller`            | `SetByCaller` Modifier는 GameplayEffect 외부에서 런타임에 어빌리티 또는 GameplayEffectSpec 생성자가 GameplayEffectSpec에 직접 설정하는 값이다. 예를 들어, 플레이어가 버튼을 누르고 있는 시간에 따라 데미지를 설정하고 싶을 때 `SetByCaller`를 사용한다. `SetByCaller`는 기본적으로 GameplayEffectSpec에 저장되는 `TMap<FGameplayTag, float>`다. Modifier는 Aggregator에게 지정된 GameplayTag와 연결된 `SetByCaller` 값을 찾으라고 지시한다. Modifier에서 사용하는 `SetByCaller`는 GameplayTag 버전만 사용 가능하며, FName 버전은 사용할 수 없다. Modifier가 `SetByCaller`로 설정되어 있는데 GameplayEffectSpec에 올바른 GameplayTag가 존재하지 않으면, 게임은 런타임 에러를 발생시키고 0을 반환한다. `Divide` 연산의 경우 이로 인한 문제가 생길 수 있으니 주의가 필요하다. 자세한 사용법은 [`SetByCallers`](#concepts-ge-spec-setbycaller)를 참조 |
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-mods-multiplydivide"></a>
 ##### 4.5.4.1 Multiply/Divide Modifier의 합산 방식
 
@@ -137,8 +135,6 @@ float FAggregatorModChannel::MultiplyMods(const TArray<FAggregatorMod>& InMods, 
 }
 ```
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-mods-gameplaytags"></a>
 ##### 4.5.4.2 Modifier의 GameplayTag 조건
 
@@ -147,8 +143,6 @@ float FAggregatorModChannel::MultiplyMods(const TArray<FAggregatorMod>& InMods, 
 `Attribute Based` Modifier는 추가로 `SourceTagFilter`와 `TargetTagFilter`를 설정할 수 있다. `Attribute Based` Modifier의 Source Attribute 크기를 결정할 때, 이 필터는 해당 Attribute에 영향을 주는 특정 Modifier를 제외하는 데 사용된다. Source 또는 Target이 필터의 모든 태그를 보유하지 않은 Modifier는 제외된다.
 
 더 자세히 설명하면: Source ASC와 Target ASC의 태그는 GameplayEffect에 의해 캡처된다. Source ASC의 태그는 GameplayEffectSpec 생성 시 캡처되고, Target ASC의 태그는 Effect 실행 시 캡처된다. Infinite 또는 Duration Effect의 Modifier가 적용 조건("qualifies")을 충족하는지 판단할 때(즉, Aggregator가 조건을 충족할 때), 해당 필터가 설정되어 있다면 캡처된 태그를 필터와 비교한다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

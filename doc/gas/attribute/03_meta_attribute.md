@@ -15,8 +15,6 @@ Meta Attribute는 데미지나 힐링과 같은 것들에 대해 "얼마나 피�
 
 Meta Attribute는 좋은 설계 패턴이지만 필수는 아니다. 모든 데미지 인스턴스에 Execution Calculation 하나만 사용하고 모든 캐릭터가 하나의 AttributeSet 클래스를 공유한다면, Execution Calculation 내부에서 체력, 방어막 등에 데미지를 분배하고 해당 Attribute를 직접 수정해도 무방하다. 유연성을 희생하는 것이지만, 그것으로 충분할 수도 있다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

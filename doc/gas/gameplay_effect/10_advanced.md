@@ -50,8 +50,6 @@ bool UPAAbilitySystemComponent::SetGameplayEffectDurationHandle(FActiveGameplayE
 }
 ```
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-dynamic"></a>
 #### 4.5.17 런타임에 동적 Gameplay Effect 생성
 
@@ -129,8 +127,6 @@ void UGameplayAbilityRuntimeGE::ActivateAbility(const FGameplayAbilitySpecHandle
 }
 ```
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-containers"></a>
 #### 4.5.18 Gameplay Effect Containers
 
@@ -141,8 +137,6 @@ Epic의 [Action RPG Sample Project](https://www.unrealengine.com/marketplace/en-
 ![SetByCaller with a GameplayEffectContainer](https://github.com/tranek/GASDocumentation/raw/master/Images/gecontainersetbycaller.png)
 
 `GameplayEffectContainers`에는 선택적으로 효율적인 [타게팅](#concepts-targeting-containers) 수단도 포함되어 있다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

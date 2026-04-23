@@ -17,8 +17,6 @@ GA의 `Instancing Policy`는 GA가 활성화될 때 인스턴스를 생성하는
 | Instanced Per Execution | GA가 활성화될 때마다 새 인스턴스가 생성된다. | 변수가 매번 초기화된다는 장점이 있지만, 활성화할 때마다 새 GA가 스폰되므로 성능이 가장 나쁘다. 샘플 프로젝트에서는 이 방식을 사용하지 않는다. |
 | Non-Instanced | GA가 `ClassDefaultObject`에서 직접 실행된다. 인스턴스가 생성되지 않는다. | 세 가지 중 성능이 가장 좋지만 사용 가능한 기능에 제약이 가장 많다. Non-Instanced GA는 상태를 저장할 수 없으며, 동적 변수를 가질 수 없고 AbilityTask 델리게이트에 바인딩할 수 없다. MOBA나 RTS의 미니언 기본 공격처럼 자주 사용되는 단순한 어빌리티에 적합하다. 샘플 프로젝트의 Jump GA는 Non-Instanced다. |
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ga-net"></a>
 #### 4.6.8 Net Execution Policy
 
@@ -31,7 +29,6 @@ GA의 `Net Execution Policy`는 GA를 어디서 실행하는지와 그 순서를
 | `Server Only` | GA가 서버에서만 실행된다. 패시브 GA는 일반적으로 `Server Only`를 사용한다. 싱글플레이어 게임에 권장한다. |
 | `Server Initiated` | `Server Initiated` GA는 서버에서 먼저 활성화된 후 owning client에서 활성화된다. 개인적으로 거의 사용하지 않는 방식이다. |
 
-**[⬆ Back to Top](#table-of-contents)**
 ---
 
 ## 내 분석

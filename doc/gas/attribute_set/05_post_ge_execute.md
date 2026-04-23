@@ -17,8 +17,6 @@ Mana나 Stamina처럼 인스턴트 `GameplayEffect`로만 `BaseValue`가 변경�
 
 **참고:** `PostGameplayEffectExecute()`가 호출될 때, `Attribute`의 변경은 이미 이루어진 상태이지만 아직 클라이언트에 복제되지 않은 상태다. 따라서 여기서 값을 클램핑해도 클라이언트에 두 번의 네트워크 업데이트가 발생하지 않는다. 클라이언트는 클램핑 이후의 값만 받게 된다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

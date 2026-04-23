@@ -35,8 +35,6 @@ void AGDCharacterBase::AddCharacterAbilities()
 
 GA를 부여할 때, `UGameplayAbility` 클래스, 어빌리티 레벨, 바인딩할 입력, 그리고 이 GA를 해당 ASC에 부여한 주체인 `SourceObject`를 담은 `GameplayAbilitySpec`을 생성하여 전달한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ga-activating"></a>
 #### 4.6.4 GA 활성화 (Activating)
 
@@ -108,8 +106,6 @@ void UGDGameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo * ActorInfo
 
 Epic은 이 함수를 패시브 어빌리티를 시작하고 `BeginPlay`에서 처리할 법한 작업을 수행하기에 적합한 위치로 설명한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ga-activating-failedtags"></a>
 #### 4.6.4.2 활성화 실패 태그
 
@@ -144,7 +140,6 @@ LogAbilitySystem: Display: ClientActivateAbilityFailed_Implementation. Predictio
 
 ![Activation Failed Tags Displayed in showdebug AbilitySystem](https://github.com/tranek/GASDocumentation/raw/master/Images/activationfailedtags.png)
 
-**[⬆ Back to Top](#table-of-contents)**
 ---
 
 ## 내 분석

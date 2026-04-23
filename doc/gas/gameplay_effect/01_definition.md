@@ -38,8 +38,6 @@ UpdateAllAggregatorModMagnitudes(Effect);
 
 GE는 일반적으로 직접 인스턴스화되지 않는다. 어빌리티나 ASC가 GE를 적용하고자 할 때, GE의 `ClassDefaultObject`로부터 [`GameplayEffectSpec`](#concepts-ge-spec)을 생성한다. 성공적으로 적용된 `GameplayEffectSpec`은 `FActiveGameplayEffect`라는 새 구조체에 추가되며, ASC는 이를 `ActiveGameplayEffects`라는 전용 컨테이너 구조체로 관리한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

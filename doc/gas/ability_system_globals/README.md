@@ -25,8 +25,6 @@ UE 4.24에서 5.2 사이에서는 [`TargetData`](#concepts-targeting-data)를 �
 
 `AbilitySystemGlobals`의 `GlobalAttributeSetDefaultsTableNames`를 사용하는 도중 크래시가 발생한다면, Fortnite처럼 `AssetManager` 또는 `GameInstance`에서 더 늦게 `UAbilitySystemGlobals::Get().InitGlobalData()`를 호출해야 할 수 있다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

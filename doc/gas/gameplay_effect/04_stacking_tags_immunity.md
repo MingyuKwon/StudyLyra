@@ -22,8 +22,6 @@ Stacking 타입에는 두 가지가 있다: Aggregate by Source와 Aggregate by 
 
 샘플 프로젝트에는 `GameplayEffect` 스택 변경을 감지하는 커스텀 Blueprint 노드가 포함되어 있다. HUD UMG 위젯이 이를 사용하여 플레이어의 패시브 방어구 스택 수를 업데이트한다. 이 `AsyncTask`는 `EndTask()`가 수동으로 호출되기 전까지 계속 살아있으므로, UMG 위젯의 `Destruct` 이벤트에서 해제해야 한다. `AsyncTaskEffectStackChanged.h/cpp`를 참조하라.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-ga"></a>
 #### 4.5.6 Granted Abilities (GE로 어빌리티 부여)
 
@@ -39,8 +37,6 @@ Stacking 타입에는 두 가지가 있다: Aggregate by Source와 Aggregate by 
 | Remove Ability on End      | 부여된 어빌리티가 완료될 때까지 허용된 후 Target에서 제거된다 |
 | Do Nothing                 | GE가 Target에서 제거되어도 부여된 어빌리티는 영향을 받지 않는다. Target은 이후 수동으로 제거하기 전까지 해당 어빌리티를 영구적으로 보유한다 |
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-tags"></a>
 #### 4.5.7 GameplayEffect Tags
 
@@ -54,8 +50,6 @@ Stacking 타입에는 두 가지가 있다: Aggregate by Source와 Aggregate by 
 | Application Tag Requirements      | Target이 보유한 태그 중 `GameplayEffect`를 적용할 수 있는지 결정하는 태그. 이 조건을 충족하지 못하면 `GameplayEffect`가 적용되지 않는다 |
 | Remove Gameplay Effects with Tags | 이 `GameplayEffect`가 성공적으로 적용될 때, Target에서 `Asset Tags` 또는 `Granted Tags`에 지정된 태그 중 하나라도 가진 `GameplayEffect`가 모두 제거된다 |
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ge-immunity"></a>
 #### 4.5.8 Immunity (면역)
 
@@ -66,8 +60,6 @@ Stacking 타입에는 두 가지가 있다: Aggregate by Source와 Aggregate by 
 `Granted Application Immunity Query`는 수신되는 `GameplayEffectSpec`이 쿼리와 매칭되는지 검사하여 적용을 차단하거나 허용한다.
 
 이 쿼리들은 `GameplayEffect` Blueprint에서 유용한 툴팁으로 확인할 수 있다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

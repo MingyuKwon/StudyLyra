@@ -14,8 +14,6 @@
 
 `AttributeSet`은 `Attribute`들을 정의하고, 보유하며, 변경을 관리한다. 개발자는 [`UAttributeSet`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UAttributeSet/index.html)을 상속하여 구현해야 한다. `OwnerActor`의 생성자에서 `AttributeSet`을 생성하면 해당 ASC에 자동으로 등록된다. **이 작업은 반드시 C++로 수행해야 한다.**
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-as-design"></a>
 #### 4.4.2 AttributeSet 설계
 

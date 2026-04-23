@@ -32,8 +32,6 @@ virtual void DestroyActiveState();
 
 **참고:** `CancelAllAbilities()`는 Non-Instanced GA가 있을 경우 제대로 동작하지 않는 것으로 확인된다. Non-Instanced GA를 만나면 처리를 포기하는 것으로 보인다. Non-Instanced GA가 포함된 경우 `CancelAbilities()`가 더 안정적으로 처리하며, 샘플 프로젝트에서도 이 함수를 사용한다(Jump는 Non-Instanced GA이다). 실제 동작은 상황에 따라 다를 수 있다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ga-definition-activeability"></a>
 #### 4.6.6 활성 GA 조회 (Getting Active Abilities)
 
@@ -48,7 +46,6 @@ UAbilitySystemComponent::GetActivatableGameplayAbilitySpecsByAllMatchingTags(con
 
 원하는 `FGameplayAbilitySpec`을 찾았다면 `IsActive()`를 호출하여 현재 활성 상태인지 확인할 수 있다.
 
-**[⬆ Back to Top](#table-of-contents)**
 ---
 
 ## 내 분석

@@ -89,8 +89,6 @@ void AGSWeapon::BeginPlay()
 1. 엔지니어링 비용이 얼마나 들지 알 수 없다.
 1. 실현 가능한지조차 불확실하다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

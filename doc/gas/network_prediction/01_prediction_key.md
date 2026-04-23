@@ -53,8 +53,6 @@ GAS의 예측 구현이 해결하려는 문제들:
 
 *`GameplayPrediction.h` 발췌*
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-p-key"></a>
 #### 4.10.1 Prediction Key
 
@@ -65,19 +63,15 @@ GAS의 예측은 **Prediction Key** 개념을 기반으로 동작한다. Predict
 * 클라이언트는 Prediction Key가 유효한 동안 적용하는 모든 `GameplayEffect`에 이 키를 추가한다.
 * Prediction Key가 스코프를 벗어나면, 같은 `GameplayAbility` 내에서의 추가 예측 효과는 새로운 [Scoped Prediction Window](#concepts-p-windows)가 필요하다.
 
-
 * 서버는 클라이언트에서 Prediction Key를 받는다.
 * 서버는 자신이 적용하는 모든 `GameplayEffect`에 이 Prediction Key를 추가한다.
 * 서버는 Prediction Key를 클라이언트에게 다시 복제한다.
-
 
 * 클라이언트는 적용에 사용된 Prediction Key와 함께 서버로부터 복제된 `GameplayEffect`를 수신한다. 복제된 `GameplayEffect` 중 클라이언트가 같은 Prediction Key로 적용한 `GameplayEffect`와 일치하는 것이 있으면 예측이 맞은 것이다. 클라이언트가 예측한 것을 제거할 때까지 타겟에 `GameplayEffect`의 복사본이 일시적으로 두 개 존재하게 된다.
 * 클라이언트는 서버로부터 Prediction Key를 돌려받는다. 이것이 `Replicated Prediction Key`다. 이 Prediction Key는 이제 stale(만료) 처리된다.
 * 클라이언트는 이제 stale 상태가 된 Replicated Prediction Key로 생성한 **모든** `GameplayEffect`를 제거한다. 서버가 복제한 `GameplayEffect`는 유지된다. 클라이언트가 추가했지만 서버로부터 대응하는 복제본을 받지 못한 `GameplayEffect`는 오예측(misprediction)으로 처리된다.
 
 Prediction Key는 `Activation`을 시작으로 `GameplayAbility` 내의 원자적 명령 묶음 "window" 동안만 유효함이 보장된다. 사실상 단 하나의 프레임 동안만 유효하다고 생각하면 된다. latent action `AbilityTask`의 콜백에서는 더 이상 유효한 Prediction Key가 없다. 단, `AbilityTask`에 새로운 [Scoped Prediction Window](#concepts-p-windows)를 생성하는 내장 Synch Point가 있는 경우는 예외다.
-
-**[⬆ Back to Top](#table-of-contents)**
 
 ---
 

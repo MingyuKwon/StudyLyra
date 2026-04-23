@@ -15,8 +15,6 @@ Attribute는 [`AttributeSet`](#concepts-as) 안에 정의되고 소속된다. At
 
 **팁:** 에디터의 Attribute 목록에 표시하고 싶지 않은 Attribute는 `Meta = (HideInDetailsView)` 프로퍼티 지정자를 사용한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

@@ -111,8 +111,6 @@ FName GetCoolNameFromTargetData(const FGameplayAbilityTargetDataHandle& Handle, 
 }
 ```
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

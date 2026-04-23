@@ -29,8 +29,6 @@
 
 두 방법의 핵심적인 차이는 레벨업 시점에 활성화 중인 `GameplayAbility`를 취소할 것인지 여부다. `GameplayAbility`에 따라 두 방법 모두 사용하게 될 가능성이 높다. `UGameplayAbility` 서브클래스에 어떤 방법을 사용할지 지정하는 `bool` 변수를 추가하는 것을 권장한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ga-sets"></a>
 #### 4.6.14 Ability Sets
 
@@ -38,7 +36,6 @@
 
 GASDoc 저자 기준으로 이 클래스는 불필요하다고 판단한다. 샘플 프로젝트는 `GDCharacterBase`와 그 서브클래스에서 `GameplayAbilitySet`의 모든 기능을 직접 처리하고 있다.
 
-**[⬆ Back to Top](#table-of-contents)**
 ---
 
 ## 내 분석

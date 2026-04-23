@@ -23,8 +23,6 @@ Derived Attribute의 모든 Modifier에 대한 최종 공식은 Modifier Aggrega
 
 ![Derived Attribute Example](https://github.com/tranek/GASDocumentation/raw/master/Images/derivedattribute.png)
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

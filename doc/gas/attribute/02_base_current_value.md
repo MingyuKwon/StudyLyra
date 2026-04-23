@@ -15,8 +15,6 @@ GAS를 처음 접하는 사람들은 종종 BaseValue를 Attribute의 최대값�
 
 `Instant` GameplayEffect는 BaseValue를 영구적으로 변경하며, `Duration`과 `Infinite` GameplayEffect는 CurrentValue를 변경한다. `Periodic` GameplayEffect는 Instant GameplayEffect처럼 취급되어 BaseValue를 변경한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

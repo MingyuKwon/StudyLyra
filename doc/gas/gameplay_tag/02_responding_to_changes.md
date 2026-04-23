@@ -21,8 +21,6 @@ AbilitySystemComponent->RegisterGameplayTagEvent(FGameplayTag::RequestGameplayTa
 virtual void StunTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
 ```
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

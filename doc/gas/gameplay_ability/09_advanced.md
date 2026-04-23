@@ -61,8 +61,6 @@ GASShooter는 반자동 총과 완전 자동 총 모두에 동일한 배치 `Gam
 
 GASShooter는 앞서 언급한 로컬 전용 어빌리티에서 배치 어빌리티를 트리거할 수 있도록 Blueprint 노드를 노출한다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ga-netsecuritypolicy"></a>
 #### 4.6.16 Net Security Policy
 
@@ -75,7 +73,6 @@ GASShooter는 앞서 언급한 로컬 전용 어빌리티에서 배치 어빌리
 | `ServerOnlyTermination` | 이 어빌리티의 취소 또는 종료를 요청하는 클라이언트는 서버에서 무시된다. 클라이언트는 여전히 어빌리티의 실행을 요청할 수 있다.                              |
 | `ServerOnly`            | 서버가 이 어빌리티의 실행과 종료를 모두 제어한다. 클라이언트의 모든 요청은 무시된다.                                                                       |
 
-**[⬆ Back to Top](#table-of-contents)**
 ---
 
 ## 내 분석

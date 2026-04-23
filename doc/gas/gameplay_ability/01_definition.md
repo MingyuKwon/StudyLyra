@@ -62,8 +62,6 @@ Epic의 주석:
 UAbilitySystemComponent::ServerSetInputPressed()
 ```
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

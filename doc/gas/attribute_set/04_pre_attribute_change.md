@@ -27,8 +27,6 @@ if (Attribute == GetMoveSpeedAttribute())
 
 **참고:** Epic의 `PreAttributeChange()`에 대한 주석에는 게임플레이 이벤트에는 사용하지 말고 주로 클램핑 용도로만 사용하라고 명시되어 있다. `Attribute` 변경에 대한 게임플레이 이벤트의 권장 위치는 `UAbilitySystemComponent::GetGameplayAttributeValueChangeDelegate(FGameplayAttribute Attribute)`([Attribute 변경에 응답하기](#concepts-a-changes))이다.
 
-**[⬆ Back to Top](#table-of-contents)**
-
 ---
 
 ## 내 분석

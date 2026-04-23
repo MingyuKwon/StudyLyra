@@ -15,8 +15,6 @@
 
 `GameplayAbilitySpec`을 활성화하면 그 `Instancing Policy`에 따라 `GameplayAbility`의 인스턴스가 생성된다 (`Non-Instanced` GameplayAbility의 경우에는 인스턴스가 생성되지 않는다).
 
-**[⬆ Back to Top](#table-of-contents)**
-
 <a name="concepts-ga-data"></a>
 #### 4.6.11 Abilities에 데이터 전달하기
 
@@ -29,7 +27,6 @@
 | `TargetData` 사용                               | 커스텀 `TargetData` 구조체는 클라이언트와 서버 사이에서 임의의 데이터를 전달하는 좋은 방법이다.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `OwnerActor` 또는 `AvatarActor`에 데이터 저장  | `OwnerActor`, `AvatarActor`, 또는 참조를 얻을 수 있는 다른 오브젝트에 복제 변수를 저장하여 사용한다. 이 방법은 가장 유연하며 입력 바인딩으로 활성화되는 `GameplayAbility`와도 함께 사용할 수 있다. 단, 사용 시점에 복제로 인한 데이터 동기화가 보장되지 않는다. 즉, 복제 변수를 설정하고 즉시 `GameplayAbility`를 활성화하면, 패킷 손실 등의 이유로 수신 측에서 처리 순서가 보장되지 않을 수 있다.                                                                                                                                                                                                                                                                                                                                     |
 
-**[⬆ Back to Top](#table-of-contents)**
 ---
 
 ## 내 분석
