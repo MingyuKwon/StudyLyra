@@ -32,7 +32,10 @@
       "Bash(powershell.exe Get-PSDrive -PSProvider FileSystem | Select-Object Name,Root *)",
       "Bash(git rm *)",
       "Bash(git mv *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(wc *)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -k -s \"https://raw.githubusercontent.com/tranek/GASDocumentation/master/README.md\")"
     ]
   }
 }
