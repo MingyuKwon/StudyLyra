@@ -37,18 +37,22 @@ GAS 학습 분석
 
 ## GAS 학습 문서
 
-| 문서 | 내용 |
-|------|------|
-| [GAS 개요](doc/gas/README.md) | GAS란, 핵심 구성요소, Lyra 전체 흐름 |
-| [AbilitySystemComponent](doc/gas/ability_system_component/README.md) | ASC 역할, Owner/Avatar, 초기화, 입력 바인딩, ActivationGroup |
-| [GameplayAbility](doc/gas/gameplay_ability/README.md) | GA 생명주기, ActivationPolicy, Instancing, Cost, 태그 조건 |
-| [GameplayEffect](doc/gas/gameplay_effect/README.md) | GE 타입, Modifier/MMC, 태그/스택, GESpec/SetByCaller |
-| [AttributeSet](doc/gas/attribute_set/README.md) | Attribute 타입, Base/Current, Meta Attribute, Lyra 구현 |
-| [GameplayTag](doc/gas/gameplay_tag/README.md) | 태그 계층, GAS 역할, TagRelationshipMapping |
-| [GameplayCue](doc/gas/gameplay_cue/README.md) | Cue 트리거, Static/Actor, LyraGameplayCueManager |
-| [AbilityTask](doc/gas/ability_task/README.md) | Task 생명주기, 사용 패턴, GrantNearbyInteraction |
-| [Execution Calculation](doc/gas/execution_calculation/README.md) | ExecCalc 구조, Attribute Capture, LyraDamageExecution |
-| [네트워크 & Prediction](doc/gas/network_prediction/README.md) | 복제 구조, Prediction Key, 예측 가능/불가 목록 |
+> 상세 인덱스: [doc/gas/README.md](doc/gas/README.md)
+
+| 폴더 | GASDoc | 내용 |
+|------|--------|------|
+| [AbilitySystemComponent](doc/gas/ability_system_component/README.md) | 4.1 | ASC 역할, Replication Mode, 초기화 |
+| [GameplayTag](doc/gas/gameplay_tag/README.md) | 4.2 | 태그 계층, 변화 감지 |
+| [Attribute](doc/gas/attribute/README.md) | 4.3 | Attribute 타입, Base/Current, Meta |
+| [AttributeSet](doc/gas/attribute_set/README.md) | 4.4 | AttributeSet 설계, 콜백 |
+| [GameplayEffect](doc/gas/gameplay_effect/README.md) | 4.5 | GE 타입, Modifier, MMC, ExecCalc |
+| [GameplayAbility](doc/gas/gameplay_ability/README.md) | 4.6 | GA 생명주기, 입력, 태그 |
+| [AbilityTask](doc/gas/ability_task/README.md) | 4.7 | Task 생명주기, 커스텀 |
+| [GameplayCue](doc/gas/gameplay_cue/README.md) | 4.8 | Cue 트리거, Manager |
+| [AbilitySystemGlobals](doc/gas/ability_system_globals/README.md) | 4.9 | 전역 설정, InitGlobalData |
+| [NetworkPrediction](doc/gas/network_prediction/README.md) | 4.10 | Prediction Key, Window |
+| [Targeting](doc/gas/targeting/README.md) | 4.11 | TargetData, TargetActor |
+| [공통 패턴](doc/gas/common_patterns/README.md) | 5 | Stun, Sprint, Lifesteal 등 구현 예시 |
 
 ---
 
