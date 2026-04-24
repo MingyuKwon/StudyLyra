@@ -28,60 +28,29 @@ Derived Attribute의 모든 Modifier에 대한 최종 공식은 Modifier Aggrega
 
 ## 내 분석
 
-### Derived Attribute는 별도 타입이 아니다
+`Derived Attribute`는 GASDoc이 붙인 **패턴 이름**이지, 별도의 타입이나 클래스가 아니다.
+엔진에 `FDerivedAttribute` 같은 건 없고, 구조체도 똑같은 `FGameplayAttributeData`다.
 
-`Derived Attribute`는 GASDoc이 붙인 **패턴 이름**이다.
-엔진 코드에 `FDerivedAttribute` 같은 클래스나 타입은 없고, 구조체도 똑같은 `FGameplayAttributeData`다.
-
-실제로 하는 일은 이것뿐이다:
-
-```
-AttackPower라는 평범한 Attribute를 만든다
-  + Infinite GE 하나를 항상 붙여둔다
-  + 그 GE의 Modifier를 "Strength 값 * 2를 Add해라"로 설정한다
-```
-
-부모-자식처럼 특별한 링크가 있는 게 아니라, Aggregator가 "이 Attribute를 계산할 때 Strength를 참조하라"는 정보를 갖고 있을 뿐이다.
-Strength가 바뀌면 Aggregator가 감지하고 AttackPower를 재계산한다.
-
-**Derived Attribute = 평범한 Attribute + Infinite GE 패턴**이다.
-
----
-
-### Derived Attribute가 뭘 위한 건가
-
-다른 Attribute의 값에서 자동으로 계산되는 Attribute가 필요할 때 쓴다.
+용도는 다른 Attribute의 값으로부터 자동 계산되는 Attribute가 필요할 때다.
 
 ```
 AttackPower = BaseAttack + (Strength * 2)
 MaxHealth   = BaseHP + (Endurance * 10)
-CritChance  = BaseCrit + (Agility * 0.5)
 ```
 
-이런 값을 코드에서 직접 계산하면 `Strength`가 바뀔 때마다 `AttackPower`를 수동으로 갱신해야 한다.
-Derived Attribute로 만들면 `Strength`가 바뀌는 순간 `AttackPower`가 **자동으로 재계산**된다.
+코드에서 직접 계산하면 `Strength`가 바뀔 때마다 `AttackPower`를 수동으로 갱신해야 한다.
+이 패턴을 쓰면 **자동으로 재계산**된다.
 
-### 왜 Infinite GE를 통해서만 하는가
-
-핵심은 **Aggregator**다.
-Infinite GE의 Modifier는 Aggregator에 등록되고, Aggregator는 의존 Attribute가 바뀔 때 자동으로 `OnDirty` 이벤트를 받아 재계산을 트리거한다.
-개발자가 "언제 재계산할지"를 관리할 필요가 없다.
+구현은 단순하다 — 평범한 Attribute에 Infinite GE 하나를 항상 붙여두는 것뿐이다.
 
 ```
-Strength Attribute 변경
-  → Aggregator: "AttackPower에 Strength 기반 Modifier가 있다" 감지
-  → AttackPower Aggregator OnDirty
-  → AttackPower CurrentValue 재계산
+AttackPower Attribute (평범한 FGameplayAttributeData)
+  + Infinite GE: Modifier = "Strength * 2를 Add"
 ```
 
-### GE 없이도 할 수 있는가
+자동 재계산이 가능한 이유는 Aggregator 때문이다.
+Infinite GE의 Modifier가 Aggregator에 등록되면, Aggregator는 의존 Attribute(`Strength`)가 바뀔 때 `OnDirty`를 받아 `AttackPower`를 즉시 재계산한다.
+부모-자식 링크처럼 보이지만 실제로는 Aggregator가 의존 관계를 추적하는 것이다.
 
-기술적으로는 가능하다.
-`PostAttributeChange`에서 `Strength`가 바뀔 때 `AttackPower`를 직접 세팅하면 된다.
-하지만:
-
-- 의존 관계를 수동 관리해야 함
-- 버프가 `Strength`를 건드리면 버프 제거 시 `AttackPower`도 수동으로 원복해야 함
-- Aggregator가 알아서 해주는 것을 전부 직접 구현하는 셈
-
-Infinite GE + Attribute Based Modifier 방식은 이 모든 것을 GAS가 대신 처리해주는 공식 패턴이다.
+`PostAttributeChange`에서 수동으로 구현할 수도 있지만, 버프가 `Strength`를 건드렸다 제거될 때 `AttackPower`도 함께 원복해야 하는 등 직접 관리 비용이 크다.
+Infinite GE + Aggregator 방식은 이를 GAS가 전부 대신 처리하는 공식 패턴이다.
