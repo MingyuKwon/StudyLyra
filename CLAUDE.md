@@ -38,6 +38,7 @@ Plugins/GameFeatures/            ← ShooterCore 등 게임 기능 플러그인
 - 설명은 **한국어**로 한다.
 - GAS 개념 설명 시 언리얼 공식 용어(ASC, GA, GE, AttributeSet, GameplayCue, GameplayTag 등)를 그대로 사용한다.
 - 코드 수정 작업이 발생하면 범위를 최소화하고, 요청한 것만 변경한다.
+- 작업이 완료되면 항상 git commit까지 한다.
 
 ---
 

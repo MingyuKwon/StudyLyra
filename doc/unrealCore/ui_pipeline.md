@@ -27,6 +27,9 @@
     RHI / GPU                            ← 실제 픽셀 출력
 ```
 
+> **📌 내 노트**  
+>
+
 ---
 
 ## 1. 엔진 루프에서 Slate 틱이 불리는 경로
@@ -42,6 +45,9 @@ FEngineLoop::Tick()
 
 `ESlateTickType`으로 단계를 분리하는 이유:  
 영상 재생 같은 슬레이트 전용 스레드가 `PlatformAndInput` 없이 `Widgets`만 틱할 수 있게 하기 위함.
+
+> **📌 내 노트**  
+>
 
 ---
 
@@ -64,6 +70,9 @@ FSlateApplication::Tick(ESlateTickType)        ← SlateApplication.cpp:1591
 
 **슬레이트 절전 (Sleep)**: 사용자 입력이 없고 등록된 ActiveTimer도 없으면 `DrawWindows()`를 건너뛴다.  
 애니메이션이 재생 중인 위젯은 반드시 `RegisterActiveTimer()`를 사용해야 매 틱 화면이 갱신된다.
+
+> **📌 내 노트**  
+>
 
 ---
 
@@ -121,6 +130,9 @@ SWidget::Paint(Args, AllottedGeometry, CullingRect, OutDrawElements, LayerId, ..
 `AllottedGeometry`: 부모가 이 위젯에 **할당한** 실제 위치·크기.  
 `OutDrawElements`: 이 프레임의 드로우 명령 버퍼. `FSlateDrawElement::MakeBox()` 등으로 추가.
 
+> **📌 내 노트**  
+>
+
 ---
 
 ## 4. UMG ↔ Slate 브릿지 — TakeWidget()
@@ -168,6 +180,9 @@ TSharedRef<SWidget> UUserWidget::RebuildWidget()
 
 블루프린트로 만든 WBP의 모든 위젯 트리가 여기서 Slate 위젯 트리로 변환된다.
 
+> **📌 내 노트**  
+>
+
 ---
 
 ## 5. 뷰포트에 추가하는 경로
@@ -181,6 +196,9 @@ UUserWidget::AddToViewport(int32 ZOrder)
 ```
 
 `AddToPlayerScreen()`은 `AddToViewport()`와 달리 특정 `ULocalPlayer`에 귀속된다 — 스플릿스크린 대응.
+
+> **📌 내 노트**  
+>
 
 ---
 
@@ -198,6 +216,9 @@ if (HasAnyUpdateFlags(EWidgetUpdateFlags::NeedsTick))
 ```
 
 UMG의 `UUserWidget`에서 `Tick` 이벤트를 쓰면 자동으로 이 플래그가 세팅된다.
+
+> **📌 내 노트**  
+>
 
 ---
 
@@ -230,6 +251,9 @@ UMG의 `UUserWidget`에서 `Tick` 이벤트를 쓰면 자동으로 이 플래그
               → RHI → GPU → 픽셀 출력
 ```
 
+> **📌 내 노트**  
+>
+
 ---
 
 ## 핵심 개념 정리
@@ -244,3 +268,8 @@ UMG의 `UUserWidget`에서 `Tick` 이벤트를 쓰면 자동으로 이 플래그
 | **OnPaint** | 페인트 패스. FSlateWindowElementList에 드로우 명령 발행 |
 | **ActiveTimer** | 유휴 상태에서도 슬레이트가 틱하도록 강제하는 등록 메커니즘 |
 | **AllottedGeometry** | 부모가 자식에게 할당한 실제 위치·크기 |
+
+---
+
+## 내 노트
+
