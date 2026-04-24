@@ -71,3 +71,47 @@ GE를 거쳐야 변경이 PredictionKey에 묶이고, 거부 시 엔진이 해�
 직접 수정은 메모리 값 덮어쓰기라 추적 자체가 불가능하다.
 
 **한 줄 요약**: GE는 Attribute 변경에 PredictionKey를 붙여 추적 가능하게 만드는 장치이고, 그게 없으면 롤백 메커니즘이 작동하지 않는다.
+
+### FGameplayAttributeData — 두 값으로 나눈 이유
+
+구조체 자체는 단순하다.
+
+```cpp
+struct FGameplayAttributeData
+{
+protected:
+    float BaseValue;    // 영구적인 기저값
+    float CurrentValue; // 버프/디버프가 반영된 현재값
+};
+```
+
+**BaseValue** — `Instant` GE가 적용될 때 바뀐다. GE가 제거돼도 남는다.
+
+**CurrentValue** — `Duration` / `Infinite` GE의 Modifier가 Aggregator를 통해 계산되어 반영된다.
+GE가 제거되면 BaseValue 기준으로 재계산되어 복귀한다.
+게임 코드에서 실제로 읽는 값은 CurrentValue다.
+
+```
+BaseValue = 100
++ Duration GE "체력 +20" 적용 → CurrentValue = 120
+GE 제거              → CurrentValue = 100 (BaseValue로 복귀)
+```
+
+| | 언제 바뀌나 | 누가 쓰나 |
+|---|---|---|
+| `BaseValue` | Instant GE, `SetXxx()` 호출 | GE 계산의 기준점 |
+| `CurrentValue` | Aggregator 재계산 (Duration/Infinite GE) | 게임 코드에서 실제로 읽는 값 |
+
+**`ATTRIBUTE_ACCESSORS` 매크로가 생성하는 4개 함수**
+
+```cpp
+ATTRIBUTE_ACCESSORS(ULyraHealthSet, Health)
+
+static FGameplayAttribute GetHealthAttribute(); // FProperty 포인터 반환 (GE Modifier 지정용)
+float GetHealth() const;                        // CurrentValue 읽기
+void SetHealth(float NewVal);                   // ASC->SetNumericAttributeBase() 경유 (BaseValue 변경)
+void InitHealth(float NewVal);                  // BaseValue + CurrentValue 동시 세팅 (초기화 전용)
+```
+
+`SetHealth`가 직접 값을 쓰지 않고 ASC를 경유하는 이유는 Aggregator 재계산과 델리게이트 발동을 보장하기 위해서다.
+`InitHealth`만 직접 양쪽을 세팅한다 — 초기화 시점에는 Aggregator가 없으므로 예외다.

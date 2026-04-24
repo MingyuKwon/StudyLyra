@@ -1186,6 +1186,48 @@ AttributeSet->Stamina = AttributeSet->Stamina - 10;  // PredictionKey 없음
 GE를 거쳐야 변경이 PredictionKey에 묶여 추적·롤백 가능.
 직접 수정은 메모리 덮어쓰기라 엔진이 추적할 방법이 없다.
 
+---
+
+## 23. FGameplayAttributeData 구조 — BaseValue / CurrentValue 분리 이유
+
+> 출처:  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/AttributeSet.h:21`
+
+### 구조체
+
+```cpp
+struct FGameplayAttributeData
+{
+protected:
+    float BaseValue;    // 영구적인 기저값
+    float CurrentValue; // 버프/디버프가 반영된 현재값
+};
+```
+
+### BaseValue vs CurrentValue
+
+| | 언제 바뀌나 | 특징 |
+|---|---|---|
+| `BaseValue` | Instant GE, `SetXxx()` 호출 | GE 제거 후에도 유지 |
+| `CurrentValue` | Aggregator 재계산 (Duration/Infinite GE) | 게임 코드에서 실제로 읽는 값, GE 제거 시 BaseValue 기준 복귀 |
+
+```
+BaseValue = 100
++ Duration GE "체력 +20" → CurrentValue = 120
+GE 제거                  → CurrentValue = 100 (BaseValue로 복귀)
+```
+
+### ATTRIBUTE_ACCESSORS 매크로 생성 4개 함수 (AttributeSet.h:429)
+
+```cpp
+static FGameplayAttribute GetHealthAttribute(); // FProperty 포인터 (GE Modifier 지정용)
+float GetHealth() const;                        // CurrentValue 읽기
+void SetHealth(float NewVal);                   // ASC->SetNumericAttributeBase() 경유 → Aggregator 재계산 + 델리게이트 보장
+void InitHealth(float NewVal);                  // BaseValue + CurrentValue 직접 세팅 (초기화 전용, Aggregator 없는 시점)
+```
+
+`SetXxx`가 ASC를 경유하는 이유: 직접 쓰면 Aggregator 재계산과 `PreAttributeBaseChange` 델리게이트가 발동하지 않음.
+
 `ReplicatedLooseTags`는 `GetLifetimeReplicatedProps`에 `COND_None`으로 등록된 복제 프로퍼티.  
 기본값 `None`을 쓰면 이 컨테이너에 들어가지 않아 복제가 일어나지 않는다.
 
