@@ -29,3 +29,48 @@ virtual void HealthChanged(const FOnAttributeChangeData& Data);
 ---
 
 ## 내 분석
+
+### FGameplayEffectModCallbackData — 콜백에 전달되는 컨텍스트 객체
+
+`PreGameplayEffectExecute` / `PostGameplayEffectExecute` 호출 시 인자로 전달되는 구조체다.
+"지금 어떤 GE가, 어떤 값으로, 누구에게 적용됐다"는 전체 맥락을 AttributeSet 콜백에 넘기기 위한 일회용 컨텍스트다.
+
+```cpp
+// GameplayEffectExtension.h
+struct FGameplayEffectModCallbackData
+{
+    const FGameplayEffectSpec&         EffectSpec;    // 이 Modifier를 만든 GE의 전체 스펙
+    FGameplayModifierEvaluatedData&    EvaluatedData; // 계산 완료된 Modifier 결과값
+    UAbilitySystemComponent&           Target;        // 적용 대상 ASC
+};
+```
+
+**EffectSpec** — GE의 전체 정보. 발동자(Instigator), 태그, 레벨 등을 꺼낼 수 있다.
+
+```cpp
+Data.EffectSpec.GetContext().GetInstigator(); // 누가 데미지를 줬는지
+```
+
+**EvaluatedData** — 계산이 끝난 Modifier 결과값이다.
+
+```cpp
+// GameplayEffectTypes.h
+struct FGameplayModifierEvaluatedData
+{
+    FGameplayAttribute                Attribute;   // 어떤 Attribute를 건드렸나
+    TEnumAsByte<EGameplayModOp::Type> ModifierOp; // Add / Multiply / Override 중 무엇
+    float                             Magnitude;   // 계산된 최종 수치
+    FActiveGameplayEffectHandle       Handle;       // 이 Modifier를 만든 ActiveGE 핸들
+};
+```
+
+어떤 Attribute가 바뀌었는지 확인하는 패턴이 바로 이 멤버를 쓰는 것이다.
+
+```cpp
+if (Data.EvaluatedData.Attribute == GetDamageAttribute()) { ... }
+```
+
+**Target** — 적용 대상 ASC. 피격자의 다른 Attribute를 읽거나 태그를 확인할 때 사용한다.
+
+> **참고**  
+> `FGameplayEffectModCallbackData`는 서버에서만 채워진다. 클라이언트 측 `FOnAttributeChangeData` 콜백에서 이 포인터는 nullptr일 수 있다.

@@ -1232,3 +1232,42 @@ void InitHealth(float NewVal);                  // BaseValue + CurrentValue 직�
 기본값 `None`을 쓰면 이 컨테이너에 들어가지 않아 복제가 일어나지 않는다.
 
 **결론**: GE는 복제가 내장된 시스템이고, LooseGameplayTag는 GE 없이 수동 관리하는 탈출구라 복제 책임도 호출자에게 있다.
+
+---
+
+## 24. FGameplayEffectModCallbackData 구조
+
+> 출처:  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/GameplayEffectExtension.h:17`  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/GameplayEffectTypes.h:194`
+
+`PreGameplayEffectExecute` / `PostGameplayEffectExecute` 콜백에 전달되는 일회용 컨텍스트 구조체.
+
+```cpp
+struct FGameplayEffectModCallbackData
+{
+    const FGameplayEffectSpec&         EffectSpec;    // GE 전체 스펙 (Instigator, 태그, 레벨 등)
+    FGameplayModifierEvaluatedData&    EvaluatedData; // 계산 완료된 Modifier 결과
+    UAbilitySystemComponent&           Target;        // 적용 대상 ASC
+};
+
+struct FGameplayModifierEvaluatedData
+{
+    FGameplayAttribute                Attribute;   // 건드린 Attribute
+    TEnumAsByte<EGameplayModOp::Type> ModifierOp; // Add / Multiply / Override
+    float                             Magnitude;   // 계산된 최종 수치
+    FActiveGameplayEffectHandle       Handle;       // 이 Modifier를 만든 ActiveGE 핸들
+};
+```
+
+주요 사용 패턴:
+```cpp
+// 어떤 Attribute가 건드려졌는지 확인
+if (Data.EvaluatedData.Attribute == GetDamageAttribute()) { ... }
+
+// 발동자 확인
+Data.EffectSpec.GetContext().GetInstigator();
+```
+
+`FGameplayEffectModCallbackData`는 서버에서만 채워짐.
+클라이언트 측 `FOnAttributeChangeData` 델리게이트 콜백에서 이 포인터는 nullptr일 수 있음.
