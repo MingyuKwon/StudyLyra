@@ -116,3 +116,42 @@ if (AttributeSet->PreGameplayEffectExecute(ExecuteData))  // 1. 적용 직전
 | Periodic (틱마다 BaseValue 변경) | **호출됨** (틱마다) |
 
 Duration/Infinite GE의 CurrentValue 변경 시점을 가로채려면 `PreAttributeChange`를 써야 한다.
+
+### PreGameplayEffectExecute vs PreAttributeChange — 왜 분리되어 있는가
+
+BaseValue가 바뀌면 CurrentValue도 따라 바뀌고 `PreAttributeChange`도 불린다.
+그런데도 두 함수가 분리된 이유는 **제공하는 정보와 할 수 있는 일이 다르기 때문이다.**
+
+| | PreGameplayEffectExecute | PreAttributeChange |
+|---|---|---|
+| 인자 | `FGameplayEffectModCallbackData` (누가/어떤 GE/얼마) | `(Attribute, NewValue&)` 두 개뿐 |
+| 변경 취소 | `false` 반환으로 가능 | 불가 |
+| 호출 범위 | Instant/Periodic GE (BaseValue 변경)만 | 원인 불문 모든 변경 |
+
+**커버 범위 비교:**
+
+| 변경 원인 | PreGameplayEffectExecute | PreAttributeChange |
+|---|---|---|
+| Instant GE → BaseValue | ✅ | ✅ (CurrentValue 갱신 시) |
+| Duration/Infinite GE → Aggregator → CurrentValue | ❌ | ✅ |
+| Periodic GE → BaseValue | ✅ | ✅ |
+
+**실제 용도 구분:**
+
+```cpp
+// PreAttributeChange — 클램핑. 이유 불문하고 항상 유효 범위 보장
+void ULyraHealthSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+{
+    if (Attribute == GetHealthAttribute())
+        NewValue = FMath::Clamp(NewValue, 0.f, GetMaxHealth());
+}
+
+// PostGameplayEffectExecute — 비즈니스 로직. 누가 얼마를 줬는지 알아야 처리 가능
+void ULyraHealthSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
+{
+    // Instigator 확인, 방어막 차감, 사망 처리 등
+}
+```
+
+`PreAttributeChange`는 "값이 이 범위를 벗어나지 마라"는 방어선이고,
+`PreGameplayEffectExecute`는 "이 GE가 왜 왔는지 알고 처리하는" 비즈니스 로직 지점이다.
