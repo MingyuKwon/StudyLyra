@@ -38,46 +38,56 @@ virtual void HealthChanged(const FOnAttributeChangeData& Data);
 // GameplayEffectTypes.h:1009
 struct FOnAttributeChangeData
 {
-    FGameplayAttribute                    Attribute;  // 바뀐 Attribute
-    float                                 NewValue;   // 변경 후 값
-    float                                 OldValue;   // 변경 전 값
-    const FGameplayEffectModCallbackData* GEModData;  // GE 컨텍스트 (서버만 유효, 클라이언트는 nullptr)
+    FGameplayAttribute                    Attribute;
+    float                                 NewValue;
+    float                                 OldValue;
+    const FGameplayEffectModCallbackData* GEModData; // 아래 참고
 };
 ```
 
-**언제 전달되는가 — 두 경로**
-
-소스에서 `FOnAttributeChangeData`가 Broadcast되는 지점이 두 곳이다.
-
-**경로 1 — 서버: GE 적용으로 값이 바뀔 때** (`GameplayEffect.cpp:3912` — `InternalUpdateNumericalAttribute`)
-
-```cpp
-FOnAttributeChangeData CallbackData;
-CallbackData.GEModData = DataToShare;  // FGameplayEffectModCallbackData 채워짐
-NewDelegate->Broadcast(CallbackData);
-```
-
-**경로 2 — 클라이언트: 복제로 값이 도착할 때** (`GameplayEffect.cpp:3724`)
-
-```cpp
-FOnAttributeChangeData CallbackData;
-CallbackData.GEModData = nullptr;      // GE 컨텍스트 없음
-Delegate->Broadcast(CallbackData);
-```
+소스에서 Broadcast 지점은 두 곳이다 (`GameplayEffect.cpp:3724, 3912`).
 
 | 경로 | 발동 주체 | GEModData |
 |---|---|---|
-| GE 적용 | 서버 | 채워짐 |
+| GE 적용 (`InternalUpdateNumericalAttribute`) | 서버 | 채워짐 |
 | 복제 수신 | 클라이언트 | nullptr |
 
-UI 업데이트처럼 "값이 바뀌었다"는 사실만 필요하면 두 경로 모두 쓸 수 있다.
+UI 업데이트처럼 값 변화만 필요하면 두 경로 모두 쓸 수 있다.
 "누가 데미지를 줬는지" 같은 컨텍스트가 필요하면 `GEModData != nullptr` 체크가 필수다.
 
 ---
 
-### FGameplayEffectModCallbackData — Pre/Post 콜백에 전달되는 컨텍스트
+### FGameplayEffectModCallbackData — 구조와 두 가지 쓰임
 
-`UAttributeSet`에는 GE가 Attribute를 변경할 때 호출되는 두 가상 함수가 있다.
+```cpp
+// GameplayEffectExtension.h
+struct FGameplayEffectModCallbackData
+{
+    const FGameplayEffectSpec&        EffectSpec;   // GE 전체 스펙 (Instigator, 태그, 레벨 등)
+    FGameplayModifierEvaluatedData&   EvaluatedData;// 계산 완료된 Modifier 결과
+    UAbilitySystemComponent&          Target;       // 적용 대상 ASC
+};
+
+// GameplayEffectTypes.h
+struct FGameplayModifierEvaluatedData
+{
+    FGameplayAttribute                Attribute;    // 건드린 Attribute
+    TEnumAsByte<EGameplayModOp::Type> ModifierOp;  // Add / Multiply / Override
+    float                             Magnitude;    // 계산된 최종 수치
+    FActiveGameplayEffectHandle       Handle;       // 이 Modifier를 만든 ActiveGE 핸들
+};
+```
+
+이 구조체는 두 곳에서 쓰인다.
+
+**① FOnAttributeChangeData.GEModData** — 델리게이트 콜백에서 "어떤 GE가 이 변화를 만들었는지" 확인할 때.
+
+```cpp
+Data.EffectSpec.GetContext().GetInstigator();          // 발동자
+Data.EvaluatedData.Attribute == GetDamageAttribute();  // 어떤 Attribute가 바뀌었는지
+```
+
+**② Pre/PostGameplayEffectExecute 인자** — AttributeSet 콜백에서 값 변경 전후에 받는 컨텍스트.
 
 ```cpp
 // AttributeSet.h
@@ -85,71 +95,24 @@ virtual bool PreGameplayEffectExecute(FGameplayEffectModCallbackData& Data);  //
 virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data); // 변경 직후
 ```
 
-소스에서 확인한 실제 호출 순서 (`GameplayEffect.cpp:4046 — InternalExecuteMod`):
+실제 호출 순서 (`GameplayEffect.cpp:4046 — InternalExecuteMod`):
 
 ```cpp
-FGameplayEffectModCallbackData ExecuteData(Spec, ModEvalData, *Owner); // 컨텍스트 생성
+FGameplayEffectModCallbackData ExecuteData(Spec, ModEvalData, *Owner);
 
 if (AttributeSet->PreGameplayEffectExecute(ExecuteData))  // 1. 적용 직전
 {
     ApplyModToAttribute(...);                              // 2. 실제 값 변경
-
     AttributeSet->PostGameplayEffectExecute(ExecuteData); // 3. 적용 직후
 }
 ```
 
-- **Pre**: 값 변경 전 가로채기 지점. `false` 반환 시 변경 취소(면역 처리 등).
-- **Post**: 값이 바뀐 뒤 후처리 지점. Damage Meta Attribute를 읽어 방어막·체력에 분배하는 로직이 여기 들어간다.
-
 **Pre/Post는 BaseValue가 바뀔 때만 호출된다.**
 
-| GE 종류 | Pre/PostGameplayEffectExecute |
+| GE 종류 | 호출 여부 |
 |---|---|
 | Instant (BaseValue 변경) | **호출됨** |
-| Duration / Infinite (CurrentValue, Aggregator 경유) | **호출 안 됨** |
+| Duration / Infinite (Aggregator → CurrentValue) | **호출 안 됨** |
 | Periodic (틱마다 BaseValue 변경) | **호출됨** (틱마다) |
 
-Duration/Infinite GE가 Aggregator로 CurrentValue를 바꿀 때 수치를 건드리고 싶으면 `PreAttributeChange`를 써야 한다.
-이 함수는 BaseValue든 CurrentValue든 어떤 변경에도 모두 호출된다.
-
-`FGameplayEffectModCallbackData`는 이 두 함수가 공유하는 컨텍스트 구조체다.
-
-```cpp
-// GameplayEffectExtension.h
-struct FGameplayEffectModCallbackData
-{
-    const FGameplayEffectSpec&         EffectSpec;    // 이 Modifier를 만든 GE의 전체 스펙
-    FGameplayModifierEvaluatedData&    EvaluatedData; // 계산 완료된 Modifier 결과값
-    UAbilitySystemComponent&           Target;        // 적용 대상 ASC
-};
-```
-
-**EffectSpec** — GE의 전체 정보. 발동자(Instigator), 태그, 레벨 등을 꺼낼 수 있다.
-
-```cpp
-Data.EffectSpec.GetContext().GetInstigator(); // 누가 데미지를 줬는지
-```
-
-**EvaluatedData** — 계산이 끝난 Modifier 결과값이다.
-
-```cpp
-// GameplayEffectTypes.h
-struct FGameplayModifierEvaluatedData
-{
-    FGameplayAttribute                Attribute;   // 어떤 Attribute를 건드렸나
-    TEnumAsByte<EGameplayModOp::Type> ModifierOp; // Add / Multiply / Override 중 무엇
-    float                             Magnitude;   // 계산된 최종 수치
-    FActiveGameplayEffectHandle       Handle;       // 이 Modifier를 만든 ActiveGE 핸들
-};
-```
-
-어떤 Attribute가 바뀌었는지 확인하는 패턴이 바로 이 멤버를 쓰는 것이다.
-
-```cpp
-if (Data.EvaluatedData.Attribute == GetDamageAttribute()) { ... }
-```
-
-**Target** — 적용 대상 ASC. 피격자의 다른 Attribute를 읽거나 태그를 확인할 때 사용한다.
-
-> **참고**  
-> `FGameplayEffectModCallbackData`는 서버에서만 채워진다. 클라이언트 측 `FOnAttributeChangeData` 콜백에서 이 포인터는 nullptr일 수 있다.
+Duration/Infinite GE의 CurrentValue 변경 시점을 가로채려면 `PreAttributeChange`를 써야 한다.
