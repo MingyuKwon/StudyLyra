@@ -75,10 +75,38 @@ UI 업데이트처럼 "값이 바뀌었다"는 사실만 필요하면 두 경로
 
 ---
 
-### FGameplayEffectModCallbackData — 콜백에 전달되는 컨텍스트 객체
+### FGameplayEffectModCallbackData — Pre/Post 콜백에 전달되는 컨텍스트
 
-`PreGameplayEffectExecute` / `PostGameplayEffectExecute` 호출 시 인자로 전달되는 구조체다.
-"지금 어떤 GE가, 어떤 값으로, 누구에게 적용됐다"는 전체 맥락을 AttributeSet 콜백에 넘기기 위한 일회용 컨텍스트다.
+`UAttributeSet`에는 GE가 Attribute를 변경할 때 호출되는 두 가상 함수가 있다.
+
+```cpp
+// AttributeSet.h
+virtual bool PreGameplayEffectExecute(FGameplayEffectModCallbackData& Data);  // 변경 직전, false 반환 시 취소
+virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data); // 변경 직후
+```
+
+소스에서 확인한 실제 호출 순서 (`GameplayEffect.cpp:4046 — InternalExecuteMod`):
+
+```cpp
+FGameplayEffectModCallbackData ExecuteData(Spec, ModEvalData, *Owner); // 컨텍스트 생성
+
+if (AttributeSet->PreGameplayEffectExecute(ExecuteData))  // 1. 적용 직전
+{
+    ApplyModToAttribute(...);                              // 2. 실제 값 변경
+
+    AttributeSet->PostGameplayEffectExecute(ExecuteData); // 3. 적용 직후
+}
+```
+
+- **Pre**: 값 변경 전 가로채기 지점. `false` 반환 시 변경 취소(면역 처리 등).
+- **Post**: 값이 바뀐 뒤 후처리 지점. Damage Meta Attribute를 읽어 방어막·체력에 분배하는 로직이 여기 들어간다.
+
+> **참고**  
+> 이 두 함수는 **Instant GE(BaseValue 변경)에서만 호출된다.**  
+> Duration/Infinite GE가 Aggregator를 통해 CurrentValue를 바꿀 때는 호출되지 않는다.  
+> 버프/디버프 수치 조작이 필요하면 `PreAttributeChange`를 써야 한다.
+
+`FGameplayEffectModCallbackData`는 이 두 함수가 공유하는 컨텍스트 구조체다.
 
 ```cpp
 // GameplayEffectExtension.h
