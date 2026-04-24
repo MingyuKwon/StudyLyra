@@ -19,6 +19,44 @@ GAS를 처음 접하는 사람들은 종종 BaseValue를 Attribute의 최대값�
 
 ## 내 분석
 
+### GE 종류별로 바꾸는 값이 다르다
+
+"GE가 Attribute를 바꾼다"고 할 때, GE 종류에 따라 건드리는 값이 다르다.
+
+| GE 종류 | 바꾸는 값 | 비고 |
+|---|---|---|
+| `Instant` | **BaseValue** | 영구 변경. CurrentValue도 뒤따라 갱신 |
+| `Duration` / `Infinite` | **CurrentValue만** | Aggregator 경유. BaseValue는 그대로 |
+| `Periodic` | **BaseValue** | Instant처럼 취급, 주기마다 |
+
+**Duration/Infinite GE 흐름:**
+
+```
+GE 적용
+  → Aggregator에 Modifier 추가
+  → Aggregator.Evaluate() = BaseValue + 모든 활성 Modifier 합산
+  → CurrentValue 갱신
+
+GE 제거
+  → Aggregator에서 Modifier 제거 → 재계산
+  → CurrentValue = BaseValue 복귀
+```
+
+BaseValue는 전혀 건드리지 않는다.
+Aggregator가 "지금 얼마짜리 Modifier들이 붙어 있냐"를 관리하고, BaseValue에 더해 CurrentValue를 뽑아낸다.
+
+**Instant GE 흐름:**
+
+```
+GE 적용
+  → BaseValue 직접 변경
+  → Aggregator 없으면: CurrentValue = 새 BaseValue로 동기화
+  → Aggregator 있으면: 재계산해서 CurrentValue 갱신
+  → GE는 적용 즉시 사라짐 (ActiveGameplayEffects에 남지 않음)
+```
+
+---
+
 ### FGameplayAttributeData — 구조체가 값을 두 개 갖는 이유
 
 ```cpp
