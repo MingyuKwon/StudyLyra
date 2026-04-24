@@ -28,6 +28,26 @@ Derived Attribute의 모든 Modifier에 대한 최종 공식은 Modifier Aggrega
 
 ## 내 분석
 
+### Derived Attribute는 별도 타입이 아니다
+
+`Derived Attribute`는 GASDoc이 붙인 **패턴 이름**이다.
+엔진 코드에 `FDerivedAttribute` 같은 클래스나 타입은 없고, 구조체도 똑같은 `FGameplayAttributeData`다.
+
+실제로 하는 일은 이것뿐이다:
+
+```
+AttackPower라는 평범한 Attribute를 만든다
+  + Infinite GE 하나를 항상 붙여둔다
+  + 그 GE의 Modifier를 "Strength 값 * 2를 Add해라"로 설정한다
+```
+
+부모-자식처럼 특별한 링크가 있는 게 아니라, Aggregator가 "이 Attribute를 계산할 때 Strength를 참조하라"는 정보를 갖고 있을 뿐이다.
+Strength가 바뀌면 Aggregator가 감지하고 AttackPower를 재계산한다.
+
+**Derived Attribute = 평범한 Attribute + Infinite GE 패턴**이다.
+
+---
+
 ### Derived Attribute가 뭘 위한 건가
 
 다른 Attribute의 값에서 자동으로 계산되는 Attribute가 필요할 때 쓴다.
