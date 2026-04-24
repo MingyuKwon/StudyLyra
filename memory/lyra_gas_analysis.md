@@ -99,15 +99,6 @@ OutGrantedHandles->AddAttributeSet(NewSet);  // 제거용 핸들 저장
 
 제거: `FLyraAbilitySet_GrantedHandles::TakeFromAbilitySystem()` → `RemoveSpawnedAttribute()`
 
-GE 부여 코드 (`LyraAbilitySet.cpp:129`):
-```cpp
-// GrantedGameplayEffects 배열 순회
-const UGameplayEffect* GE = EffectToGrant.GameplayEffect->GetDefaultObject<UGameplayEffect>();
-FActiveGameplayEffectHandle Handle = LyraASC->ApplyGameplayEffectToSelf(
-    GE, EffectToGrant.EffectLevel, LyraASC->MakeEffectContext());
-OutGrantedHandles->AddGameplayEffectHandle(Handle); // 제거용 핸들 저장
-```
-Derived Attribute용 Infinite GE도 AbilitySet의 `GrantedGameplayEffects`에 넣으면 스폰 시 자동 부여됨.
 
 ---
 
