@@ -175,10 +175,20 @@ ASC가 PlayerState에 있으면 초기화에 PlayerState 포인터가 필요하�
 `OnRep_PlayerState()`는 PlayerState가 클라이언트에 복제 완료된 시점에 호출되므로,
 이때 초기화하면 PlayerState가 반드시 존재함을 보장할 수 있다.
 
-이 경우 PlayerController는 `Pawn->GetController()` 경로가 아니라 **`PlayerState->GetOwner()` 경로**로 찾는다.
-`InitAbilityActorInfo(PlayerState, Character)`를 호출하면 `InOwnerActor = PlayerState`가 되고,
-`InitFromActor` 내부에서 PlayerState는 Pawn도 PlayerController도 아니므로 `GetOwner()`를 타고 올라간다.
-PlayerState의 Owner는 PlayerController이며, 이 소유 관계는 PlayerState 복제 시 함께 전달된다.
-따라서 `OnRep_PlayerState()` 시점에 `PlayerState->GetOwner()`는 항상 유효한 PlayerController를 반환한다.
+PlayerController는 별도로 기다릴 필요가 없다.
+클라이언트 접속 시 생성 순서는 다음과 같다.
 
-정리하면, **서버와 클라이언트는 PlayerController를 찾는 경로 자체가 다르고, 그 경로가 유효해지는 시점에 맞춰 초기화 지점을 선택한 것이다.**
+```
+1. 클라이언트 접속 요청
+2. 서버: GameMode::Login() → 서버 측 PlayerController 생성 (Authority)
+3. 서버가 클라이언트에 신호 → 클라이언트: 로컬 PlayerController 생성 (AutonomousProxy)
+4. (한참 뒤) 서버: PlayerState 생성 → 전체 클라이언트에 복제
+5. 서버: Pawn 생성 → 복제
+```
+
+PlayerController는 PlayerState보다 훨씬 먼저 생긴다.
+`OnRep_PlayerState()`가 발동하는 시점 = "PlayerState가 방금 복제 완료됐다"는 뜻이고,
+그 시점에 PlayerController는 이미 한참 전부터 존재한다.
+
+**`OnRep_PlayerState()`를 기다리는 이유는 늦게 오는 PlayerState 때문이고,
+이 시점에 도달하면 PlayerController와 PlayerState 두 조건이 자동으로 모두 충족된다.**

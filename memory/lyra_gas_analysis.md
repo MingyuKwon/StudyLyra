@@ -973,11 +973,18 @@ bool FGameplayAbilityActorInfo::IsLocallyControlled() const
 → PlayerState의 `Owner`는 PlayerController (엔진이 PlayerState 생성 시 Controller가 소유)  
 → 한 단계 올라가면 바로 PlayerController 발견
 
-클라이언트에서 PlayerState가 복제될 때 소유 관계(Owner)도 함께 복제된다.  
-→ `OnRep_PlayerState()` 시점에 `PlayerState->GetOwner()`는 항상 유효한 PlayerController 반환  
-→ `Pawn->GetController()` 타이밍을 맞출 필요 없이 PlayerState 복제 완료 시점이면 충분
+클라이언트 접속 시 생성 순서:
+```
+1. 클라이언트 접속 요청
+2. 서버: GameMode::Login() → 서버 측 PlayerController 생성 (Authority)
+3. 서버 신호 → 클라이언트: 로컬 PlayerController 생성 (AutonomousProxy)
+4. (한참 뒤) 서버: PlayerState 생성 → 전체 클라이언트에 복제
+5. 서버: Pawn 생성 → 복제
+```
 
-**요약**: 서버와 클라이언트는 PlayerController를 찾는 경로 자체가 다르고, 그 경로가 유효해지는 시점에 맞춰 초기화 지점을 선택한 것이다.
+PlayerController는 PlayerState보다 훨씬 먼저 생긴다.  
+`OnRep_PlayerState()` 발동 시점 = PlayerState 복제 완료, 이때 PlayerController는 이미 존재.  
+→ `OnRep_PlayerState`를 기다리는 이유는 PlayerState 때문이고, 이 시점에 두 조건 모두 자동 충족.
 
 ---
 
