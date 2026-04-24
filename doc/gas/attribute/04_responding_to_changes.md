@@ -101,10 +101,16 @@ if (AttributeSet->PreGameplayEffectExecute(ExecuteData))  // 1. 적용 직전
 - **Pre**: 값 변경 전 가로채기 지점. `false` 반환 시 변경 취소(면역 처리 등).
 - **Post**: 값이 바뀐 뒤 후처리 지점. Damage Meta Attribute를 읽어 방어막·체력에 분배하는 로직이 여기 들어간다.
 
-> **참고**  
-> 이 두 함수는 **Instant GE(BaseValue 변경)에서만 호출된다.**  
-> Duration/Infinite GE가 Aggregator를 통해 CurrentValue를 바꿀 때는 호출되지 않는다.  
-> 버프/디버프 수치 조작이 필요하면 `PreAttributeChange`를 써야 한다.
+**Pre/Post는 BaseValue가 바뀔 때만 호출된다.**
+
+| GE 종류 | Pre/PostGameplayEffectExecute |
+|---|---|
+| Instant (BaseValue 변경) | **호출됨** |
+| Duration / Infinite (CurrentValue, Aggregator 경유) | **호출 안 됨** |
+| Periodic (틱마다 BaseValue 변경) | **호출됨** (틱마다) |
+
+Duration/Infinite GE가 Aggregator로 CurrentValue를 바꿀 때 수치를 건드리고 싶으면 `PreAttributeChange`를 써야 한다.
+이 함수는 BaseValue든 CurrentValue든 어떤 변경에도 모두 호출된다.
 
 `FGameplayEffectModCallbackData`는 이 두 함수가 공유하는 컨텍스트 구조체다.
 
