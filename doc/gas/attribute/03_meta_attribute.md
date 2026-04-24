@@ -18,3 +18,51 @@ Meta Attribute는 좋은 설계 패턴이지만 필수는 아니다. 모든 데�
 ---
 
 ## 내 분석
+
+### "GE 사이에서 값이 유지되지 않으며 매번 덮어써진다"
+
+`Damage`는 `FGameplayAttributeData`로 선언된 Attribute지만, 실제로는 임시 수신함처럼 쓰인다.
+
+```
+GE A 적용 → Damage = 50 → PostGameplayEffectExecute() 실행 → 처리 완료
+GE B 적용 → Damage = 30 → PostGameplayEffectExecute() 실행 → 처리 완료
+```
+
+GE A가 끝난 뒤 Damage = 50이 남아있지 않다. GE B가 오면 30으로 덮어쓴다.
+이 값을 "누적"하거나 "기억"하는 용도로 쓰면 안 된다.
+
+### "AttributeSet에서 추가 조작이 가능하다"
+
+`PostGameplayEffectExecute()`가 그 조작 지점이다.
+
+```cpp
+void ULyraHealthSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
+{
+    if (Data.EvaluatedData.Attribute == GetDamageAttribute())
+    {
+        float DamageValue = GetDamage();
+
+        // 방어막이 있으면 먼저 차감
+        float Shield = GetShield();
+        float Remainder = FMath::Max(0.f, DamageValue - Shield);
+        SetShield(FMath::Max(0.f, Shield - DamageValue));
+
+        // 나머지를 체력에서 차감
+        SetHealth(FMath::Max(0.f, GetHealth() - Remainder));
+
+        SetDamage(0.f);  // Meta Attribute 초기화
+    }
+}
+```
+
+GE는 "데미지가 30이다"만 결정하고, "방어막에서 먼저 까고 체력에서 빼라"는 로직은 AttributeSet이 담당한다.
+GE가 캐릭터 내부 구조(방어막 유무 등)를 알 필요가 없다.
+
+### "Meta Attribute는 일반적으로 복제되지 않는다"
+
+값의 수명이 너무 짧기 때문이다.
+`PostGameplayEffectExecute()` 안에서 읽고 처리한 뒤 바로 0으로 리셋된다.
+클라이언트에 복제될 시간도, 복제할 의미도 없다.
+
+Health 같은 일반 Attribute는 클라이언트 UI가 읽어야 하므로 복제한다.
+Damage는 서버에서 계산하고 처리까지 끝나면 버리는 값이라 복제가 필요 없다.
