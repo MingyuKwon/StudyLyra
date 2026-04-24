@@ -122,12 +122,20 @@ GAS는 GE를 "소유 클라이언트"에게만 보낼 때 `OwnerActor->GetNetOwn
 이 시점에 Controller가 없으면 `IsLocallyControlled()`, `IsNetAuthority()` 판단이 틀려서
 어느 쪽에서 GA를 실행할지 잘못 결정된다.
 
-### PlayerController 유무가 중요한가
+### 권장 초기화 시점들이 선택된 이유
 
-중요하다. ASC 내부는 Controller와 PlayerController를 구분한다.
+**서버 — `PossessedBy()`**
+`PossessedBy()`는 서버에서 Controller가 Pawn을 소유하는 바로 그 순간 호출된다.
+이 함수 안에서 `GetController()`가 새 Controller를 반환하고, `SetOwner(NewController)`도 여기서 한다.
+Controller가 유효함을 보장할 수 있는 서버 측 가장 이른 시점이다.
 
-- **AI**: Controller는 있지만 PlayerController가 없다.
-  `AcknowledgePossession`은 PlayerController에서만 불리므로 AI에게는 절대 호출되지 않는다.
-  따라서 `PossessedBy` 한 번으로 충분하다.
-  코드 주석의 `"AI won't have PlayerControllers so we can init again here just to be sure"`가 이 의미다.
-- **플레이어**: 서버의 `PossessedBy` + 클라이언트의 `AcknowledgePossession`(또는 `OnRep_PlayerState`) 두 경로가 모두 필요하다.
+**클라이언트 (ASC가 Pawn에 있는 경우) — `AcknowledgePossession()`**
+`AcknowledgePossession()`은 클라이언트의 PlayerController가 Pawn 빙의를 확인했을 때 호출된다.
+이 시점에 클라이언트의 `GetController()`가 PlayerController를 반환하므로,
+서버의 `PossessedBy`와 대칭되는 클라이언트 측 초기화 지점이 된다.
+
+**클라이언트 (ASC가 PlayerState에 있는 경우) — `OnRep_PlayerState()`**
+ASC가 PlayerState에 있으면 초기화에 PlayerState 포인터가 필요하다.
+`AcknowledgePossession()` 시점에는 클라이언트에 PlayerState가 아직 복제되지 않았을 수 있다.
+`OnRep_PlayerState()`는 PlayerState가 클라이언트에 복제 완료된 시점에 호출되므로,
+이때 초기화하면 PlayerState가 반드시 존재함을 보장할 수 있다.
