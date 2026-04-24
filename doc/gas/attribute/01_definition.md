@@ -18,3 +18,56 @@ Attribute는 [`AttributeSet`](#concepts-as) 안에 정의되고 소속된다. At
 ---
 
 ## 내 분석
+
+### 왜 Attribute는 GE를 통해서만 수정해야 하는가 — 예측과 롤백
+
+**예측(Prediction)이란 — 클라이언트 선행 실행**
+
+멀티플레이어에서 서버 응답을 기다리면 입력 지연이 체감된다.
+GAS는 클라이언트가 서버 확인 전에 먼저 결과를 적용하고, 나중에 서버와 맞추는 방식을 쓴다.
+
+```
+클라이언트: 점프 입력
+  → 서버 응답 기다리지 않고 즉시 GA 발동
+  → GE로 Stamina -10 즉시 적용 (예측)
+  → 동시에 서버에 RPC 전송
+
+서버: RPC 수신
+  → 유효하면 동일하게 GE 적용
+  → 클라이언트에 결과 전파
+
+클라이언트: 서버 확인 수신
+  → 맞으면 그대로 유지
+  → 틀리면 롤백
+```
+
+**PredictionKey — 예측 추적 단위**
+
+클라이언트가 예측 행동을 할 때마다 `FPredictionKey`(고유 ID)를 발급한다.
+GE를 적용할 때 이 키를 함께 담는다.
+
+```cpp
+FActiveGameplayEffect {
+    FGameplayEffectSpec Spec;
+    FPredictionKey PredictionKey;  // "이 GE는 이 예측에서 온 것"
+}
+```
+
+서버가 같은 GE를 복제해 보내올 때 PredictionKey를 대조한다.
+- **일치**: 서버가 예측을 확인 → 클라이언트 측 예측 GE 그대로 유지
+- **거부**: `NewRejectedDelegate` 발동 → 해당 PredictionKey에 속한 GE 전부 롤백
+
+**왜 GE를 거치지 않으면 예측이 불가능한가**
+
+Attribute를 직접 수정하면 PredictionKey가 없다.
+
+```cpp
+// 이렇게 하면 변경 기록이 없음
+AttributeSet->Stamina = AttributeSet->Stamina - 10;
+// → 서버가 거부해도 롤백할 방법이 없음
+```
+
+GE를 거쳐야 변경이 PredictionKey에 묶이고, 거부 시 엔진이 해당 키로 적용된 것들을 찾아 자동 롤백한다.
+직접 수정은 메모리 값 덮어쓰기라 추적 자체가 불가능하다.
+
+**한 줄 요약**: GE는 Attribute 변경에 PredictionKey를 붙여 추적 가능하게 만드는 장치이고, 그게 없으면 롤백 메커니즘이 작동하지 않는다.

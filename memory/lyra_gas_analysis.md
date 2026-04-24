@@ -1142,6 +1142,50 @@ ASC->AddLooseGameplayTag(Tag, 1, EGameplayTagReplicationState::AllClients);
 ASC->AddMinimalReplicationGameplayTag(Tag);
 ```
 
+---
+
+## 22. GE를 통해서만 Attribute를 수정해야 하는 이유 — PredictionKey와 롤백
+
+> 출처:  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/GameplayPrediction.h:64-208`  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/GameplayEffect.h:1410`
+
+### 예측(Prediction) — 클라이언트 선행 실행
+
+서버 응답 대기 없이 클라이언트가 먼저 결과를 적용하고, 이후 서버와 맞추는 방식.
+
+```
+클라이언트: GA 발동 → GE로 Attribute 즉시 변경 + 서버에 RPC
+서버: 수신 → 유효하면 동일 GE 적용, 아니면 거부
+클라이언트: 확인 수신 → 일치하면 유지, 거부면 롤백
+```
+
+### FPredictionKey — 예측 추적 단위
+
+클라이언트가 예측 행동마다 발급하는 고유 ID.
+GE 적용 시 함께 담긴다.
+
+```cpp
+FActiveGameplayEffect {
+    FGameplayEffectSpec Spec;
+    FPredictionKey PredictionKey;  // GameplayEffect.h:1410
+}
+```
+
+- 서버 복제본이 도착할 때 PredictionKey 대조
+- **일치**: 예측 확인 → 클라이언트 GE 유지
+- **거부**: `NewRejectedDelegate` 발동 → 해당 키의 GE 전부 롤백
+
+### 직접 수정이 예측 불가능한 이유
+
+```cpp
+AttributeSet->Stamina = AttributeSet->Stamina - 10;  // PredictionKey 없음
+// → 거부 시 롤백 대상을 식별할 수 없음
+```
+
+GE를 거쳐야 변경이 PredictionKey에 묶여 추적·롤백 가능.
+직접 수정은 메모리 덮어쓰기라 엔진이 추적할 방법이 없다.
+
 `ReplicatedLooseTags`는 `GetLifetimeReplicatedProps`에 `COND_None`으로 등록된 복제 프로퍼티.  
 기본값 `None`을 쓰면 이 컨테이너에 들어가지 않아 복제가 일어나지 않는다.
 
