@@ -39,3 +39,35 @@
 ---
 
 ## 내 분석
+
+### OwnerActor vs SetOwner의 Owner — 완전히 다른 개념
+
+문서 하단 주석("Mixed 모드는 OwnerActor의 Owner가 Controller여야 한다")을 보고 헷갈릴 수 있는 부분.
+
+| | 개념 | 설정 방법 | 용도 |
+|---|---|---|---|
+| `OwnerActor` | GAS 용어 | `InitAbilityActorInfo()` | ASC가 누구 소속인지 |
+| `Owner` | UE Actor 용어 | `SetOwner()` | 네트워크 복제 대상 클라이언트 결정 |
+
+**ASC의 `OwnerActor`**: GAS가 "이 ASC가 어느 Actor에 붙어있냐"를 기록하는 용도.
+
+```cpp
+// Lyra에서
+ASC->InitAbilityActorInfo(PlayerState, Character);
+//                         ^^^^^^^^^^^  ← GAS의 OwnerActor
+//                                       ^^^^^^^^^ ← GAS의 AvatarActor
+```
+
+**`SetOwner()`의 Owner**: 언리얼 네트워킹 개념. `GetNetOwner()`로 Owner 체인을 타고 올라가 PlayerController를 찾아 "이 Actor를 어느 클라이언트에게 복제할지" 결정한다.
+
+**Mixed 모드에서 두 개념이 교차하는 지점**:
+
+```
+GE를 "소유 클라이언트에만" 복제하려면
+→ GAS가 OwnerActor->GetNetOwner() 호출
+→ Owner 체인을 타고 올라가 PlayerController 탐색
+→ 그 Controller의 커넥션으로 GE 전송
+```
+
+`PlayerState`는 기본적으로 Controller가 `SetOwner()`로 등록되어 있어서 자동 동작.  
+Character에 직접 ASC를 붙이면 `PossessedBy()` 전에는 Owner가 없어 커넥션을 못 찾음 → `SetOwner(Controller)` 수동 호출 필요.
