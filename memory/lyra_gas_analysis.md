@@ -874,3 +874,68 @@ AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(Handle, Pre
 ### FLyraGameplayAbilityTargetData_SingleTargetHit
 - `FGameplayAbilityTargetData_SingleHit` 서브클래스
 - `int32 CartridgeID` 추가 — 산탄총 펠릿처럼 한 발사에서 나온 여러 히트를 묶기 위한 ID
+
+---
+
+## 18. 언리얼 UI 파이프라인 — Slate / UMG
+
+> 출처:  
+> `C:/UE_5.7/Engine/Source/Runtime/Launch/Private/LaunchEngineLoop.cpp`  
+> `C:/UE_5.7/Engine/Source/Runtime/Slate/Private/Framework/Application/SlateApplication.cpp`  
+> `C:/UE_5.7/Engine/Source/Runtime/SlateCore/Private/Widgets/SWidget.cpp`  
+> `C:/UE_5.7/Engine/Source/Runtime/UMG/Private/UserWidget.cpp`  
+> `C:/UE_5.7/Engine/Source/Runtime/UMG/Private/Components/Widget.cpp`  
+> 전체 문서: `doc/unrealCore/ui_pipeline.md`
+
+### 계층 구조
+
+```
+UMG (UWidget/UUserWidget, UObject 기반)
+    → TakeWidget() → SWidget (Slate, TSharedRef 기반)
+        → OnPaint() → FSlateWindowElementList (드로우 명령)
+            → Renderer->DrawWindows() → RHI/GPU
+```
+
+### 엔진 루프 연결점
+
+```cpp
+// LaunchEngineLoop.cpp:5890, 5960
+FEngineLoop::Tick()
+    FSlateApplication::Get().Tick(ESlateTickType::PlatformAndInput)  // 입력
+    FSlateApplication::Get().Tick(ESlateTickType::TimeAndWidgets)    // 렌더
+```
+
+### TickAndDrawWidgets 내 두 Pass
+
+```
+PrivateDrawWindows()
+    ① DrawPrepass()   — SWidget::SlatePrepass() → CacheDesiredSize() → ComputeDesiredSize()
+                        바텀업으로 DesiredSize 계산
+    ② DrawWindowAndChildren() — SWidget::Paint() → Tick(조건부) → OnPaint()
+                                드로우 명령을 FSlateWindowElementList에 추가
+    Renderer->DrawWindows() → GPU 제출
+```
+
+### TakeWidget 브릿지 (핵심)
+
+```cpp
+// Widget.cpp:999
+UWidget::TakeWidget_Private()
+    if (!MyWidget.IsValid())
+        PublicWidget = RebuildWidget()  // SWidget 생성 (처음만)
+        MyWidget = PublicWidget         // 약한 참조 캐시
+    if (UUserWidget)
+        SafeGCWidget = SNew(SObjectWidget, this)[PublicWidget]  // GC 방지 래퍼
+```
+
+- `SObjectWidget`: UUserWidget을 GC 루트에 묶어 Slate 트리에 살아있는 동안 수거 방지
+
+### 슬레이트 절전
+
+- 사용자 입력 없고 `RegisterActiveTimer()` 없으면 `DrawWindows()` 스킵
+- 애니메이션 재생 중인 위젯은 `RegisterActiveTimer()` 필수
+
+### SWidget::Tick 호출 조건
+
+`Paint()` 내부에서 `EWidgetUpdateFlags::NeedsTick` 플래그 있는 위젯만 호출.  
+UUserWidget에서 Tick 이벤트 사용 시 자동 세팅됨.

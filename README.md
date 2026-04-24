@@ -61,3 +61,4 @@ GAS 학습 분석
 | 문서 | 내용 |
 |------|------|
 | [입력 파이프라인](doc/unrealCore/input_pipeline.md) | PlayerTick → ProcessInputStack 전체 흐름, Accumulator 패턴, bDown 홀드 원리 |
+| [UI 파이프라인](doc/unrealCore/ui_pipeline.md) | Slate/UMG 렌더 흐름, TakeWidget 브릿지, Prepass/OnPaint 두 단계 Pass |
