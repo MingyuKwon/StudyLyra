@@ -63,7 +63,8 @@ void UPAAbilitySystemComponent::RemoveGameplayCueLocal(const FGameplayTag Gamepl
 
 `GameplayCue`를 수동으로 트리거할 때 임의 데이터를 `GameplayCue`에 전달하기에 `GameplayCueParameters` 구조체의 `SourceObject` 변수가 적합한 위치가 될 수 있다.
 
-**참고:** 파라미터 구조체의 `Instigator` 같은 일부 변수는 이미 `EffectContext`에 존재할 수 있다. `EffectContext`는 `GameplayCue`가 월드에서 스폰될 위치 정보로 `FHitResult`를 포함할 수도 있다. `EffectContext`를 서브클래싱하는 것은 특히 `GameplayEffect`에 의해 트리거되는 `GameplayCue`에 더 많은 데이터를 전달하는 좋은 방법이 될 수 있다.
+> **참고**  
+> 파라미터 구조체의 `Instigator` 같은 일부 변수는 이미 `EffectContext`에 존재할 수 있다. `EffectContext`는 `GameplayCue`가 월드에서 스폰될 위치 정보로 `FHitResult`를 포함할 수도 있다. `EffectContext`를 서브클래싱하는 것은 특히 `GameplayEffect`에 의해 트리거되는 `GameplayCue`에 더 많은 데이터를 전달하는 좋은 방법이 될 수 있다.
 
 `GameplayCueParameters` 구조체를 채우는 [`UAbilitySystemGlobals`](#concepts-asg)의 세 가지 함수를 참고하라. 이 함수들은 virtual이므로 더 많은 정보를 자동으로 채우도록 오버라이드할 수 있다.
 

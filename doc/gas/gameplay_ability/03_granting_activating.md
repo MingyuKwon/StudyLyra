@@ -58,9 +58,11 @@ FGameplayAbilitySpecHandle GiveAbilityAndActivateOnce(const FGameplayAbilitySpec
 
 GA `Triggers`는 GameplayTag가 추가되거나 제거될 때 GA를 활성화하는 것도 지원한다.
 
-**참고:** Blueprint에서 이벤트로 GA를 활성화할 때는 반드시 `ActivateAbilityFromEvent` 노드를 사용해야 한다.
+> **참고**  
+> Blueprint에서 이벤트로 GA를 활성화할 때는 반드시 `ActivateAbilityFromEvent` 노드를 사용해야 한다.
 
-**참고:** 패시브 어빌리티처럼 항상 실행 상태를 유지하는 GA가 아니라면, GA가 종료되어야 할 시점에 반드시 `EndAbility()`를 호출하는 것을 잊지 말 것.
+> **참고**  
+> 패시브 어빌리티처럼 항상 실행 상태를 유지하는 GA가 아니라면, GA가 종료되어야 할 시점에 반드시 `EndAbility()`를 호출하는 것을 잊지 말 것.
 
 **로컬 예측(locally predicted) GA의 활성화 순서:**
 1. **Owning client**가 `TryActivateAbility()`를 호출

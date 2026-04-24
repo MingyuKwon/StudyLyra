@@ -15,7 +15,8 @@
 
 자신의 커스텀 `AbilityTask`에 Synch Point 기능을 추가하고 싶다면, 입력 관련 AbilityTask가 `WaitNetSync` `AbilityTask` 코드를 어떻게 주입하는지 살펴보라.
 
-**참고:** `WaitNetSync`를 사용하면 서버의 `GameplayAbility` 실행이 클라이언트에서 응답을 받을 때까지 **블로킹**된다. 게임을 해킹한 악의적인 사용자가 의도적으로 새로운 Scoped Prediction Key 전송을 지연시켜 이를 악용할 소지가 있다. Epic은 `WaitNetSync`를 최소한으로 사용하며, 보안이 우려된다면 클라이언트 응답 없이 일정 시간 후 자동으로 계속 진행하는 딜레이가 있는 새 버전의 `AbilityTask`를 빌드하는 것을 권장한다.
+> **참고**  
+> `WaitNetSync`를 사용하면 서버의 `GameplayAbility` 실행이 클라이언트에서 응답을 받을 때까지 **블로킹**된다. 게임을 해킹한 악의적인 사용자가 의도적으로 새로운 Scoped Prediction Key 전송을 지연시켜 이를 악용할 소지가 있다. Epic은 `WaitNetSync`를 최소한으로 사용하며, 보안이 우려된다면 클라이언트 응답 없이 일정 시간 후 자동으로 계속 진행하는 딜레이가 있는 새 버전의 `AbilityTask`를 빌드하는 것을 권장한다.
 
 샘플 프로젝트는 Sprint `GameplayAbility`에서 스태미나 비용을 적용할 때마다 `WaitNetSync`를 사용하여 새로운 Scoped Prediction Window를 생성한다. 비용(Cost)과 쿨다운(Cooldown)을 적용할 때 유효한 Prediction Key를 갖추는 것이 이상적이다.
 

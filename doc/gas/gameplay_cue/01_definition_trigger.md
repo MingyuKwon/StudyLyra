@@ -13,7 +13,8 @@
 
 `GameplayCues`는 **반드시 `GameplayCue.`로 시작하는 부모 이름**을 가진 `GameplayTag`와 이벤트 타입(`Execute`, `Add`, `Remove`)을 ASC를 통해 `GameplayCueManager`로 전달함으로써 트리거된다. `GameplayCueNotify` 오브젝트 및 `IGameplayCueInterface`를 구현한 다른 `Actor`들은 `GameplayCue`의 `GameplayTag`(`GameplayCueTag`)를 기반으로 해당 이벤트를 구독하여 반응할 수 있다.
 
-**참고:** 다시 한번 강조하지만, `GameplayCue`의 `GameplayTag`는 반드시 부모 `GameplayTag`인 `GameplayCue`로 시작해야 한다. 예를 들어 유효한 `GameplayCue` `GameplayTag`는 `GameplayCue.A.B.C`와 같은 형태다.
+> **참고**  
+> 다시 한번 강조하지만, `GameplayCue`의 `GameplayTag`는 반드시 부모 `GameplayTag`인 `GameplayCue`로 시작해야 한다. 예를 들어 유효한 `GameplayCue` `GameplayTag`는 `GameplayCue.A.B.C`와 같은 형태다.
 
 `GameplayCueNotify`에는 `Static`과 `Actor` 두 가지 클래스가 있다. 각각 서로 다른 이벤트에 반응하며, 서로 다른 타입의 `GameplayEffect`가 이를 트리거할 수 있다. 해당 이벤트에 맞는 로직으로 오버라이드하여 사용한다.
 
@@ -24,7 +25,8 @@
 
 `GameplayCueNotify`는 기술적으로 어떤 이벤트에도 반응할 수 있지만, 일반적으로 위와 같이 사용한다.
 
-**참고:** `GameplayCueNotify_Actor`를 사용할 때는 `Auto Destroy on Remove`를 반드시 체크해야 한다. 그렇지 않으면 이후에 동일한 `GameplayCueTag`로 `Add`를 호출해도 동작하지 않는다.
+> **참고**  
+> `GameplayCueNotify_Actor`를 사용할 때는 `Auto Destroy on Remove`를 반드시 체크해야 한다. 그렇지 않으면 이후에 동일한 `GameplayCueTag`로 `Add`를 호출해도 동작하지 않는다.
 
 `Full` 이외의 ASC [Replication Mode](#concepts-asc-rm)를 사용할 때, `Add` 및 `Remove` `GC` 이벤트는 서버 플레이어(리슨 서버)에서 두 번 발생한다. 한 번은 `GE` 적용 시, 또 한 번은 클라이언트에게 "Minimal" `NetMultiCast`를 통해서다. 단, `WhileActive` 이벤트는 여전히 한 번만 발생한다. 클라이언트에서는 모든 이벤트가 한 번씩만 발생한다.
 

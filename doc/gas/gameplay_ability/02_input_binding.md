@@ -53,7 +53,8 @@ AbilitySystemComponent->BindAbilityActivationToInputComponent(PlayerInputCompone
 
 ASC가 PlayerState에 있는 경우, `SetupPlayerInputComponent()` 안에서 PlayerState가 아직 클라이언트에 복제되지 않았을 가능성이 있어 잠재적인 경쟁 조건(race condition)이 발생할 수 있다. 따라서 `SetupPlayerInputComponent()`와 `OnRep_PlayerState()` 양쪽에서 바인딩을 시도하는 것을 권장한다. `OnRep_PlayerState()` 단독으로는 충분하지 않은데, PlayerController가 클라이언트에게 `ClientRestart()`를 호출하기 전에 PlayerState가 먼저 복제될 경우 Actor의 InputComponent가 null일 수 있기 때문이다. 샘플 프로젝트는 bool 플래그를 사용하여 실제 바인딩이 한 번만 수행되도록 관리하면서 두 곳 모두에서 시도한다.
 
-**참고:** 샘플 프로젝트의 enum에서 `Confirm`과 `Cancel`은 프로젝트 설정의 InputAction 이름(`ConfirmTarget`, `CancelTarget`)과 일치하지 않지만, `BindAbilityActivationToInputComponent()`에서 직접 매핑을 제공한다. 이 두 항목은 특수 케이스로 매핑을 직접 지정하기 때문에 이름이 달라도 된다(물론 같아도 된다). 나머지 입력 항목들은 프로젝트 설정의 InputAction 이름과 반드시 일치해야 한다.
+> **참고**  
+> 샘플 프로젝트의 enum에서 `Confirm`과 `Cancel`은 프로젝트 설정의 InputAction 이름(`ConfirmTarget`, `CancelTarget`)과 일치하지 않지만, `BindAbilityActivationToInputComponent()`에서 직접 매핑을 제공한다. 이 두 항목은 특수 케이스로 매핑을 직접 지정하기 때문에 이름이 달라도 된다(물론 같아도 된다). 나머지 입력 항목들은 프로젝트 설정의 InputAction 이름과 반드시 일치해야 한다.
 
 항상 동일한 슬롯에서만 활성화되는 GA(MOBA의 스킬 슬롯처럼)의 경우, `UGameplayAbility` 서브클래스에 입력 ID를 정의하는 변수를 추가하고 어빌리티 부여 시 `ClassDefaultObject`에서 이 값을 읽어오는 방식을 선호한다.
 

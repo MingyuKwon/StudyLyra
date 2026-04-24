@@ -26,9 +26,11 @@ Attribute의 `CurrentValue`는 `BaseValue`에 모든 Modifier를 집산한 결�
 
 `Override` Modifier는 마지막으로 적용된 Modifier가 우선하여 최종값을 덮어쓴다.
 
-**참고:** 퍼센트 기반 변경은 덧셈 이후에 처리되도록 반드시 `Multiply` 연산을 사용해야 한다.
+> **참고**  
+> 퍼센트 기반 변경은 덧셈 이후에 처리되도록 반드시 `Multiply` 연산을 사용해야 한다.
 
-**참고:** [Prediction](#concepts-p)은 퍼센트 변경과 궁합이 좋지 않다.
+> **참고**  
+> [Prediction](#concepts-p)은 퍼센트 변경과 궁합이 좋지 않다.
 
 Modifier의 종류는 Scalable Float, Attribute Based, Custom Calculation Class, Set By Caller의 네 가지다. 이들은 각각 float 값을 생성하며, 이 값이 Modifier의 연산에 따라 지정된 Attribute를 변경하는 데 사용된다.
 

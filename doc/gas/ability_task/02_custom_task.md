@@ -21,7 +21,8 @@
 * 바인딩된 외부 델리게이트에 대한 콜백 함수
 * 멤버 변수 및 내부 헬퍼 함수
 
-**참고:** `AbilityTask`는 출력 델리게이트를 한 가지 타입만 선언할 수 있다. 모든 출력 델리게이트는 파라미터 사용 여부와 관계없이 동일한 타입이어야 하며, 사용하지 않는 파라미터에는 기본값을 전달한다.
+> **참고**  
+> `AbilityTask`는 출력 델리게이트를 한 가지 타입만 선언할 수 있다. 모든 출력 델리게이트는 파라미터 사용 여부와 관계없이 동일한 타입이어야 하며, 사용하지 않는 파라미터에는 기본값을 전달한다.
 
 `AbilityTask`는 기본적으로 소유 `GameplayAbility`를 실행 중인 클라이언트 또는 서버에서만 동작한다. 단, `AbilityTask` 생성자에서 `bSimulatedTask = true`로 설정하고, `virtual void InitSimulatedTask(UGameplayTasksComponent& InGameplayTasksComponent)`를 오버라이드하며, 필요한 멤버 변수를 복제 설정하면 시뮬레이션 클라이언트에서도 실행할 수 있다. 이 방식은 모든 이동 변경 사항을 복제하는 대신 이동 `AbilityTask` 전체를 시뮬레이션하고 싶은 이동 관련 태스크 같은 드문 상황에서만 유용하다. 모든 `RootMotionSource` `AbilityTask`가 이 방식을 사용한다. 예시로 `AbilityTask_MoveToLocation.h/.cpp`를 참고하라.
 

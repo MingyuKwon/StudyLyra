@@ -17,7 +17,8 @@ Derived Attribute의 모든 Modifier에 대한 최종 공식은 Modifier Aggrega
 ((CurrentValue + Additive) * Multiplicitive) / Division
 ```
 
-**참고:** PIE에서 여러 클라이언트로 플레이할 때는 에디터 설정에서 `Run Under One Process`를 비활성화해야 한다. 활성화 상태에서는 첫 번째 클라이언트 이외의 클라이언트에서 독립 Attribute가 업데이트될 때 Derived Attribute가 갱신되지 않는다.
+> **참고**  
+> PIE에서 여러 클라이언트로 플레이할 때는 에디터 설정에서 `Run Under One Process`를 비활성화해야 한다. 활성화 상태에서는 첫 번째 클라이언트 이외의 클라이언트에서 독립 Attribute가 업데이트될 때 Derived Attribute가 갱신되지 않는다.
 
 아래 예시는 `TestAttrA = (TestAttrA + TestAttrB) * ( 2 * TestAttrC)` 공식으로 `TestAttrA`의 값을 `TestAttrB`와 `TestAttrC` Attribute로부터 파생하는 `Infinite` GameplayEffect를 보여준다. `TestAttrA`는 어느 Attribute라도 값이 변경될 때마다 자동으로 재계산된다.
 

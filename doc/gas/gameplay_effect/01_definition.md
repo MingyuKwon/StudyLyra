@@ -23,7 +23,13 @@ GE에는 세 가지 지속 시간 유형이 있다: `Instant`, `Duration`, `Infi
 | `Duration`    | Add & Remove      | Attribute의 CurrentValue를 일시적으로 변경하거나, GE가 만료되거나 수동으로 제거될 때 함께 해제되는 GameplayTag를 부여할 때. 지속 시간은 `UGameplayEffect` 클래스/Blueprint에서 지정 |
 | `Infinite`    | Add & Remove      | Attribute의 CurrentValue를 일시적으로 변경하거나, GE가 제거될 때 함께 해제되는 GameplayTag를 부여할 때. 자동으로 만료되지 않으며, 어빌리티나 ASC가 직접 제거해야 함 |
 
-`Duration`과 `Infinite` GE는 `Periodic Effect`를 적용하는 옵션을 제공한다. Periodic Effect는 `Period`로 지정된 초마다 Modifier와 Execution을 실행한다. Periodic Effect는 Attribute의 BaseValue를 변경하고 GameplayCue를 Execute하는 측면에서 `Instant` GE와 동일하게 취급된다. 지속 데미지(DoT) 같은 효과에 유용하다. **참고:** Periodic Effect는 [예측(Prediction)](#concepts-p)이 불가능하다.
+`Duration`과 `Infinite` GE는 `Periodic Effect`를 적용하는 옵션을 제공한다.
+Periodic Effect는 `Period`로 지정된 초마다 Modifier와 Execution을 실행한다.
+Attribute의 BaseValue를 변경하고 GameplayCue를 Execute하는 측면에서 `Instant` GE와 동일하게 취급된다.
+지속 데미지(DoT) 같은 효과에 유용하다.
+
+> **참고**  
+> Periodic Effect는 [예측(Prediction)](#concepts-p)이 불가능하다.
 
 `Duration`과 `Infinite` GE는 `Ongoing Tag Requirements`를 충족하지 못하는 경우 적용 이후에도 일시적으로 켜고 끌 수 있다([Gameplay Effect Tags](#concepts-ge-tags) 참조). GE를 끄면 Modifier와 적용된 GameplayTag의 효과는 제거되지만, GE 자체가 제거되지는 않는다. GE를 다시 켜면 Modifier와 GameplayTag가 재적용된다.
 

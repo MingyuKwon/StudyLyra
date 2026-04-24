@@ -23,9 +23,11 @@ if (Attribute == GetMoveSpeedAttribute())
 
 이 함수는 `Attribute` setter([Attribute 선언](#concepts-as-attributes)의 매크로 블록에 의해 정의된)를 사용하거나 [`GameplayEffect`](#concepts-ge)를 통한 것 등 `Attribute`의 모든 변경에서 발동된다.
 
-**참고:** 여기서 수행하는 클램핑은 `ASC`의 Modifier를 영구적으로 변경하지 않는다. 단지 Modifier를 쿼리할 때 반환되는 값만 변경할 뿐이다. 즉, [`GameplayEffectExecutionCalculations`](#concepts-ge-ec)나 [`ModifierMagnitudeCalculations`](#concepts-ge-mmc)처럼 모든 Modifier에서 `CurrentValue`를 재계산하는 코드에서는 클램핑을 별도로 구현해야 한다.
+> **참고**  
+> 여기서 수행하는 클램핑은 `ASC`의 Modifier를 영구적으로 변경하지 않는다. 단지 Modifier를 쿼리할 때 반환되는 값만 변경할 뿐이다. 즉, [`GameplayEffectExecutionCalculations`](#concepts-ge-ec)나 [`ModifierMagnitudeCalculations`](#concepts-ge-mmc)처럼 모든 Modifier에서 `CurrentValue`를 재계산하는 코드에서는 클램핑을 별도로 구현해야 한다.
 
-**참고:** Epic의 `PreAttributeChange()`에 대한 주석에는 게임플레이 이벤트에는 사용하지 말고 주로 클램핑 용도로만 사용하라고 명시되어 있다. `Attribute` 변경에 대한 게임플레이 이벤트의 권장 위치는 `UAbilitySystemComponent::GetGameplayAttributeValueChangeDelegate(FGameplayAttribute Attribute)`([Attribute 변경에 응답하기](#concepts-a-changes))이다.
+> **참고**  
+> Epic의 `PreAttributeChange()`에 대한 주석에는 게임플레이 이벤트에는 사용하지 말고 주로 클램핑 용도로만 사용하라고 명시되어 있다. `Attribute` 변경에 대한 게임플레이 이벤트의 권장 위치는 `UAbilitySystemComponent::GetGameplayAttributeValueChangeDelegate(FGameplayAttribute Attribute)`([Attribute 변경에 응답하기](#concepts-a-changes))이다.
 
 ---
 

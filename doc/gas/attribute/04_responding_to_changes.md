@@ -9,7 +9,8 @@
 <a name="concepts-a-changes"></a>
 #### 4.3.4 Attribute 변화에 응답하기
 
-Attribute가 변경될 때 UI나 다른 게임플레이 요소를 업데이트하려면 `UAbilitySystemComponent::GetGameplayAttributeValueChangeDelegate(FGameplayAttribute Attribute)`를 사용한다. 이 함수는 Attribute가 변경될 때마다 자동으로 호출되는 델리게이트를 반환하며, 바인딩할 수 있다. 델리게이트는 `NewValue`, `OldValue`, `FGameplayEffectModCallbackData`를 담은 `FOnAttributeChangeData` 파라미터를 제공한다. **참고:** `FGameplayEffectModCallbackData`는 서버에서만 설정된다.
+Attribute가 변경될 때 UI나 다른 게임플레이 요소를 업데이트하려면 `UAbilitySystemComponent::GetGameplayAttributeValueChangeDelegate(FGameplayAttribute Attribute)`를 사용한다. 이 함수는 Attribute가 변경될 때마다 자동으로 호출되는 델리게이트를 반환하며, 바인딩할 수 있다. 델리게이트는 `NewValue`, `OldValue`, `FGameplayEffectModCallbackData`를 담은 `FOnAttributeChangeData` 파라미터를 제공한다. > **참고**  
+> `FGameplayEffectModCallbackData`는 서버에서만 설정된다.
 
 ```c++
 AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSetBase->GetHealthAttribute()).AddUObject(this, &AGDPlayerState::HealthChanged);
