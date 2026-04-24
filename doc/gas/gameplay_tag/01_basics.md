@@ -60,3 +60,54 @@ GameplayTag와 GameplayTagContainer에는 선택적 `UPROPERTY` 지정자 `Meta 
 ---
 
 ## 내 분석
+
+### UGameplayTagsManager — 싱글톤, 초기화 시점, 동적 태그
+
+`UGameplayTagsManager`는 전역 싱글톤(`static UGameplayTagsManager* SingletonManager`)이다.
+`Get()` 첫 호출 시 null이면 `InitializeManager()`를 실행하는 lazy 초기화 패턴을 쓴다.
+
+**초기화 흐름:**
+
+```
+모듈 로드 (엔진 초기화 초반)
+  → FGameplayTagsModule::StartupModule()
+      → UGameplayTagsManager::Get()           // 첫 호출 → InitializeManager()
+          → NewObject<> + AddToRoot()          // GC 면제
+          → LoadGameplayTagTables()            // ini, DataTable 로드
+          → ConstructGameplayTagTree()         // 태그 트리 빌드
+          → OnPostEngineInit에 DoneAddingNativeTags() 바인딩
+
+엔진 초기화 완료 (PostEngineInit)
+  → DoneAddingNativeTags()                     // 이후 태그 추가 잠금
+```
+
+**동적 태그 추가/제거 — 세 가지 방법의 차이:**
+
+| 방법 | 가능 시점 | 비고 |
+|---|---|---|
+| `AddNativeGameplayTag()` (레거시) | PostEngineInit 이전까지만 | `bDoneAddingNativeTags`가 true가 되면 `ensure`로 막힘 |
+| `FNativeGameplayTag` (권장) | 모듈 생존 기간 동안 자유롭게 | 생성자에서 자동 등록, 소멸자에서 자동 해제 |
+| INI / DataTable | 에디터에서만 | 런타임 고정 |
+
+`FNativeGameplayTag`가 권장인 이유는 **모듈 수명과 태그 수명이 자동으로 연동**되기 때문이다.
+`UE_DEFINE_GAMEPLAY_TAG` 매크로로 cpp에 static 변수로 선언하면 모듈 로드 시 등록되고, 모듈 언로드 시 소멸자에서 자동 해제된다.
+
+```cpp
+// SomeModule.cpp
+UE_DEFINE_GAMEPLAY_TAG(TAG_Ability_Jump, "Ability.Jump");
+// 모듈 로드 → Manager에 등록
+// 모듈 언로드 → 자동 해제
+```
+
+Lyra의 GameFeature 플러그인들이 각자의 태그를 플러그인 로드/언로드와 함께 관리하는 것이 이 메커니즘이다.
+
+### FGameplayTagCountContainer — TagMapCount가 0인데 태그가 남는 이유
+
+`FGameplayTagCountContainer`는 태그를 단순 보유 여부가 아니라 **카운트**로 관리한다.
+GE가 같은 태그를 두 번 부여하면 `TagMapCount = 2`가 되고, GE 하나가 제거되면 `1`이 된다.
+
+`HasTag()` 류 함수들은 `TagMapCount > 0`인 경우에만 true를 반환한다.
+`TagMapCount`가 0인 태그가 `TagMap`에 남아 있어도 논리적으로는 "없는 것"으로 취급된다.
+
+`LooseGameplayTag`를 쓸 때 `Add` / `Remove` 짝을 맞추지 않으면 이 상태가 된다.
+`TagMapCount`를 직접 건드리지 말고 `AddLooseGameplayTag()` / `RemoveLooseGameplayTag()`를 써야 한다.
