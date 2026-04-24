@@ -42,6 +42,11 @@ BaseValue를 직접 읽어야 할 일은 드물고, 대부분 CurrentValue가 �
 
 **Periodic GE는 Instant처럼 취급된다.** `Period`마다 Modifier를 BaseValue에 직접 적용하고 완료되면 끝이다. Duration 내내 Aggregator에 쌓이는 것이 아니다.
 
+Periodic이 CurrentValue가 아닌 BaseValue를 바꾸는 이유는 각 틱이 "확정된 이벤트"이기 때문이다.
+DoT(독 데미지)를 예로 들면, 틱마다 맞은 데미지는 GE가 만료된 후에도 남아야 한다.
+만약 CurrentValue를 바꿨다면 독 GE가 만료될 때 Aggregator가 제거되면서 데미지가 없던 일이 되어버린다.
+Periodic의 각 틱은 Instant GE를 주기적으로 터뜨리는 것과 동일하게 설계되어 있다.
+
 ---
 
 ### GE 종류별로 바꾸는 값이 다르다
