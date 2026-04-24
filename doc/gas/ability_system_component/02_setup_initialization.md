@@ -111,16 +111,51 @@ void AGDHeroCharacter::OnRep_PlayerState()
 
 ### 왜 Controller 설정 이후에 초기화해야 하는가
 
-두 가지 이유가 있다.
+`InitAbilityActorInfo()`는 네트워크 커넥션을 초기화하는 게 아니다.
+내부적으로 `InitFromActor()`를 호출해 **PlayerController 포인터를 `AbilityActorInfo`에 캐싱**한다.
 
-**첫째, Mixed 복제 모드 문제.**
-GAS는 GE를 "소유 클라이언트"에게만 보낼 때 `OwnerActor->GetNetOwner()`로 PlayerController를 탐색한다.
-`PossessedBy()` 이전에 초기화하면 `SetOwner(Controller)`가 아직 안 된 상태라 GAS가 커넥션을 못 찾는다.
+```cpp
+// GameplayAbilityTypes.cpp — InitFromActor 내부
+AActor* TestActor = InOwnerActor;
+while (TestActor)
+{
+    if (APlayerController* CastPC = Cast<APlayerController>(TestActor))
+    {
+        PlayerController = CastPC;          // ← AbilityActorInfo에 캐시
+        break;
+    }
+    if (APawn* Pawn = Cast<APawn>(TestActor))
+    {
+        PlayerController = Cast<APlayerController>(Pawn->GetController());  // ← 여기
+        break;
+    }
+    TestActor = TestActor->GetOwner();
+}
+if (OldPC == nullptr && PlayerController.IsValid())
+    InAbilitySystemComponent->OnPlayerControllerSet();  // 처음 찾은 경우 ASC에 알림
+```
 
-**둘째, OnSpawn GA 발동 타이밍.**
+`PossessedBy()` 이전에 호출하면 `Pawn->GetController()`가 `nullptr`를 반환한다.
+그러면 `AbilityActorInfo.PlayerController`가 `nullptr`로 캐시되고, 이후 GAS 전반에서 이 캐시를 쓴다.
+
+```cpp
+bool FGameplayAbilityActorInfo::IsLocallyControlled() const
+{
+    if (const APlayerController* PC = PlayerController.Get())  // ← 캐시를 봄
+        return PC->IsLocalController();
+    ...
+}
+```
+
+`IsLocallyControlled()`가 틀리면 클라이언트 예측 여부, GA 실행 주체 결정 등 GAS 전체 흐름이 잘못된다.
+
+**OnSpawn GA 발동 타이밍.**
 `InitAbilityActorInfo()` 직후 `TryActivateAbilitiesOnSpawn()`이 실행되어 `OnSpawn` 정책 GA들이 즉시 발동된다.
-이 시점에 Controller가 없으면 `IsLocallyControlled()`, `IsNetAuthority()` 판단이 틀려서
-어느 쪽에서 GA를 실행할지 잘못 결정된다.
+이 시점에 `IsLocallyControlled()`가 잘못 캐시되어 있으면 어느 쪽에서 GA를 실행할지 잘못 결정된다.
+
+**그러면 나중에 다시 초기화하면 되지 않나?**
+맞다. `OnRep_PlayerState`나 `AcknowledgePossession`에서 `InitAbilityActorInfo`를 재호출하는 이유가 바로 이것이다.
+그 시점에는 `GetController()`가 유효하므로 `PlayerController` 캐시가 올바르게 채워진다.
 
 ### 권장 초기화 시점들이 선택된 이유
 
