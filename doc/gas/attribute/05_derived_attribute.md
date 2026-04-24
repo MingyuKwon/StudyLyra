@@ -54,3 +54,34 @@ Infinite GE의 Modifier가 Aggregator에 등록되면, Aggregator는 의존 Attr
 
 `PostAttributeChange`에서 수동으로 구현할 수도 있지만, 버프가 `Strength`를 건드렸다 제거될 때 `AttackPower`도 함께 원복해야 하는 등 직접 관리 비용이 크다.
 Infinite GE + Aggregator 방식은 이를 GAS가 전부 대신 처리하는 공식 패턴이다.
+
+### Lyra에서 GE 부여 방식
+
+Lyra는 `ULyraAbilitySet`(DataAsset)에 부여할 GE 목록을 담아두고, `GiveToAbilitySystem()` 호출 한 번으로 일괄 적용한다.
+
+```cpp
+// LyraAbilitySet.h
+struct FLyraAbilitySet_GameplayEffect
+{
+    TSubclassOf<UGameplayEffect> GameplayEffect; // 부여할 GE 클래스
+    float EffectLevel = 1.0f;
+};
+
+// AbilitySet DataAsset 멤버
+TArray<FLyraAbilitySet_GameplayEffect> GrantedGameplayEffects;
+```
+
+```cpp
+// LyraAbilitySet.cpp — GiveToAbilitySystem 내부
+for (const FLyraAbilitySet_GameplayEffect& EffectToGrant : GrantedGameplayEffects)
+{
+    const UGameplayEffect* GE = EffectToGrant.GameplayEffect->GetDefaultObject<UGameplayEffect>();
+    FActiveGameplayEffectHandle Handle = LyraASC->ApplyGameplayEffectToSelf(
+        GE, EffectToGrant.EffectLevel, LyraASC->MakeEffectContext());
+
+    OutGrantedHandles->AddGameplayEffectHandle(Handle); // 나중에 제거할 때 사용
+}
+```
+
+Derived Attribute용 Infinite GE도 이 목록에 넣어두면 캐릭터 스폰 시 자동으로 부여된다.
+`FLyraAbilitySet_GrantedHandles`에 핸들이 저장되므로 캐릭터 사망/리스폰 시 `TakeFromAbilitySystem()`으로 일괄 제거도 가능하다.
