@@ -19,6 +19,31 @@ GAS를 처음 접하는 사람들은 종종 BaseValue를 Attribute의 최대값�
 
 ## 내 분석
 
+### FGameplayAttributeData — 구조체가 값을 두 개 갖는 이유
+
+```cpp
+struct FGameplayAttributeData
+{
+protected:
+    float BaseValue;    // 영구적인 기저값
+    float CurrentValue; // 버프/디버프까지 반영한 실효값
+};
+```
+
+개념 요약의 내용을 구현 관점에서 보면:
+
+- **BaseValue** = "진짜 값". Instant GE가 적용되거나 `SetXxx()`를 호출할 때만 바뀐다.
+  GE가 나중에 제거돼도 BaseValue에 기록된 변경은 남는다.
+- **CurrentValue** = "지금 유효한 값". Aggregator가 BaseValue를 기반으로 활성 중인 모든 Duration/Infinite GE Modifier를 합산해 계산한다.
+  GE가 제거되면 Aggregator가 재계산하여 BaseValue 기준으로 복귀한다.
+
+게임 코드에서 `GetHealth()`를 호출하면 항상 CurrentValue를 반환한다.
+BaseValue를 직접 읽어야 할 일은 드물고, 대부분 CurrentValue가 곧 "현재 체력"이다.
+
+**Periodic GE는 Instant처럼 취급된다.** `Period`마다 Modifier를 BaseValue에 직접 적용하고 완료되면 끝이다. Duration 내내 Aggregator에 쌓이는 것이 아니다.
+
+---
+
 ### GE 종류별로 바꾸는 값이 다르다
 
 "GE가 Attribute를 바꾼다"고 할 때, GE 종류에 따라 건드리는 값이 다르다.
@@ -54,31 +79,6 @@ GE 적용
   → Aggregator 있으면: 재계산해서 CurrentValue 갱신
   → GE는 적용 즉시 사라짐 (ActiveGameplayEffects에 남지 않음)
 ```
-
----
-
-### FGameplayAttributeData — 구조체가 값을 두 개 갖는 이유
-
-```cpp
-struct FGameplayAttributeData
-{
-protected:
-    float BaseValue;    // 영구적인 기저값
-    float CurrentValue; // 버프/디버프까지 반영한 실효값
-};
-```
-
-개념 요약의 내용을 구현 관점에서 보면:
-
-- **BaseValue** = "진짜 값". Instant GE가 적용되거나 `SetXxx()`를 호출할 때만 바뀐다.
-  GE가 나중에 제거돼도 BaseValue에 기록된 변경은 남는다.
-- **CurrentValue** = "지금 유효한 값". Aggregator가 BaseValue를 기반으로 활성 중인 모든 Duration/Infinite GE Modifier를 합산해 계산한다.
-  GE가 제거되면 Aggregator가 재계산하여 BaseValue 기준으로 복귀한다.
-
-게임 코드에서 `GetHealth()`를 호출하면 항상 CurrentValue를 반환한다.
-BaseValue를 직접 읽어야 할 일은 드물고, 대부분 CurrentValue가 곧 "현재 체력"이다.
-
-**Periodic GE는 Instant처럼 취급된다.** `Period`마다 Modifier를 BaseValue에 직접 적용하고 완료되면 끝이다. Duration 내내 Aggregator에 쌓이는 것이 아니다.
 
 ### ATTRIBUTE_ACCESSORS 매크로 — 4개 함수의 역할 구분
 
