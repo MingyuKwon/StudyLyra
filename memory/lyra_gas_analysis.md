@@ -877,6 +877,91 @@ AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(Handle, Pre
 
 ---
 
+## 19. InitAbilityActorInfo / InitFromActor 내부 동작
+
+> 출처:  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp:140`  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/GameplayAbilityTypes.cpp:23`
+
+### InitAbilityActorInfo (AbilitySystemComponent_Abilities.cpp:140)
+
+```cpp
+void UAbilitySystemComponent::InitAbilityActorInfo(AActor* InOwnerActor, AActor* InAvatarActor)
+{
+    AbilityActorInfo->InitFromActor(InOwnerActor, InAvatarActor, this);  // 핵심
+    SetOwnerActor(InOwnerActor);
+    SetAvatarActor_Direct(InAvatarActor);
+
+    // AvatarActor가 처음 설정된 경우 지연된 GameplayCue 실행
+    if ((WasAbilityActorNull || PrevAvatarActor == nullptr) && InAvatarActor != nullptr)
+        HandleDeferredGameplayCues(&ActiveGameplayEffects);
+
+    // Avatar 변경 시 모든 GA에 OnAvatarSet 호출
+    if (AvatarChanged)
+        for (FGameplayAbilitySpec& Spec : ActivatableAbilities.Items)
+            Spec.Ability->OnAvatarSet(AbilityActorInfo.Get(), Spec);
+}
+```
+
+### InitFromActor (GameplayAbilityTypes.cpp:23) — 핵심
+
+네트워크 커넥션을 초기화하는 것이 아니라 **PlayerController 포인터를 AbilityActorInfo에 캐싱**하는 함수.
+
+```cpp
+void FGameplayAbilityActorInfo::InitFromActor(AActor* InOwnerActor, AActor* InAvatarActor, ...)
+{
+    OwnerActor = InOwnerActor;
+    AvatarActor = InAvatarActor;
+
+    // OwnerActor에서 시작해 Owner 체인을 타고 올라가며 PlayerController 탐색
+    AActor* TestActor = InOwnerActor;
+    while (TestActor)
+    {
+        if (APlayerController* CastPC = Cast<APlayerController>(TestActor))
+        {
+            PlayerController = CastPC;
+            break;
+        }
+        if (APawn* Pawn = Cast<APawn>(TestActor))
+        {
+            PlayerController = Cast<APlayerController>(Pawn->GetController());  // ← 핵심
+            break;
+        }
+        TestActor = TestActor->GetOwner();
+    }
+
+    // PlayerController를 처음 찾은 경우 ASC에 알림
+    if (OldPC == nullptr && PlayerController.IsValid())
+        InAbilitySystemComponent->OnPlayerControllerSet();
+
+    // AvatarActor에서 SkeletalMeshComponent, MovementComponent 캐시
+    SkeletalMeshComponent = AvatarActorPtr->FindComponentByClass<USkeletalMeshComponent>();
+    MovementComponent = AvatarActorPtr->FindComponentByClass<UMovementComponent>();
+}
+```
+
+### 왜 Controller 설정 이후에 InitAbilityActorInfo를 호출해야 하는가
+
+`PossessedBy()` 이전에 호출하면 `Pawn->GetController()`가 `nullptr` 반환
+→ `AbilityActorInfo.PlayerController`가 `nullptr`로 캐시됨
+→ 이후 `IsLocallyControlled()` 오작동:
+
+```cpp
+bool FGameplayAbilityActorInfo::IsLocallyControlled() const
+{
+    if (const APlayerController* PC = PlayerController.Get())  // nullptr이면 false 반환
+        return PC->IsLocalController();
+    ...
+}
+```
+
+→ 클라이언트 예측 여부, GA 실행 주체 결정 등 GAS 전체 흐름 오작동  
+→ `TryActivateAbilitiesOnSpawn()` 시점에도 잘못된 판단으로 OnSpawn GA 오발동 가능
+
+재호출하면 그 시점의 `GetController()`가 유효하므로 캐시 갱신됨 — `OnRep_PlayerState`, `AcknowledgePossession`에서 재호출하는 이유.
+
+---
+
 ## 18. 언리얼 UI 파이프라인 — Slate / UMG
 
 > 출처:  
