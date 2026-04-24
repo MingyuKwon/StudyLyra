@@ -960,6 +960,25 @@ bool FGameplayAbilityActorInfo::IsLocallyControlled() const
 
 재호출하면 그 시점의 `GetController()`가 유효하므로 캐시 갱신됨 — `OnRep_PlayerState`, `AcknowledgePossession`에서 재호출하는 이유.
 
+### PlayerController 탐색 경로 — 서버와 클라이언트가 다름
+
+**ASC가 Pawn에 있는 경우**  
+`InitAbilityActorInfo(Pawn, Pawn)` → `InOwnerActor = Pawn`  
+→ `Cast<APawn>(TestActor)` 성공 → `Pawn->GetController()` 로 탐색  
+→ `PossessedBy()` 이후에야 `GetController()`가 유효하므로 그 시점에 초기화
+
+**ASC가 PlayerState에 있는 경우**  
+`InitAbilityActorInfo(PlayerState, Character)` → `InOwnerActor = PlayerState`  
+→ PlayerState는 Pawn도 PlayerController도 아님 → `TestActor = TestActor->GetOwner()` 실행  
+→ PlayerState의 `Owner`는 PlayerController (엔진이 PlayerState 생성 시 Controller가 소유)  
+→ 한 단계 올라가면 바로 PlayerController 발견
+
+클라이언트에서 PlayerState가 복제될 때 소유 관계(Owner)도 함께 복제된다.  
+→ `OnRep_PlayerState()` 시점에 `PlayerState->GetOwner()`는 항상 유효한 PlayerController 반환  
+→ `Pawn->GetController()` 타이밍을 맞출 필요 없이 PlayerState 복제 완료 시점이면 충분
+
+**요약**: 서버와 클라이언트는 PlayerController를 찾는 경로 자체가 다르고, 그 경로가 유효해지는 시점에 맞춰 초기화 지점을 선택한 것이다.
+
 ---
 
 ## 18. 언리얼 UI 파이프라인 — Slate / UMG
