@@ -111,3 +111,38 @@ GE가 같은 태그를 두 번 부여하면 `TagMapCount = 2`가 되고, GE 하�
 
 `LooseGameplayTag`를 쓸 때 `Add` / `Remove` 짝을 맞추지 않으면 이 상태가 된다.
 `TagMapCount`를 직접 건드리지 말고 `AddLooseGameplayTag()` / `RemoveLooseGameplayTag()`를 써야 한다.
+
+### LooseGameplayTag vs GE 태그 — 왜 복제 동작이 다른가
+
+`AddLooseGameplayTag()`는 기본값이 **복제 안 함**이다.
+
+```cpp
+inline void AddLooseGameplayTag(
+    const FGameplayTag& GameplayTag,
+    int32 Count = 1,
+    EGameplayTagReplicationState TagRepState = EGameplayTagReplicationState::None  // ← 기본값
+)
+// 주석: "It is up to the calling GameCode to make sure these tags are added on clients/server where necessary"
+```
+
+`TagRepState = None`이면 로컬 `GameplayTagCountContainer`에만 추가되고 복제 컨테이너(`ReplicatedLooseTags`)에는 들어가지 않는다.
+
+**GE는 복제가 내장된 이유:**
+
+| Replication Mode | GE 태그 복제 경로 |
+|---|---|
+| Full / Mixed | `ActiveGameplayEffects` 자체가 복제됨 → 클라이언트가 GE 받아 태그 직접 적용 |
+| Minimal | GE는 복제 안 됨 → 태그만 `MinimalReplicationTags`에 담아 복제 (`COND_SkipOwner`) |
+
+GE 시스템은 Replication Mode를 보고 어떤 복제 채널을 쓸지 자동으로 결정한다.
+GE를 통한 태그 부여는 복제가 묶음으로 처리되는 반면, LooseGameplayTag는 GE 없이 수동으로 태그를 관리하는 탈출구라서 복제 책임도 호출자에게 있다.
+
+**LooseGameplayTag를 복제하려면** `TagRepState` 인자를 명시하거나 전용 헬퍼를 쓴다.
+
+```cpp
+// ReplicatedLooseTags 채널로 복제
+ASC->AddLooseGameplayTag(Tag, 1, EGameplayTagReplicationState::AllClients);
+
+// Minimal 모드 전용 헬퍼 (MinimalReplicationTags 채널)
+ASC->AddMinimalReplicationGameplayTag(Tag);
+```

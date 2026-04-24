@@ -1100,3 +1100,49 @@ static UGameplayTagsManager* SingletonManager;  // GC 면제(AddToRoot)된 UObje
 `FNativeGameplayTag`는 `UE_DEFINE_GAMEPLAY_TAG` 매크로로 cpp에 static 변수로 선언.  
 모듈 로드 시 생성자 → Manager에 등록, 모듈 언로드 시 소멸자 → 자동 해제.  
 Lyra GameFeature 플러그인들이 자신의 태그를 플러그인 수명과 함께 관리하는 메커니즘.
+
+---
+
+## 21. LooseGameplayTag vs GE 태그 — 복제 차이
+
+> 출처:  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/AbilitySystemComponent.h:650`  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent.cpp:1773`
+
+### AddLooseGameplayTag 기본값 = 복제 안 함
+
+```cpp
+// AbilitySystemComponent.h:650
+inline void AddLooseGameplayTag(
+    const FGameplayTag& GameplayTag,
+    int32 Count = 1,
+    EGameplayTagReplicationState TagRepState = EGameplayTagReplicationState::None  // ← 기본값
+)
+// 주석: "It is up to the calling GameCode to make sure these tags are added on clients/server where necessary"
+```
+
+`TagRepState = None`이면 로컬 `GameplayTagCountContainer`에만 추가되고 `ReplicatedLooseTags`에 들어가지 않는다.
+
+### GE는 복제가 내장된 이유
+
+| Replication Mode | GE 태그 복제 경로 |
+|---|---|
+| Full / Mixed | `ActiveGameplayEffects` 자체 복제 → 클라이언트가 GE 받아 태그 직접 적용 |
+| Minimal | GE는 복제 안 됨 → 태그만 `MinimalReplicationTags`에 담아 복제 (`COND_SkipOwner`) |
+
+GE 시스템은 Replication Mode를 보고 어떤 복제 채널을 쓸지 자동 결정. 태그 부여와 복제가 묶음으로 처리됨.
+
+### LooseGameplayTag를 복제하려면
+
+```cpp
+// ReplicatedLooseTags 채널로 복제 (COND_None)
+ASC->AddLooseGameplayTag(Tag, 1, EGameplayTagReplicationState::AllClients);
+
+// Minimal 모드 전용 헬퍼 (MinimalReplicationTags 채널)
+ASC->AddMinimalReplicationGameplayTag(Tag);
+```
+
+`ReplicatedLooseTags`는 `GetLifetimeReplicatedProps`에 `COND_None`으로 등록된 복제 프로퍼티.  
+기본값 `None`을 쓰면 이 컨테이너에 들어가지 않아 복제가 일어나지 않는다.
+
+**결론**: GE는 복제가 내장된 시스템이고, LooseGameplayTag는 GE 없이 수동 관리하는 탈출구라 복제 책임도 호출자에게 있다.
