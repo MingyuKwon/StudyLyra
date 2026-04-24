@@ -30,6 +30,51 @@ virtual void HealthChanged(const FOnAttributeChangeData& Data);
 
 ## 내 분석
 
+### FOnAttributeChangeData — 델리게이트 콜백이 받는 인자
+
+`GetGameplayAttributeValueChangeDelegate()`에 바인딩한 함수가 받는 구조체다.
+
+```cpp
+// GameplayEffectTypes.h:1009
+struct FOnAttributeChangeData
+{
+    FGameplayAttribute                    Attribute;  // 바뀐 Attribute
+    float                                 NewValue;   // 변경 후 값
+    float                                 OldValue;   // 변경 전 값
+    const FGameplayEffectModCallbackData* GEModData;  // GE 컨텍스트 (서버만 유효, 클라이언트는 nullptr)
+};
+```
+
+**언제 전달되는가 — 두 경로**
+
+소스에서 `FOnAttributeChangeData`가 Broadcast되는 지점이 두 곳이다.
+
+**경로 1 — 서버: GE 적용으로 값이 바뀔 때** (`GameplayEffect.cpp:3912` — `InternalUpdateNumericalAttribute`)
+
+```cpp
+FOnAttributeChangeData CallbackData;
+CallbackData.GEModData = DataToShare;  // FGameplayEffectModCallbackData 채워짐
+NewDelegate->Broadcast(CallbackData);
+```
+
+**경로 2 — 클라이언트: 복제로 값이 도착할 때** (`GameplayEffect.cpp:3724`)
+
+```cpp
+FOnAttributeChangeData CallbackData;
+CallbackData.GEModData = nullptr;      // GE 컨텍스트 없음
+Delegate->Broadcast(CallbackData);
+```
+
+| 경로 | 발동 주체 | GEModData |
+|---|---|---|
+| GE 적용 | 서버 | 채워짐 |
+| 복제 수신 | 클라이언트 | nullptr |
+
+UI 업데이트처럼 "값이 바뀌었다"는 사실만 필요하면 두 경로 모두 쓸 수 있다.
+"누가 데미지를 줬는지" 같은 컨텍스트가 필요하면 `GEModData != nullptr` 체크가 필수다.
+
+---
+
 ### FGameplayEffectModCallbackData — 콜백에 전달되는 컨텍스트 객체
 
 `PreGameplayEffectExecute` / `PostGameplayEffectExecute` 호출 시 인자로 전달되는 구조체다.

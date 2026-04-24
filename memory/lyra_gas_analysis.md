@@ -1235,7 +1235,33 @@ void InitHealth(float NewVal);                  // BaseValue + CurrentValue 직�
 
 ---
 
-## 24. FGameplayEffectModCallbackData 구조
+## 24. FOnAttributeChangeData / FGameplayEffectModCallbackData 구조
+
+> 출처:  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/GameplayEffectTypes.h:1009`  
+> `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/GameplayEffect.cpp:3724, 3912`
+
+### FOnAttributeChangeData
+
+`GetGameplayAttributeValueChangeDelegate()` 바인딩 콜백이 받는 구조체.
+
+```cpp
+struct FOnAttributeChangeData
+{
+    FGameplayAttribute                    Attribute;
+    float                                 NewValue;
+    float                                 OldValue;
+    const FGameplayEffectModCallbackData* GEModData; // 서버만 유효, 클라이언트는 nullptr
+};
+```
+
+Broadcast 발동 경로 두 곳:
+- **서버 (GameplayEffect.cpp:3912)**: GE가 Attribute 변경 시 → `GEModData` 채워짐
+- **클라이언트 (GameplayEffect.cpp:3724)**: 복제 수신 시 → `GEModData = nullptr`
+
+---
+
+## 24b. FGameplayEffectModCallbackData 구조
 
 > 출처:  
 > `C:/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/GameplayEffectExtension.h:17`  
