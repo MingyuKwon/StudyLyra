@@ -1050,3 +1050,53 @@ UWidget::TakeWidget_Private()
 
 `Paint()` 내부에서 `EWidgetUpdateFlags::NeedsTick` 플래그 있는 위젯만 호출.  
 UUserWidget에서 Tick 이벤트 사용 시 자동 세팅됨.
+
+---
+
+## 20. UGameplayTagsManager — 구조, 초기화 시점, 동적 태그
+
+> 출처:  
+> `C:/UE_5.7/Engine/Source/Runtime/GameplayTags/Classes/GameplayTagsManager.h`  
+> `C:/UE_5.7/Engine/Source/Runtime/GameplayTags/Private/GameplayTagsManager.cpp`  
+> `C:/UE_5.7/Engine/Source/Runtime/GameplayTags/Private/GameplayTagsModule.cpp`  
+> `C:/UE_5.7/Engine/Source/Runtime/GameplayTags/Public/NativeGameplayTags.h`
+
+### 싱글톤 패턴
+
+```cpp
+// GameplayTagsManager.h:337
+inline static UGameplayTagsManager& Get()
+{
+    if (SingletonManager == nullptr)
+        InitializeManager();
+    return *SingletonManager;
+}
+static UGameplayTagsManager* SingletonManager;  // GC 면제(AddToRoot)된 UObject
+```
+
+### 초기화 시점
+
+```
+모듈 로드 (엔진 초기화 초반)
+  → FGameplayTagsModule::StartupModule()
+      → UGameplayTagsManager::Get()  // 첫 호출 → InitializeManager()
+          → NewObject<UGameplayTagsManager>() + AddToRoot()
+          → LoadGameplayTagTables()   // ini, DataTable 로드
+          → ConstructGameplayTagTree() // 태그 트리 빌드
+          → OnPostEngineInit에 DoneAddingNativeTags() 바인딩
+
+엔진 초기화 완료 (PostEngineInit)
+  → DoneAddingNativeTags()  // 이후 태그 추가 잠금 (bDoneAddingNativeTags = true)
+```
+
+### 동적 태그 추가/제거
+
+| 방법 | 가능 시점 | 비고 |
+|---|---|---|
+| `AddNativeGameplayTag()` (레거시) | PostEngineInit 이전까지만 | `ensure(!bDoneAddingNativeTags)` 로 잠김 |
+| `FNativeGameplayTag` (권장) | 모듈 생존 기간 동안 자유롭게 | 생성자에서 자동 등록, 소멸자에서 자동 해제 |
+| INI / DataTable | 에디터에서만 | 런타임 고정 |
+
+`FNativeGameplayTag`는 `UE_DEFINE_GAMEPLAY_TAG` 매크로로 cpp에 static 변수로 선언.  
+모듈 로드 시 생성자 → Manager에 등록, 모듈 언로드 시 소멸자 → 자동 해제.  
+Lyra GameFeature 플러그인들이 자신의 태그를 플러그인 수명과 함께 관리하는 메커니즘.
