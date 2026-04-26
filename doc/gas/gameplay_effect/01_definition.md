@@ -47,3 +47,37 @@ GE는 일반적으로 직접 인스턴스화되지 않는다. 어빌리티나 AS
 ---
 
 ## 내 분석
+
+### GE에 로직을 넣으면 안 되는 이유
+
+GE가 **인스턴스화되지 않는다**는 설계 때문이다.
+
+GE를 적용할 때 실제로 일어나는 일:
+
+```
+UGameplayEffect (ClassDefaultObject만 존재)
+    ↓ 적용 시
+GameplayEffectSpec 생성 (CDO 기반 스냅샷)
+    ↓ 성공 시
+FActiveGameplayEffect (컨테이너에 추가)
+```
+
+GE 자체는 **CDO 하나만** 존재한다. `new UGameplayEffect()`가 호출되는 게 아니라, CDO에서 데이터를 읽어 `GameplayEffectSpec`을 만드는 방식이다. 따라서 GE에 로직을 추가해도:
+
+- **실행 시점 제어 불가** — 언제 호출할지 GAS가 알 방법이 없음
+- **인스턴스 상태를 가질 수 없음** — CDO 하나를 여러 적용이 공유하므로 상태 저장이 위험
+- **복제 흐름과 충돌** — GAS의 예측/복제 시스템은 Spec 기반으로 작동하므로, GE에 직접 로직을 끼워넣으면 복제 타이밍 보장이 깨짐
+
+### 로직을 넣는 올바른 위치
+
+로직의 복잡도에 따라 두 곳으로 나뉜다.
+
+| 상황 | 사용할 것 | 역할 |
+|---|---|---|
+| "얼마나 변경할지" 계산이 필요할 때 | **MMC** (`ModifierMagnitudeCalculation`) | Attribute 하나의 변경량을 동적으로 계산 |
+| Source/Target Attribute를 같이 보거나, 여러 Attribute를 한 번에 바꾸거나, 조건 분기가 필요할 때 | **Execution** (`GameplayEffectExecutionCalculation`) | 완전한 계산 로직, 복수 Attribute 변경 가능 |
+
+- **MMC**: `CalculateBaseMagnitude_Implementation` 하나만 오버라이드, 결과값(float) 반환
+- **Execution**: `Execute_Implementation`에서 `OutExecutionOutput`에 Attribute 수정을 직접 밀어넣음
+
+GE는 **"무엇을, 얼마나, 어떤 조건에서"를 선언하는 설계도**이고, 실제 계산 로직은 GE가 참조하는 MMC/Execution 안에 캡슐화한다.
