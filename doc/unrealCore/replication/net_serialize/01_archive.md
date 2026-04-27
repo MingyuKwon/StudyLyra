@@ -43,6 +43,125 @@ NetSerialize를 구현할 때 `Ar << SomeField`라고 쓰면,
 
 ---
 
+## operator<< 가 양방향으로 동작하는 실제 메커니즘
+
+겉으로는 같은 `Ar << Value` 한 줄인데, 서버에서는 쓰고 클라이언트에서는 읽는다.
+이게 가능한 이유는 `operator<<`가 내부적으로 가상함수 `Serialize`를 호출하고,
+FBitWriter와 FBitReader가 그것을 각각 반대 방향으로 오버라이드하기 때문이다.
+
+**1단계: operator<< — Serialize 가상함수에 위임**
+
+```cpp
+// Archive.h:1580
+inline friend FArchive& operator<<(FArchive& Ar, int32& Value)
+{
+    Ar.ByteOrderSerialize(reinterpret_cast<uint32&>(Value));
+    //       ↑ 결국 Ar.Serialize(&Value, sizeof(Value)) 를 호출
+    return Ar;
+}
+```
+
+`Value`는 항상 **non-const 참조**로 전달된다.
+쓸 때는 읽어가고, 읽을 때는 채워 넣는다.
+`Serialize`가 가상함수이므로 실제 동작은 Ar의 실제 타입에 따라 달라진다.
+
+**2단계: FBitWriter::Serialize — 포인터에서 버퍼로 (쓰기)**
+
+```cpp
+// BitWriter.h:64
+virtual void Serialize(void* Src, int64 LengthBytes) override;
+// → Src가 가리키는 메모리를 읽어서 내부 Buffer에 비트를 추가
+```
+
+서버에서 `Ar << Health`가 호출되면:
+- `Ar`은 `FBitWriter` (또는 `FOutBunch`)
+- `Serialize(&Health, 4)` → `Health` 변수의 4바이트를 Buffer에 기록
+
+**3단계: FBitReader::Serialize — 버퍼에서 포인터로 (읽기)**
+
+```cpp
+// BitReader.h:143
+UE_FORCEINLINE_HINT void Serialize(void* Dest, int64 LengthBytes)
+{
+    SerializeBits(Dest, LengthBytes * 8);
+    // → 내부 Buffer의 현재 Pos에서 LengthBytes*8 비트를 읽어 Dest에 복사
+}
+```
+
+클라이언트에서 `Ar << Health`가 호출되면:
+- `Ar`은 `FBitReader` (또는 `FInBunch`)
+- `Serialize(&Health, 4)` → Buffer의 현재 위치에서 4바이트를 읽어 `Health`에 저장
+
+**전체 흐름을 코드로 표현**
+
+```cpp
+// [서버] Ar = FBitWriter (FOutBunch)
+//   Health = 80 (현재 값)
+Ar << Health;
+// → operator<<(Ar, Health)
+// → Ar.Serialize(&Health, 4)
+// → FBitWriter::Serialize: Buffer에 0x00000050 기록
+// → Buffer: [..., 80, ...]
+
+// ─── 네트워크 전송 ───
+
+// [클라이언트] Ar = FBitReader (FInBunch)
+//   Health = ? (아직 모름)
+Ar << Health;
+// → operator<<(Ar, Health)
+// → Ar.Serialize(&Health, 4)
+// → FBitReader::Serialize: Buffer에서 0x00000050 읽어 Health에 저장
+// → Health = 80
+```
+
+`operator<<` 코드 자체는 서버/클라이언트 모두 동일하다.
+차이는 `Ar`의 실제 타입뿐이다.
+NetSerialize 함수 하나로 직렬화·역직렬화를 모두 처리할 수 있는 이유다.
+
+**NetSerialize에서 이 원리를 활용하는 패턴**
+
+```cpp
+bool FMyData::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+{
+    // 아래 세 줄은 서버/클라이언트에서 완전히 동일한 코드
+    Ar << Health;     // 서버: Buffer에 기록 / 클라이언트: Buffer에서 읽기
+    Ar << Position;   // 서버: Buffer에 기록 / 클라이언트: Buffer에서 읽기
+    Ar << TeamIndex;  // 서버: Buffer에 기록 / 클라이언트: Buffer에서 읽기
+
+    bOutSuccess = !Ar.IsError();
+    return true;
+}
+```
+
+단, `IsLoading()`으로 분기해야 하는 경우가 있다.
+중간 계산이나 조건부 직렬화처럼 "쓸 때와 읽을 때 로직이 다른" 상황이다.
+
+```cpp
+bool FMyData::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+{
+    // 유효한 필드만 보내는 비트마스크 패턴
+    uint8 ValidFields = 0;
+
+    if (Ar.IsSaving())  // 서버: 보내기 전에 마스크 계산
+    {
+        if (Health > 0)    ValidFields |= (1 << 0);
+        if (bHasPosition)  ValidFields |= (1 << 1);
+    }
+
+    Ar << ValidFields;  // 마스크 자체는 양방향 동일
+
+    if (ValidFields & (1 << 0))  Ar << Health;    // 있을 때만 읽기/쓰기
+    if (ValidFields & (1 << 1))  Ar << Position;
+
+    bOutSuccess = !Ar.IsError();
+    return true;
+}
+// 서버가 쓴 마스크를 클라이언트가 읽어, 같은 조건 분기로 같은 필드만 읽는다.
+// 마스크가 일치하므로 "어떤 필드가 오는지"를 별도 메타데이터 없이 처리한다.
+```
+
+---
+
 ## FBitWriter — 비트 단위 쓰기
 
 네트워크 전송은 바이트 단위가 아닌 **비트 단위**로 패킹한다.
