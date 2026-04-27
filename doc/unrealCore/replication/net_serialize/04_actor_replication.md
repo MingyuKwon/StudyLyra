@@ -137,3 +137,77 @@ UPROPERTY(Replicated)
 FHitData HitData;
 // ↑ FHitData에 NetSerialize + TStructOpsTypeTraits 구현하면 직렬화 방식 직접 제어 가능
 ```
+
+---
+
+## 왜 Actor에는 NetSerialize가 없는가
+
+`FStruct`는 데이터만 전달하면 되는 **값 타입**이라 "비트를 어떻게 쓸지" 함수 하나로 충분하다.
+`UObject`/`Actor`는 복제 시 직렬화 외에도 엔진이 자동으로 처리해야 할 것들이 있다.
+
+```
+Actor 복제가 처리하는 것들:
+  ├─ 스폰/제거        — 클라이언트에 Actor가 없으면 먼저 생성
+  ├─ 정체성(GUID)     — "이 Actor가 클라이언트의 어떤 오브젝트인가" 매핑
+  ├─ Role/RemoteRole  — Authority / AutonomousProxy / SimulatedProxy
+  ├─ 소유권(Owner)    — 어떤 Connection이 이 Actor를 제어하는가
+  ├─ Relevancy        — 이 클라이언트에 보낼 필요가 있는가
+  └─ RPC 처리         — 함수 호출 라우팅
+```
+
+이것들은 "직렬화 함수 하나"로 커버할 수 없다. 스폰도 안 된 Actor에 NetSerialize를 호출할 수 없다.
+
+또한 깊은 상속 계층에서는 선언형(`GetLifetimeReplicatedProps`)이 더 유리하다.
+
+```cpp
+// 각 클래스가 자기 프로퍼티만 독립적으로 선언
+ACharacter::GetLifetimeReplicatedProps        // 이동 관련 필드
+ALyraCharacter::GetLifetimeReplicatedProps    // PawnData, bIsCrouching
+
+// NetSerialize였다면?
+bool ALyraCharacter::NetSerialize(...)
+{
+    Super::NetSerialize(...);  // 부모 계층의 수백 줄 호출
+    // 파생 클래스가 필드 추가할 때마다 부모 직렬화 코드를 건드려야 함
+}
+```
+
+프로퍼티별 조건(`COND_OwnerOnly`, `COND_SimulatedOnly`)도 선언형으로만 표현 가능하다.
+NetSerialize 하나로 합치면 프로퍼티별 세분화가 불가능해진다.
+
+---
+
+## Actor vs UObject 서브오브젝트 — 채널 인프라 차이
+
+**프로퍼티 직렬화 메커니즘(RepLayout + UPROPERTY)은 동일**하다.
+차이는 그것을 감싸는 네트워크 인프라다.
+
+| | Actor | UObject 서브오브젝트 |
+|---|---|---|
+| **채널** | 자기만의 `UActorChannel` | 소유 Actor 채널에 편승 |
+| **스폰/제거** | 엔진이 클라이언트에서 자동 생성/제거 | 없음 — Owner Actor가 살아야 존재 |
+| **Role 시스템** | Authority / AutonomousProxy / SimulatedProxy | 없음 |
+| **RPC** | 지원 | 제한적 |
+| **Relevancy** | `IsNetRelevantFor()` | 없음 — Owner가 Relevant하면 따라감 |
+| **프로퍼티 복제** | RepLayout (동일) | RepLayout (동일) |
+
+`ULyraHealthSet`(AttributeSet)이 대표적인 예다.
+`UPROPERTY(Replicated)` + `GetLifetimeReplicatedProps`를 쓰지만,
+자기 채널이 없고 `ALyraPlayerState`의 채널 안에서 서브오브젝트로 복제된다.
+
+```
+ALyraPlayerState    ← 자기 UActorChannel 보유, 독립적으로 복제
+  └─ ULyraHealthSet ← PlayerState 채널 안에 포함, 자기 채널 없음
+```
+
+UObject를 서브오브젝트로 등록하는 방법 (UE5):
+```cpp
+// Actor::BeginPlay 또는 생성 시점
+AddReplicatedSubObject(HealthSet);
+
+// UObject 자체는 동일하게 선언
+void ULyraHealthSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    DOREPLIFETIME_CONDITION(ULyraHealthSet, Health, COND_None);
+}
+```

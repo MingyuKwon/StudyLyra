@@ -19,9 +19,9 @@
 | 파일 | 내용 |
 |------|------|
 | [01_archive.md](01_archive.md) | FArchive / FBitWriter / FBitReader — 비트 스트림의 기반 추상화 |
-| [02_net_serialize.md](02_net_serialize.md) | NetSerialize & TStructOpsTypeTraits — 구조체가 직렬화를 직접 제어하는 방법 |
+| [02_net_serialize.md](02_net_serialize.md) | NetSerialize & TStructOpsTypeTraits — 구조체가 직렬화를 직접 제어하는 방법, UPROPERTY 없는 필드도 직렬화 가능한 이유 |
 | [03_rep_layout.md](03_rep_layout.md) | FRepLayout & Shadow Buffer — Cmds[] 구조, 변경 감지, 핸들 번호 |
-| [04_actor_replication.md](04_actor_replication.md) | Actor 복제 호출 체인 — GetLifetimeReplicatedProps, OnRep, 사용자 제어 포인트 |
+| [04_actor_replication.md](04_actor_replication.md) | Actor 복제 호출 체인 — GetLifetimeReplicatedProps, OnRep, 사용자 제어 포인트, Actor에 NetSerialize가 없는 이유, Actor vs UObject 서브오브젝트 채널 차이 |
 | [05_fast_array.md](05_fast_array.md) | FFastArraySerializer — 배열 델타 직렬화, Pre/PostReplicated 콜백 |
 
 ---

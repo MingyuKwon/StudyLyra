@@ -337,3 +337,59 @@ bool FLyraGameplayEffectContext::NetSerialize(FArchive& Ar, UPackageMap* Map, bo
 
 추가 필드라도 복제가 필요 없으면 직렬화하지 않는다.
 "이 필드는 서버에서만 쓴다"는 설계 결정이 NetSerialize 안에 표현된다.
+
+---
+
+## Actor와 USTRUCT — UPROPERTY 없는 필드 다루기
+
+Actor 복제와 USTRUCT NetSerialize는 "UPROPERTY가 없는 필드를 어떻게 다루는가"가 정반대다.
+
+### Actor — UPROPERTY(Replicated) 없으면 복제 불가
+
+RepLayout은 **반사 시스템(FProperty)** 위에서만 동작한다.
+`GetLifetimeReplicatedProps`에 등록된 `UPROPERTY(Replicated)` 필드만 `Cmds[]`에 들어가고,
+그 외 필드는 복제 시스템이 존재 자체를 모른다.
+
+```cpp
+class AMyActor : public AActor
+{
+    UPROPERTY(Replicated) float Health;   // Cmds[]에 포함 → 복제됨
+    float HiddenValue;                    // FProperty 없음 → 복제 불가능
+};
+```
+
+`HiddenValue`는 서버에서 아무리 바꿔도 클라이언트에 전달할 방법이 없다.
+
+### USTRUCT NetSerialize — UPROPERTY 없어도 직렬화 가능
+
+`WithNetSerializer = true`이면 RepLayout이 구조체 내부를 **블랙박스**로 취급한다.
+`NetSerialize` 함수가 `FArchive`에 직접 비트를 쓰기 때문에 반사 시스템을 전혀 거치지 않는다.
+
+```cpp
+USTRUCT()
+struct FMyData
+{
+    GENERATED_BODY()
+
+    UPROPERTY() float PublicHealth;   // UPROPERTY 있음
+    float ComputedId;                  // UPROPERTY 없음
+
+    bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+    {
+        Ar << PublicHealth;   // 동기화됨
+        Ar << ComputedId;     // UPROPERTY 없어도 동기화됨 ← 핵심
+        bOutSuccess = !Ar.IsError();
+        return true;
+    }
+};
+```
+
+반대로 `UPROPERTY`가 있어도 `NetSerialize`에서 `Ar`에 쓰지 않으면 전달되지 않는다.
+
+### 복제 여부 결정 기준 비교
+
+| | Actor 필드 | USTRUCT NetSerialize |
+|---|---|---|
+| 복제 여부 결정 | 반사 시스템 — `UPROPERTY(Replicated)` 유무 | 코드 — `FArchive`에 실제로 쓰는지 유무 |
+| UPROPERTY 없는 필드 | 복제 불가 | `Ar << field` 한 줄이면 복제됨 |
+| 직렬화 방식 | 엔진 자동 | 사용자 직접 제어 |
