@@ -374,6 +374,64 @@ Lyra가 제공하는 `ULyraAbilityCost` 구현체 세 가지:
 
 ---
 
+#### Cost는 예측되지 않는다 — 의도적 타협
+
+> 소스: `GameplayAbility.cpp:631`, `LyraAbilityCost_ItemTagStack.cpp:43`
+
+`CommitAbilityCost`의 흐름:
+
+```cpp
+// GameplayAbility.cpp:631
+bool UGameplayAbility::CommitAbilityCost(...)
+{
+    if (!CheckCost(...)) return false;  // 클라이언트에서도 실행
+    ApplyCost(...);                     // 클라이언트에서도 실행 — 그러나 아무것도 안 함
+    return true;
+}
+
+// LyraAbilityCost_ItemTagStack.cpp:43
+void ULyraAbilityCost_ItemTagStack::ApplyCost(...)
+{
+    if (ActorInfo->IsNetAuthority())  // 서버에서만 진입
+    {
+        ItemInstance->RemoveStatTagStack(Tag, NumStacks);
+    }
+    // 클라이언트는 여기서 그냥 리턴
+}
+```
+
+클라이언트에서 `CheckCost`는 **복제된 TagStack 값**을 읽어 통과 여부를 판단한다. 통과하면 능력을 로컬에서 발동한다. 하지만 `ApplyCost`는 공백이라 클라이언트의 탄약 카운터는 그대로다.
+
+결과적으로 RTT 동안 클라이언트의 탄약은 차감되지 않고, 능력만 발동된다.
+
+```
+[RTT 100ms, 탄약 2발 상황]
+
+t=  0ms  클라 탄약=2(복제값), 발사① CheckCost 통과, ApplyCost 공백 → 클라 탄약 여전히 2
+t= 10ms  클라 발사② CheckCost 통과(아직 2), ApplyCost 공백 → 클라 탄약 여전히 2
+t= 20ms  클라 발사③ CheckCost 통과(아직 2)...
+
+t= 50ms  서버 발사① 수신 → 탄약 1로 차감, 복제
+t= 60ms  서버 발사② 수신 → 탄약 0으로 차감, 복제
+t= 70ms  서버 발사③ 수신 → CheckCost 실패 → 거부, 롤백
+t=100ms  클라 탄약=0 수신 (복제)
+```
+
+RTT 사이에 탄약보다 더 많이 발사할 수 있고, 서버가 거부하면 롤백된다. **이것은 진정한 예측이 아니다.**
+
+**Lyra가 이 타협을 선택한 이유**: 능력 실행(애니메이션, VFX)의 예측과 Cost 상태(탄약 수)의 예측을 분리했다.
+
+| | 예측함 | 예측 안 함 |
+|---|---|---|
+| 능력 발동 | 애니메이션, VFX, 히트 판정 | — |
+| Cost 상태 | — | 탄약/TagStack 차감, 인벤토리 |
+
+인벤토리 상태를 진짜로 예측하려면 클라이언트가 "아직 서버 미확인 차감량"을 별도로 추적하고, 서버가 거부하면 롤백해야 한다. `FFastArraySerializer` 기반 TagStack에 그 레이어를 얹으면 복잡도가 크게 올라간다.
+
+Lyra의 판단: 총구 화염이 입력 즉시 나오지 않으면 조작감이 망가지지만, 탄약 카운터 숫자가 0.1초 늦게 줄어드는 건 플레이어가 크게 인식하지 못한다. Cost 상태는 서버 권한으로 두고 능력 실행만 예측하는 것으로 충분하다.
+
+---
+
 ### Lyra의 Cooldown — 표준 GE 방식 그대로
 
 > 소스: `GA_Hero_Dash.uasset`, `GA_Grenade.uasset`, `LyraGameplayAbility.cpp:36`
