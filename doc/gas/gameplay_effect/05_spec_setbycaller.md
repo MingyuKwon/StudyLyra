@@ -63,7 +63,11 @@ Blueprint에서 오탈자를 방지하기 위해 `FName` 버전보다 `GameplayT
 
 ## 내 분석
 
-### Spec이 별도로 존재하는 이유
+---
+
+### GESpec
+
+#### Spec이 별도로 존재하는 이유
 
 GE는 CDO 하나를 모든 적용이 공유한다. CDO는 수정 불가이므로 "이번 적용에만 해당하는 데이터"를 담을 별도 객체가 필요하다.
 
@@ -75,35 +79,7 @@ GE는 CDO 하나를 모든 적용이 공유한다. CDO는 수정 불가이므로
 
 Spec이 담는 데이터: Level, EffectContext(Instigator/HitResult), SetByCaller TMap, Captured Attributes(Snapshot), DynamicGrantedTags/DynamicAssetTags
 
-### SetByCaller가 필요한 이유
-
-> 소스: `LyraGameData.h`, `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`
-
-어빌리티가 런타임에 계산한 수치를 GE에 전달해야 하는 상황에서 선택지가 몇 가지 있다.
-
-**대안 1 — 수치마다 별도 GE Blueprint**: `Damage10_GE`, `Damage20_GE`... 런타임에 결정되는 값은 표현 불가.
-
-**대안 2 — Attribute에 먼저 써두고 GE가 읽기**: Apply 전에 `CombatSet.BaseDamage = 50` 세팅 → GE Modifier가 Attribute 참조. 문제는 Attribute가 ASC에 귀속된 전역 상태라는 점이다. 여러 GE가 동시에 Apply되면 값이 오염된다.
-
-**대안 3 — SetByCaller**: Spec 자체에 키-값을 넣어 운반. Spec은 적용마다 독립적이므로 오염 없음.
-
-```
-GE Blueprint:  Modifier Magnitude 타입 = SetByCaller(Tag: "Damage")
-어빌리티:      Spec 생성 → Spec["Damage"] = 50.0f 주입 → Apply
-GE Modifier:   Spec["Damage"] 읽어 50.0f 사용
-```
-
-Lyra가 `DamageGameplayEffect_SetByCaller` GE 하나로 모든 데미지 소스를 재사용하는 이유가 여기 있다.
-
-**발사체 패턴에서의 추가 가치**: Spec이 값을 들고 이동하므로 발사 시점 수치가 명중까지 보존된다. Attribute 참조였다면 명중 시점에 버프 등으로 바뀐 값이 사용된다.
-
-```
-발사 시점: Spec 생성 + Spec["Damage"] = 50 (공격력 50 기준)
-비행 중:   공격자 공격력 100으로 증가 (버프)
-명중 시점: Spec["Damage"] = 50 그대로 → Apply  (Attribute 참조였다면 100)
-```
-
-### GESpec 복제 구조
+#### 복제 구조
 
 > 소스: `GameplayEffect.h:1334`, `GameplayEffect.h:1406`, `GameplayEffect.h:1639`, `GameplayEffect.cpp:5153`
 
@@ -124,23 +100,102 @@ FActiveGameplayEffectsContainer : FFastArraySerializer  (WithNetDeltaSerializer)
 
 **ReplicationMode**: `Minimal`(복제 안 함) / `Mixed`(Owner에게만 전체) / `Full`(모두에게 전체). Lyra는 `Mixed`.
 
-### SetByCaller 사용 패턴
+#### Snapshotting — Spec 생성 시점에 Attribute 캡처
 
-> 소스: `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`, `LyraGameData.h`
+> 소스: `GameplayEffectAttributeCaptureDefinition.h`, `LyraDamageExecution.cpp`, `LyraHealExecution.cpp`
 
-SetByCaller는 Spec에 담기는 `TMap<FGameplayTag, float>` 키-값 쌍이다. 호출자가 값을 태그에 묶어 주입하고, GE 쪽에서 꺼내 쓴다.
-
-**맥락 1 — GE Modifier의 Magnitude로 사용**: GE Blueprint에서 Magnitude 타입을 `SetByCaller`로 지정해두면, Spec에 넣은 값이 그대로 Modifier 수치가 된다. Lyra는 `DamageGameplayEffect_SetByCaller` 같은 범용 GE를 재사용한다.
+MMC나 Execution이 Attribute 값을 읽을 때 **언제 찍느냐**를 결정하는 것이 Snapshotting이다. `FGameplayEffectAttributeCaptureDefinition` 하나로 표현된다.
 
 ```cpp
-// LyraCheatManager.cpp, LyraHealthComponent.cpp 동일 패턴
+struct FGameplayEffectAttributeCaptureDefinition
+{
+    FGameplayAttribute                      AttributeToCapture;
+    EGameplayEffectAttributeCaptureSource   AttributeSource;  // Source(공격자) or Target(피격자)
+    bool                                    bSnapshot;
+};
+```
+
+| bSnapshot | Source/Target | 캡처 시점 | Duration/Infinite GE 자동 갱신 |
+|---|---|---|---|
+| `true` | Source | **Spec 생성 시** | No — 고정값 |
+| `true` | Target | Spec 적용 시 | No — 고정값 |
+| `false` | Source | Spec 적용 시 | Yes |
+| `false` | Target | Spec 적용 시 | Yes |
+
+Source + `bSnapshot=true`만 유일하게 Spec 생성 시점에 캡처된다.
+
+**Lyra 사용 패턴** (`LyraDamageExecution.cpp`):
+
+```cpp
+// 1. static으로 캡처 정의 (한 번만 생성)
+struct FDamageStatics {
+    FGameplayEffectAttributeCaptureDefinition BaseDamageDef;
+    FDamageStatics() {
+        BaseDamageDef = { ULyraCombatSet::GetBaseDamageAttribute(),
+                          EGameplayEffectAttributeCaptureSource::Source,
+                          true };  // bSnapshot=true: 발사 시점 고정
+    }
+};
+
+// 2. 생성자에서 등록
+ULyraDamageExecution::ULyraDamageExecution() {
+    RelevantAttributesToCapture.Add(DamageStatics().BaseDamageDef);
+}
+
+// 3. Execute_Implementation에서 읽기
+float BaseDamage = 0.0f;
+ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
+    DamageStatics().BaseDamageDef, EvaluateParameters, BaseDamage);
+```
+
+**발사체 패턴**: `bSnapshot=true`면 발사 시점 공격력이 고정된다. 비행 중 버프가 붙어도 명중 시 발사 당시 수치로 계산된다. `bSnapshot=false`면 명중 시점 공격력 사용. 설계 의도에 따라 선택한다.
+
+---
+
+### SetByCaller
+
+#### 필요한 이유
+
+> 소스: `LyraGameData.h`, `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`
+
+어빌리티가 런타임에 계산한 수치를 GE에 전달해야 할 때 선택지가 몇 가지 있다.
+
+**대안 1 — 수치마다 별도 GE Blueprint**: `Damage10_GE`, `Damage20_GE`... 런타임에 결정되는 값은 표현 불가.
+
+**대안 2 — Attribute에 먼저 써두고 GE가 읽기**: Apply 전에 `CombatSet.BaseDamage = 50` 세팅 → GE Modifier가 Attribute 참조. Attribute는 ASC에 귀속된 전역 상태라 여러 GE가 동시에 Apply되면 값이 오염된다.
+
+**SetByCaller**: Spec 자체에 키-값을 넣어 운반. Spec은 적용마다 독립적이므로 오염 없음. 범용 GE 하나를 다양한 수치로 재사용할 수 있다.
+
+```
+GE Blueprint:  Modifier Magnitude 타입 = SetByCaller(Tag: "Damage")
+어빌리티:      Spec 생성 → Spec["Damage"] = 50.0f 주입 → Apply
+GE Modifier:   Spec["Damage"] 읽어 50.0f 사용
+```
+
+Lyra가 `DamageGameplayEffect_SetByCaller` GE 하나로 모든 데미지 소스를 재사용하는 이유다.
+
+**발사체 패턴**: Spec이 값을 들고 이동하므로 발사 시점 수치가 명중까지 보존된다.
+
+```
+발사 시점: Spec["Damage"] = 50 (공격력 50 기준)
+비행 중:   공격자 공격력 100으로 증가
+명중 시점: Spec["Damage"] = 50 그대로 Apply
+```
+
+#### 사용 패턴
+
+> 소스: `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`
+
+**맥락 1 — GE Modifier의 Magnitude**: GE Blueprint에서 Magnitude 타입을 `SetByCaller`로 지정. Lyra 패턴:
+
+```cpp
 FGameplayEffectSpecHandle SpecHandle =
     ASC->MakeOutgoingSpec(ULyraGameData::Get().DamageGameplayEffect_SetByCaller, 1.0f, ASC->MakeEffectContext());
 SpecHandle.Data->SetSetByCallerMagnitude(LyraGameplayTags::SetByCaller_Damage, DamageAmount);
 ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 ```
 
-**맥락 2 — Execution / MMC에서 직접 읽기**: GE Blueprint 사전 정의 불필요. 없는 키를 읽으면 기본값 반환.
+**맥락 2 — Execution / MMC에서 직접 읽기**: GE Blueprint 사전 정의 불필요. 없는 키는 기본값 반환.
 
 ```cpp
 float DamageAmount = Spec.GetSetByCallerMagnitude(
@@ -152,23 +207,23 @@ float DamageAmount = Spec.GetSetByCallerMagnitude(
 | GE Blueprint 사전 정의 | **필요** | 불필요 |
 | 태그-값 쌍 없으면 | 런타임 에러 + 0 반환 | 기본값 반환 (경고 선택적) |
 
-### SetByCaller와 복제
+#### 복제
 
 > 소스: `GameplayEffect.h:1258`, `GameplayEffect.h:1232`
 
 SetByCaller TMap은 `UPROPERTY` 선언 자체가 없다. 직렬화 대상이 아니므로 클라이언트에 전달되지 않는다.
 
 ```cpp
-// GameplayEffect.h:1258 — UPROPERTY 없음
+// GameplayEffect.h:1258 — UPROPERTY 없음 → 복제 안 됨
 TMap<FName, float>         SetByCallerNameMagnitudes;
 TMap<FGameplayTag, float>  SetByCallerTagMagnitudes;
 
-// GameplayEffect.h:1232 — UPROPERTY() 있음, 복제됨
+// GameplayEffect.h:1232 — UPROPERTY() 있음 → 복제됨
 UPROPERTY()
 TArray<FModifierSpec> Modifiers;   // EvaluatedMagnitude (계산된 결과)
 ```
 
-Apply 시 `CalculateModifierMagnitudes()`가 SetByCaller 값을 읽어 `Modifiers[i].EvaluatedMagnitude`에 저장한다. 클라이언트는 TMap 원본이 아니라 이 계산 결과를 받는다. `FGameplayEffectSpecHandle::NetSerialize`는 Fatal로 막혀있어 핸들 직접 전송도 불가하다.
+Apply 시 `CalculateModifierMagnitudes()`가 SetByCaller 값을 읽어 `Modifiers[i].EvaluatedMagnitude`에 저장한다. 클라이언트는 TMap 원본이 아니라 계산 결과를 받는다.
 
 | 시나리오 | 전달 여부 |
 |---|---|
@@ -178,70 +233,3 @@ Apply 시 `CalculateModifierMagnitudes()`가 SetByCaller 값을 읽어 `Modifier
 | Spec 핸들 직접 RPC 전송 | ✗ Fatal로 차단 |
 
 데미지 등 민감한 수치는 서버 권한 GA에서 계산해야 한다. 클라이언트 계산값을 서버에 신뢰시킬 방법이 없다.
-
-### Snapshotting — Spec 생성 시점에 Attribute 캡처
-
-> 소스: `GameplayEffectAttributeCaptureDefinition.h`, `LyraDamageExecution.cpp`, `LyraHealExecution.cpp`
-
-MMC나 Execution이 Attribute 값을 읽을 때, 그 값을 **언제 찍느냐**를 결정하는 것이 Snapshotting이다. `FGameplayEffectAttributeCaptureDefinition` 구조체 하나로 표현된다.
-
-```cpp
-// GameplayEffectAttributeCaptureDefinition.h
-struct FGameplayEffectAttributeCaptureDefinition
-{
-    FGameplayAttribute                      AttributeToCapture; // 어떤 Attribute를
-    EGameplayEffectAttributeCaptureSource   AttributeSource;    // Source(공격자)? Target(피격자)?
-    bool                                    bSnapshot;          // 언제 찍느냐
-};
-```
-
-| bSnapshot | Source/Target | 캡처 시점 | Duration/Infinite GE 자동 갱신 |
-|---|---|---|---|
-| `true` | Source | **Spec 생성 시** | No — 고정값 |
-| `true` | Target | Spec 적용 시 | No — 고정값 |
-| `false` | Source | Spec 적용 시 | Yes |
-| `false` | Target | Spec 적용 시 | Yes |
-
-Source + `bSnapshot=true`만 유일하게 **Spec 생성 시점**에 캡처된다.
-
-#### Lyra Execution 사용 패턴 (LyraDamageExecution.cpp)
-
-```cpp
-// 1. static 구조체로 캡처 정의 선언 (한 번만 생성)
-struct FDamageStatics
-{
-    FGameplayEffectAttributeCaptureDefinition BaseDamageDef;
-    FDamageStatics()
-    {
-        BaseDamageDef = FGameplayEffectAttributeCaptureDefinition(
-            ULyraCombatSet::GetBaseDamageAttribute(),
-            EGameplayEffectAttributeCaptureSource::Source,
-            true);  // bSnapshot=true: Spec 생성 시점 고정
-    }
-};
-
-// 2. 생성자에서 등록 → GAS가 Spec 생성/적용 시 자동 캡처
-ULyraDamageExecution::ULyraDamageExecution()
-{
-    RelevantAttributesToCapture.Add(DamageStatics().BaseDamageDef);
-}
-
-// 3. Execute_Implementation에서 읽기
-float BaseDamage = 0.0f;
-ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
-    DamageStatics().BaseDamageDef, EvaluateParameters, BaseDamage);
-
-OutExecutionOutput.AddOutputModifier(
-    FGameplayModifierEvaluatedData(ULyraHealthSet::GetDamageAttribute(),
-                                   EGameplayModOp::Additive, BaseDamage * ...));
-```
-
-#### 발사체 패턴에서 bSnapshot의 의미
-
-```
-발사 시점: Spec 생성 → bSnapshot=true → 공격자 공격력 고정
-비행 중:   공격자에게 버프 적용
-명중 시점: Spec 적용 → 버프 이전 수치로 데미지 계산
-```
-
-`bSnapshot=false`였다면 명중 시점의 공격력이 사용된다. 어느 쪽이 맞는지는 게임 설계 의도에 따라 다르다.
