@@ -144,13 +144,13 @@ OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(
 
 ---
 
-### Lyra ExecCalc 구조 — LyraDamageExecution
+### LyraDamageExecution 골격 — 3단계
 
 > 소스: `LyraDamageExecution.cpp`, `LyraHealExecution.cpp`
 
 Lyra는 ExecCalc를 두 개(`LyraDamageExecution`, `LyraHealExecution`) 가진다. 골격이 동일하므로 데미지 기준으로 본다.
 
-#### 1단계 — 캡처 정의(레시피)를 static 구조체로 분리
+**1단계 — static 구조체로 캡처 레시피 분리**
 
 ```cpp
 // LyraDamageExecution.cpp:14
@@ -175,28 +175,7 @@ static FDamageStatics& DamageStatics()
 }
 ```
 
-`FGameplayEffectAttributeCaptureDefinition`은 **레시피**다 — "Source의 BaseDamage를 Snapshot으로 가져와라"는 방법만 담고, 실제 값은 담지 않는다. static 싱글톤으로 만드는 이유는 레시피 자체가 절대 바뀌지 않기 때문이다.
-
-실제 캡처된 값은 Spec마다 따로 저장된다. 엔진 내부 구조:
-
-```cpp
-// GameplayEffect.h:766
-struct FGameplayEffectAttributeCaptureSpec
-{
-    FGameplayEffectAttributeCaptureDefinition BackingDefinition; // 레시피 복사본
-    FAggregatorRef AttributeAggregator;  // 이 Spec에서 실제 캡처된 값 ← Spec마다 다름
-};
-
-// FGameplayEffectSpec 안에:
-FGameplayEffectAttributeCaptureSpecContainer CapturedRelevantAttributes;
-// └── TArray<FGameplayEffectAttributeCaptureSpec> SourceAttributes  (Spec마다 독립)
-```
-
-`DamageStatics().BaseDamageDef`는 조회 키일 뿐이다. `AttemptCalculateCapturedAttributeMagnitude`가 이 키로 해당 Spec의 `CapturedRelevantAttributes`에서 그 플레이어의 실제 BaseDamage 값을 찾아온다. PlayerA의 Spec과 PlayerB의 Spec은 같은 레시피를 쓰지만 각자 다른 값을 보관한다.
-
-개념 요약에서 말하는 "구조체 이름 충돌 버그"는 여기서 발생한다. 서로 다른 ExecCalc가 같은 이름의 static 구조체를 쓰면 레시피 키가 겹쳐서 엉뚱한 Spec의 값을 읽는다.
-
-#### 2단계 — 생성자에서 캡처 등록
+**2단계 — 생성자에서 캡처 등록**
 
 ```cpp
 ULyraDamageExecution::ULyraDamageExecution()
@@ -205,9 +184,9 @@ ULyraDamageExecution::ULyraDamageExecution()
 }
 ```
 
-GE가 Spec을 생성할 때 `RelevantAttributesToCapture` 목록을 보고 해당 Attribute들을 미리 캡처한다. 이 등록이 없으면 `AttemptCalculateCapturedAttributeMagnitude` 호출 시 런타임 에러가 난다.
+GE가 Spec을 생성할 때 이 목록을 보고 해당 Attribute를 미리 캡처한다. 등록이 없으면 `AttemptCalculateCapturedAttributeMagnitude` 호출 시 런타임 에러가 난다.
 
-#### 3단계 — Execute_Implementation
+**3단계 — Execute_Implementation**
 
 전체가 `#if WITH_SERVER_CODE`로 감싸져 있다. 서버에서만 실행되고 클라이언트에서는 빈 함수다.
 
@@ -217,21 +196,21 @@ void ULyraDamageExecution::Execute_Implementation(
     FGameplayEffectCustomExecutionOutput& OutExecutionOutput) const
 {
 #if WITH_SERVER_CODE
-    // 1. Context에서 커스텀 데이터 꺼내기
+    // Context에서 커스텀 데이터 꺼내기
     FLyraGameplayEffectContext* TypedContext =
         FLyraGameplayEffectContext::ExtractEffectContext(Spec.GetContext());
 
-    // 2. 캡처된 BaseDamage 읽기 (이 Spec의 실제 값)
+    // 캡처된 BaseDamage 읽기
     float BaseDamage = 0.0f;
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
         DamageStatics().BaseDamageDef, EvaluateParameters, BaseDamage);
 
-    // 3. Context에서 거리·물리 재질 감쇠, 팀 판별
+    // Context에서 거리·물리 재질 감쇠, 팀 판별
     float DistanceAttenuation = AbilitySource->GetDistanceAttenuation(Distance, ...);
     float PhysMatAttenuation  = AbilitySource->GetPhysicalMaterialAttenuation(PhysMat, ...);
-    float TeamMultiplier      = TeamSubsystem->CanCauseDamage(EffectCauser, HitActor) ? 1.0 : 0.0;
+    float TeamMultiplier      = TeamSubsystem->CanCauseDamage(EffectCauser, HitActor) ? 1.0f : 0.0f;
 
-    // 4. 최종 데미지 → Damage Meta Attribute에 출력
+    // 최종 데미지 → Damage Meta Attribute에 출력
     const float DamageDone = FMath::Max(
         BaseDamage * DistanceAttenuation * PhysMatAttenuation * TeamMultiplier, 0.0f);
 
@@ -243,26 +222,32 @@ void ULyraDamageExecution::Execute_Implementation(
 
 ---
 
-### Lyra가 ExecCalc를 선호하는 이유
+### 캡처 레시피 vs 캡처 값 — Definition과 CaptureSpec
 
-**1. Meta Attribute 패턴** — `Health`를 직접 깎지 않고 `Damage` Meta Attribute에 쓴다. `PostGameplayEffectExecute`가 이를 `Health` 감소로 변환한다. `AddOutputModifier`로 출력 Attribute를 자유롭게 지정할 수 있는 ExecCalc만 이 흐름을 만들 수 있다.
+> 소스: `GameplayEffect.h:766`, `GameplayEffect.cpp:3870`, `GameplayEffectAggregator.cpp:579`
 
+`FGameplayEffectAttributeCaptureDefinition`은 **레시피**다 — "Source의 BaseDamage를 Snapshot으로 가져와라"는 방법만 담고, 실제 값은 없다. static 싱글톤으로 만드는 이유는 레시피 자체가 절대 바뀌지 않기 때문이다.
+
+실제 캡처된 값은 Spec마다 독립적으로 저장된다.
+
+```cpp
+// GameplayEffect.h:766
+struct FGameplayEffectAttributeCaptureSpec
+{
+    FGameplayEffectAttributeCaptureDefinition BackingDefinition; // 레시피 복사본 (조회 키)
+    FAggregatorRef AttributeAggregator;  // 이 Spec에서 실제 캡처된 값 ← Spec마다 다름
+};
+
+// FGameplayEffectSpec 안에:
+FGameplayEffectAttributeCaptureSpecContainer CapturedRelevantAttributes;
+// └── TArray<FGameplayEffectAttributeCaptureSpec>  (Spec마다 독립 인스턴스)
 ```
-ExecCalc → Damage Meta Attribute += DamageDone
-         → PostGameplayEffectExecute: Health -= Damage, Damage = 0
-```
 
-**2. 서버 권한 보장** — 데미지는 예측하지 않는다. `#if WITH_SERVER_CODE`로 클라이언트 실행을 차단하고, 서버가 계산한 결과를 복제한다. MMC는 클라이언트에서도 실행되므로 서버 전용 시스템(`ULyraTeamSubsystem`) 호출이 위험하다.
+`DamageStatics().BaseDamageDef`는 조회 키일 뿐이다. `AttemptCalculateCapturedAttributeMagnitude`가 이 키로 해당 Spec의 `CapturedRelevantAttributes`에서 실제 값을 찾는다. PlayerA와 PlayerB는 같은 레시피를 공유하지만 각자 다른 값을 보관한다.
 
-**3. 여러 소스의 값 조합** — BaseDamage(Attribute 캡처) × 거리·재질 감쇠·팀 판별(Context) 조합이 필요하다. SetByCaller는 float 하나만 전달하므로 이 구조를 표현할 수 없고, ExecCalc만이 여러 소스의 데이터를 자유롭게 조합할 수 있다.
+개념 요약에서 말하는 "구조체 이름 충돌 버그"는 여기서 발생한다. 서로 다른 ExecCalc가 같은 이름의 static 구조체를 쓰면 레시피 키가 겹쳐서 엉뚱한 Spec의 값을 읽는다.
 
----
-
-### Attribute 캡처 = Aggregator 전체
-
-> 소스: `GameplayEffect.cpp:3870`, `GameplayEffectAggregator.cpp:579`
-
-`FGameplayEffectAttributeCaptureSpec`의 `AttributeAggregator` 필드는 `FAggregatorRef` 타입이다. 캡처는 CurrentValue float 하나가 아니라 **Aggregator 전체(BaseValue + ModChannels)**를 들고 온다.
+**캡처 대상은 CurrentValue float이 아니라 Aggregator 전체(BaseValue + ModChannels)**다.
 
 ```cpp
 // GameplayEffect.cpp:3870
@@ -286,11 +271,10 @@ void FAggregator::TakeSnapshotOf(const FAggregator& AggToSnapshot)
 }
 ```
 
-**bSnapshot=true**: 캡처 시점의 BaseValue + ModChannels를 별도 Aggregator에 복사한다. 이후 원본이 변경돼도 캡처값은 불변이다.
+- **bSnapshot=true**: 캡처 시점의 BaseValue + ModChannels를 별도 Aggregator에 복사. 이후 원본이 바뀌어도 캡처값은 불변이다.
+- **bSnapshot=false**: 원본 Aggregator 참조만 저장. Execute 시점에 최신 상태가 반영된다.
 
-**bSnapshot=false**: 원본 Aggregator의 참조만 저장한다. `AttemptCalculateCapturedAttributeMagnitude`를 호출하는 시점(Execute 시점)에 원본을 읽으므로 최신 상태가 반영된다.
-
-**CurrentValue float이 아닌 Aggregator 전체를 캡처하는 이유** — `AttemptCalculateCapturedAttributeMagnitude`는 내부적으로 `EvaluateParameters`(SourceTags, TargetTags)를 받아 태그 조건부 Modifier의 포함 여부를 실행 시점에 판단한다.
+Aggregator 전체를 캡처하는 이유: `AttemptCalculateCapturedAttributeMagnitude`는 `EvaluateParameters`(SourceTags, TargetTags)를 받아 **태그 조건부 Modifier의 포함 여부를 Execute 시점에 판단**한다. "Status.Burning 태그가 있을 때만 적용되는 +10 Modifier"가 있다면, 미리 CurrentValue로 계산해 버리면 이 조건을 나중에 평가할 수 없다.
 
 ```cpp
 FAggregatorEvaluateParameters EvaluationParameters;
@@ -302,4 +286,17 @@ ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
     DamageStatics().BaseDamageDef, EvaluationParameters, BaseDamage);
 ```
 
-예를 들어 "Status.Burning 태그가 있을 때만 적용되는 +10 Modifier"가 Aggregator에 들어 있다면, 단순 CurrentValue float을 미리 계산해 버리면 이 조건을 나중에 평가할 수 없다. Aggregator 전체를 캡처해야 Execute 시점에 태그를 보고 포함 여부를 결정할 수 있다.
+---
+
+### Lyra가 ExecCalc를 선택한 이유
+
+**Meta Attribute 패턴** — `Health`를 직접 깎지 않고 `Damage` Meta Attribute에 쓴다. `PostGameplayEffectExecute`가 이를 `Health` 감소로 변환한다. `AddOutputModifier`로 출력 Attribute를 자유롭게 지정할 수 있는 ExecCalc만 이 흐름을 만들 수 있다.
+
+```
+ExecCalc → Damage Meta Attribute += DamageDone
+         → PostGameplayEffectExecute: Health -= Damage, Damage = 0
+```
+
+**서버 권한 보장** — 데미지는 예측하지 않는다. `#if WITH_SERVER_CODE`로 클라이언트 실행을 차단하고, 서버가 계산한 결과를 복제한다. MMC는 클라이언트에서도 실행되므로 서버 전용 시스템(`ULyraTeamSubsystem`) 호출이 위험하다.
+
+**여러 소스의 값 조합** — BaseDamage(Attribute 캡처) × 거리·재질 감쇠·팀 판별(Context) 조합이 필요하다. SetByCaller는 float 하나만 전달하므로 이 구조를 표현할 수 없고, ExecCalc만이 여러 소스의 데이터를 자유롭게 조합할 수 있다.
