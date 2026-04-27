@@ -20,8 +20,9 @@
 |------|------|
 | [01_archive.md](01_archive.md) | FArchive / FBitWriter / FBitReader — 비트 스트림의 기반 추상화 |
 | [02_net_serialize.md](02_net_serialize.md) | NetSerialize & TStructOpsTypeTraits — 구조체가 직렬화를 직접 제어하는 방법 |
-| [03_rep_layout.md](03_rep_layout.md) | RepLayout & Shadow Buffer — UPROPERTY 자동 복제의 내부 동작 |
-| [04_fast_array.md](04_fast_array.md) | FFastArraySerializer — 배열 델타 직렬화, Pre/PostReplicated 콜백 |
+| [03_rep_layout.md](03_rep_layout.md) | FRepLayout & Shadow Buffer — Cmds[] 구조, 변경 감지, 핸들 번호 |
+| [04_actor_replication.md](04_actor_replication.md) | Actor 복제 호출 체인 — GetLifetimeReplicatedProps, OnRep, 사용자 제어 포인트 |
+| [05_fast_array.md](05_fast_array.md) | FFastArraySerializer — 배열 델타 직렬화, Pre/PostReplicated 콜백 |
 
 ---
 
@@ -120,6 +121,7 @@ PlayerCharacter가 다른 Actor에게 `UPROPERTY() AActor* Target = Enemy_A`를 
     └─ 배열 (FFastArraySerializer)       → FastArrayDeltaSerialize — 변경 항목만
     ↓
   FOutBunch → UNetConnection → UDP 패킷 전송
+  (Actor 호출 체인 상세 → 04_actor_replication.md)
 
 [클라이언트]
   UDP 패킷 수신
