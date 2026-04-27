@@ -26,153 +26,144 @@
 
 ## 내 분석
 
-### FGameplayEffectContext — 구조와 역할
+### "인스티게이터와 TargetData 정보를 보유한다"
 
-> 소스: `GameplayEffectTypes.h:248`
+> 소스: `GameplayEffectTypes.h:423`
 
-`FGameplayEffectContext`는 GE가 "누가, 어디서, 어떤 경위로 발생했는가"를 담는 컨텍스트 객체다. Spec이 "무엇을 어떻게 적용할지"를 담는다면, Context는 "누가 발생시켰는지"를 담는다.
+"인스티게이터"라고 단순히 표현되어 있지만, 실제로는 두 개의 Actor 포인터를 구분해서 들고 있다.
 
 ```cpp
-// GameplayEffectTypes.h:423 — 핵심 필드들
-TWeakObjectPtr<AActor>                  Instigator;              // 능력을 소유한 Actor (PlayerState 등)
-TWeakObjectPtr<AActor>                  EffectCauser;            // 물리적 발생원 (무기, 발사체 등)
-TWeakObjectPtr<UGameplayAbility>        AbilityCDO;              // 발동한 능력의 CDO (복제됨)
-TWeakObjectPtr<UGameplayAbility>        AbilityInstanceNotReplicated; // 능력 인스턴스 (복제 안 됨)
-int32                                   AbilityLevel;
-TWeakObjectPtr<UObject>                 SourceObject;            // 효과 발생 원본 오브젝트
-TWeakObjectPtr<UAbilitySystemComponent> InstigatorAbilitySystemComponent; // 복제 안 됨
-TArray<TWeakObjectPtr<AActor>>          Actors;
-TSharedPtr<FHitResult>                  HitResult;               // 충돌 정보 (UPROPERTY 아님)
-FVector                                 WorldOrigin;
+TWeakObjectPtr<AActor> Instigator;    // 능력을 소유한 Actor (보통 PlayerState)
+TWeakObjectPtr<AActor> EffectCauser;  // 물리적으로 피해를 가한 Actor (총기, 발사체 등)
 ```
 
-**Instigator vs EffectCauser 구분**:
+플레이어가 총을 쏜 경우 `Instigator = PlayerState`, `EffectCauser = Bullet`. 근접 공격이면 둘 다 캐릭터다. `GetInstigatorAbilitySystemComponent()`는 이 `Instigator`로부터 ASC를 찾아 반환하는데, 이 ASC 포인터 자체는 복제되지 않고 수신 측에서 로컬 재조회한다.
 
-| 필드 | 예시 | 설명 |
-|---|---|---|
-| `Instigator` | PlayerState / Character | 능력 시스템 컴포넌트를 소유한 Actor |
-| `EffectCauser` | 총기, 발사체, 폭발 오브젝트 | 실제로 피해를 가한 물리적 주체 |
+그 외 Context가 보유하는 정보:
 
-플레이어가 총을 발사한 경우 `Instigator = PlayerState`, `EffectCauser = Bullet Actor`. 근접 공격이면 둘 다 캐릭터가 될 수 있다.
+```cpp
+TWeakObjectPtr<UGameplayAbility> AbilityCDO;          // 발동한 어빌리티 CDO (복제됨)
+TWeakObjectPtr<UObject>          SourceObject;         // 효과 발생 원본 오브젝트
+TArray<TWeakObjectPtr<AActor>>   Actors;               // TargetData로부터 채워지는 Actor 목록
+TSharedPtr<FHitResult>           HitResult;            // 충돌 정보
+FVector                          WorldOrigin;          // 효과 발생 위치
+```
+
+"TargetData 정보를 보유한다"는 것은 `Actors`와 `HitResult`가 TargetData로부터 Context로 옮겨와 저장된다는 뜻이다. Context가 MMC / Execution / GameplayCue로 흘러갈 때 이 타겟 정보를 함께 들고 간다.
 
 ---
 
-### 복제 구조 — 필드마다 다른 전략
+### "여러 곳에 임의의 데이터를 전달할 때 서브클래싱하기 좋다"
 
-> 소스: `GameplayEffectTypes.cpp:269`
+> 소스: `GameplayEffectTypes.h:493`, `GameplayEffectTypes.cpp:425`
 
-Context는 각 필드를 7비트 플래그(`RepBits`)로 인코딩해서, 유효한 데이터가 있는 필드만 전송한다.
-
-```cpp
-// GameplayEffectTypes.cpp:275 — 7비트 선택적 직렬화
-Ar.SerializeBits(&RepBits, 7);
-
-// bit 0: Instigator        (bReplicateInstigator가 true면 포함)
-// bit 1: EffectCauser      (bReplicateEffectCauser가 true면 포함)
-// bit 2: AbilityCDO        (유효하면 포함)
-// bit 3: SourceObject      (bReplicateSourceObject가 true면 포함)
-// bit 4: Actors            (배열이 비어있지 않으면 포함)
-// bit 5: HitResult         (유효하면 포함)
-// bit 6: WorldOrigin       (bHasWorldOrigin가 true면 포함)
-```
-
-`bReplicateInstigator` 같은 플래그는 `AddInstigator()` 호출 시 Actor가 네트워크 복제를 지원하면 자동으로 true가 된다.
-
-```cpp
-// GameplayEffectTypes.cpp:212
-bReplicateInstigator = CanActorReferenceBeReplicated(InInstigator);
-```
-
-`InstigatorAbilitySystemComponent`는 `NotReplicated` — 클라이언트에서 수신 후 `AddInstigator()`를 재호출해 로컬에서 채운다:
-
-```cpp
-// GameplayEffectTypes.cpp:353 — 수신 측 재구성
-if (Ar.IsLoading())
-{
-    AddInstigator(Instigator.Get(), EffectCauser.Get());
-    // → InstigatorAbilitySystemComponent를 로컬에서 다시 조회
-}
-```
-
----
-
-### Handle이 필요한 이유 — 다형성 복제
-
-> 소스: `GameplayEffectTypes.cpp:425`
-
-`FGameplayEffectContext`는 서브클래싱이 가능한 가상 구조체다. Handle은 이 다형성을 지원하기 위해 `TSharedPtr<FGameplayEffectContext>`를 들고 있다.
+Context는 직접 전달되는 게 아니라 `FGameplayEffectContextHandle`로 감싸져 다닌다. Handle이 `TSharedPtr<FGameplayEffectContext>`를 들고 있어서, 서브클래스 타입도 그대로 보관·복제할 수 있다.
 
 ```cpp
 // GameplayEffectTypes.h:797
-TSharedPtr<FGameplayEffectContext> Data;
+TSharedPtr<FGameplayEffectContext> Data;  // 서브클래스 포인터도 들어갈 수 있음
 ```
 
-Handle의 `NetSerialize`가 `GetScriptStruct()`로 실제 타입을 판별해서, 올바른 서브클래스 인스턴스로 역직렬화한다.
+Handle의 `NetSerialize`가 `GetScriptStruct()`로 실제 타입을 판별한 뒤 그에 맞게 역직렬화한다. 서브클래스가 `GetScriptStruct()`를 오버라이드하지 않으면 Handle이 타입을 구분하지 못해 기본 타입으로 역직렬화되므로, 추가 필드가 전부 유실된다.
 
-```cpp
-// GameplayEffectTypes.cpp:432 — 타입 판별 후 복원
-TCheckedObjPtr<UScriptStruct> ScriptStruct = Data->GetScriptStruct();
-UAbilitySystemGlobals::Get().EffectContextStructCache.NetSerialize(Ar, ScriptStruct.Get());
-// 타입이 다르면 올바른 타입으로 재할당:
-if (Data->GetScriptStruct() != ScriptStruct.Get())
-{
-    FGameplayEffectContext* NewData = (FGameplayEffectContext*)FMemory::Malloc(ScriptStruct->GetStructureSize());
-    ScriptStruct->InitializeStruct(NewData);
-    Data = TSharedPtr<FGameplayEffectContext>(NewData, ...);
-}
-```
-
-그래서 서브클래스를 만들 때 반드시 `GetScriptStruct()`를 오버라이드해야 한다 — 이게 없으면 Handle이 타입을 구분하지 못해 기본 타입으로 역직렬화된다.
+Context는 `FGameplayEffectSpec` 안에 `FGameplayEffectContextHandle`로 담겨, Spec이 흘러가는 모든 곳(MMC, Execution, GameplayCue)에 함께 전달된다. 커스텀 데이터를 Spec과 함께 어디든 실어 보낼 수 있는 이유다.
 
 ---
 
-### Lyra 서브클래싱 — FLyraGameplayEffectContext
+### "서브클래싱하는 방법 6단계" — Lyra 구현으로 보기
 
 > 소스: `LyraGameplayEffectContext.h`, `LyraGameplayEffectContext.cpp`, `LyraAbilitySystemGlobals.cpp:16`
 
-Lyra는 `FGameplayEffectContext`를 `FLyraGameplayEffectContext`로 서브클래싱해서 두 가지 필드를 추가했다.
+Lyra가 각 단계를 실제로 어떻게 구현했는지 코드로 확인한다.
+
+**1단계: FGameplayEffectContext 서브클래스 만들기**
 
 ```cpp
-// LyraGameplayEffectContext.h:64
-UPROPERTY()
-int32 CartridgeID = -1;         // 같은 탄창에서 나온 탄들 식별용
-
-TWeakObjectPtr<const UObject> AbilitySourceObject;  // ILyraAbilitySourceInterface 구현체 (복제 안 됨)
+// LyraGameplayEffectContext.h:16
+struct FLyraGameplayEffectContext : public FGameplayEffectContext
+{
+    int32 CartridgeID = -1;                          // 추가 필드: 탄창 ID
+    TWeakObjectPtr<const UObject> AbilitySourceObject; // 추가 필드: 무기/장비 소스
+};
 ```
 
-**CartridgeID**: 샷건처럼 한 발사에서 여러 발이 나갈 때, 같은 탄창에서 나온 탄임을 식별하기 위한 ID. 단, NetSerialize에서 명시적으로 직렬화하지 않는다 — 복제 없이 로컬에서만 쓰인다.
+**2단계: GetScriptStruct() 오버라이드** — Handle이 타입을 판별할 수 있게 한다.
 
 ```cpp
-// LyraGameplayEffectContext.cpp:27 — CartridgeID 직렬화 안 함
-bool FLyraGameplayEffectContext::NetSerialize(...)
+virtual UScriptStruct* GetScriptStruct() const override
+{
+    return FLyraGameplayEffectContext::StaticStruct();
+}
+```
+
+**3단계: Duplicate() 오버라이드** — `TSharedPtr<FHitResult>`는 포인터만 복사되므로 딥카피가 필요하다.
+
+```cpp
+virtual FGameplayEffectContext* Duplicate() const override
+{
+    FLyraGameplayEffectContext* NewContext = new FLyraGameplayEffectContext();
+    *NewContext = *this;
+    if (GetHitResult())
+        NewContext->AddHitResult(*GetHitResult(), true);  // 딥카피
+    return NewContext;
+}
+```
+
+**4단계: NetSerialize() 오버라이드** — 추가 필드 중 복제가 필요한 것만 직렬화한다.
+
+```cpp
+// LyraGameplayEffectContext.cpp:27
+bool FLyraGameplayEffectContext::NetSerialize(FArchive& Ar, ...)
 {
     FGameplayEffectContext::NetSerialize(Ar, Map, bOutSuccess);
-    // Not serialized for post-activation use: CartridgeID
+    // CartridgeID는 직렬화 안 함 — 로컬 전용
+    // AbilitySourceObject도 직렬화 안 함 — 서버 전용
     return true;
 }
 ```
 
-**AbilitySourceObject**: 무기나 장비 같은 `ILyraAbilitySourceInterface` 구현체를 참조한다. 데미지 계산 시 무기 고유 배율 등을 꺼내오는 데 사용한다. 이것도 복제 안 됨 — 서버에서만 의미 있다.
-
-Lyra의 서브클래싱 패턴을 보면 GASDoc에서 말하는 6단계를 전부 지킨다:
-
-| 단계 | Lyra 구현 |
-|---|---|
-| `FGameplayEffectContext` 서브클래스 | `FLyraGameplayEffectContext` |
-| `GetScriptStruct()` 오버라이드 | `return FLyraGameplayEffectContext::StaticStruct()` |
-| `Duplicate()` 오버라이드 | `new FLyraGameplayEffectContext()` + HitResult 딥카피 |
-| `NetSerialize()` 오버라이드 | `Super::NetSerialize()` 호출 후 추가 필드 처리 |
-| `TStructOpsTypeTraits` 구현 | `WithNetSerializer = true, WithCopy = true` |
-| `AllocGameplayEffectContext()` 오버라이드 | `ULyraAbilitySystemGlobals::AllocGameplayEffectContext()` → `new FLyraGameplayEffectContext()` |
-
-`ExtractEffectContext()`는 Handle에서 안전하게 서브클래스 포인터를 꺼내는 헬퍼 패턴이다:
+**5단계: TStructOpsTypeTraits 구현**
 
 ```cpp
-// LyraGameplayEffectContext.cpp:16
+template<>
+struct TStructOpsTypeTraits<FLyraGameplayEffectContext>
+    : public TStructOpsTypeTraitsBase2<FLyraGameplayEffectContext>
+{
+    enum { WithNetSerializer = true, WithCopy = true };
+};
+```
+
+**6단계: AllocGameplayEffectContext() 오버라이드** — GAS가 Context를 새로 할당할 때 이 함수를 통한다. 여기서 서브클래스를 반환해야 시스템 전체에서 서브클래스 Context가 쓰인다.
+
+```cpp
+// LyraAbilitySystemGlobals.cpp:16
+FGameplayEffectContext* ULyraAbilitySystemGlobals::AllocGameplayEffectContext() const
+{
+    return new FLyraGameplayEffectContext();
+}
+```
+
+---
+
+### "샷건에서 TargetData 활용" — Lyra의 CartridgeID
+
+> 소스: `LyraGameplayEffectContext.h:64`
+
+GASShooter 예시에서 말하는 "여러 적을 동시에 맞히는 샷건 패턴"을 Lyra도 동일하게 구현한다. 샷건은 한 번의 발사에서 여러 발의 탄환이 나가 각각 독립적인 GE를 적용한다. `CartridgeID`는 같은 발사에서 나온 탄들이 동일한 ID를 공유해서 "이 탄들은 같은 발사에서 비롯됐다"는 것을 GameplayCue 등에서 식별할 수 있게 한다.
+
+`CartridgeID`는 `NetSerialize`에서 직렬화되지 않는다 — 서버에서 GE를 Apply할 때 같은 발사 내에서만 의미 있는 로컬 식별자이기 때문이다.
+
+서브클래스 포인터를 안전하게 꺼내는 패턴도 Lyra에서 확인할 수 있다:
+
+```cpp
+// LyraGameplayEffectContext.cpp:16 — ExtractEffectContext
 FGameplayEffectContext* BaseEffectContext = Handle.Get();
-if (BaseEffectContext && BaseEffectContext->GetScriptStruct()->IsChildOf(FLyraGameplayEffectContext::StaticStruct()))
+if (BaseEffectContext &&
+    BaseEffectContext->GetScriptStruct()->IsChildOf(FLyraGameplayEffectContext::StaticStruct()))
+{
     return (FLyraGameplayEffectContext*)BaseEffectContext;
+}
 return nullptr;
 ```
 
-`GetScriptStruct()->IsChildOf()`로 타입을 검사한 뒤 C 스타일 캐스트로 꺼낸다. RTTI 없이 UScriptStruct 계층으로 타입 안전성을 보장하는 GAS 관용 패턴이다.
+RTTI 없이 `UScriptStruct` 계층으로 타입을 검사한 뒤 캐스트한다. 이 헬퍼를 Execution과 GameplayCue에서 호출해 커스텀 필드를 꺼낸다.
