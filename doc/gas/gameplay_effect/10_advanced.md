@@ -57,7 +57,7 @@ bool UPAAbilitySystemComponent::SetGameplayEffectDurationHandle(FActiveGameplayE
 
 C++에서 런타임에 처음부터 생성할 수 있는 것은 `Instant` `GameplayEffects`뿐이다. `Duration`과 `Infinite` `GameplayEffects`는 복제될 때 존재하지 않는 `GameplayEffect` 클래스 정의를 찾기 때문에 런타임에 동적으로 생성할 수 없다. 이 기능을 구현하려면 에디터에서 일반적으로 하듯이 원형(archetype) `GameplayEffect` 클래스를 만들고, 런타임에 필요한 내용으로 `GameplayEffectSpec` 인스턴스를 커스터마이징하는 방식을 사용해야 한다.
 
-런타임에 생성된 `Instant` `GameplayEffects`는 [로컬 예측(local predicted)](#concepts-p) `GameplayAbility` 내부에서도 호출할 수 있다. 하지만 동적 생성이 사이드 이펙트를 유발할 수 있는지 여부는 아직 알려져 있지 않다.
+런타임에 생성된 `Instant` `GameplayEffects`는 로컬 예측(local predicted) `GameplayAbility` 내부에서도 호출할 수 있다. 하지만 동적 생성이 사이드 이펙트를 유발할 수 있는지 여부는 아직 알려져 있지 않다.
 
 ##### 예시
 
@@ -130,13 +130,13 @@ void UGameplayAbilityRuntimeGE::ActivateAbility(const FGameplayAbilitySpecHandle
 <a name="concepts-ge-containers"></a>
 #### 4.5.18 Gameplay Effect Containers
 
-Epic의 [Action RPG Sample Project](https://www.unrealengine.com/marketplace/en-US/product/action-rpg)는 `FGameplayEffectContainer`라는 구조체를 구현한다. 이 구조체는 기본 GAS에 포함되어 있지 않지만, `GameplayEffects`와 [`TargetData`](#concepts-targeting-data)를 함께 담는 데 매우 유용하다. `GameplayEffects`로부터 `GameplayEffectSpecs`를 생성하고 `GameplayEffectContext`에 기본값을 설정하는 등의 작업을 자동화해준다. `GameplayAbility`에서 `GameplayEffectContainer`를 만들어 발사체(projectile)에 전달하는 것은 매우 쉽고 직관적이다. 필자는 포함된 샘플 프로젝트에 `GameplayEffectContainers`를 구현하지 않았는데, 이는 기본 GAS만으로 어떻게 작업하는지를 보여주기 위해서였다. 하지만 이 구조체를 자세히 살펴보고 자신의 프로젝트에 추가하는 것을 강력히 권장한다.
+Epic의 [Action RPG Sample Project](https://www.unrealengine.com/marketplace/en-US/product/action-rpg)는 `FGameplayEffectContainer`라는 구조체를 구현한다. 이 구조체는 기본 GAS에 포함되어 있지 않지만, `GameplayEffects`와 `TargetData`를 함께 담는 데 매우 유용하다. `GameplayEffects`로부터 `GameplayEffectSpecs`를 생성하고 `GameplayEffectContext`에 기본값을 설정하는 등의 작업을 자동화해준다. `GameplayAbility`에서 `GameplayEffectContainer`를 만들어 발사체(projectile)에 전달하는 것은 매우 쉽고 직관적이다. 필자는 포함된 샘플 프로젝트에 `GameplayEffectContainers`를 구현하지 않았는데, 이는 기본 GAS만으로 어떻게 작업하는지를 보여주기 위해서였다. 하지만 이 구조체를 자세히 살펴보고 자신의 프로젝트에 추가하는 것을 강력히 권장한다.
 
 `GameplayEffectContainers` 내부의 `GESpecs`에 접근하여 `SetByCallers` 추가 등의 작업을 하려면, `FGameplayEffectContainer`를 분해(break)하고 `GESpec` 배열에서 인덱스로 `GESpec` 참조에 접근한다. 이 경우 접근하려는 `GESpec`의 인덱스를 미리 알고 있어야 한다.
 
 ![SetByCaller with a GameplayEffectContainer](https://github.com/tranek/GASDocumentation/raw/master/Images/gecontainersetbycaller.png)
 
-`GameplayEffectContainers`에는 선택적으로 효율적인 [타게팅](#concepts-targeting-containers) 수단도 포함되어 있다.
+`GameplayEffectContainers`에는 선택적으로 효율적인 타게팅 수단도 포함되어 있다.
 
 ---
 

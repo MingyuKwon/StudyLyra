@@ -36,7 +36,7 @@ virtual void DestroyActiveState();
 <a name="concepts-ga-definition-activeability"></a>
 #### 4.6.6 활성 GA 조회 (Getting Active Abilities)
 
-입문자들은 종종 "활성 GA를 어떻게 가져오나요?"라고 질문한다 — 변수를 설정하거나 취소하기 위해서다. 동시에 여러 GA가 활성화될 수 있으므로 단일한 "활성 GA"라는 개념은 존재하지 않는다. 대신 ASC의 `ActivatableAbilities` 목록(ASC가 소유한 부여된 GA 목록)을 순회하면서 찾고자 하는 [`Asset 또는 Granted GameplayTag`](#concepts-ga-tags)와 일치하는 항목을 직접 탐색해야 한다.
+입문자들은 종종 "활성 GA를 어떻게 가져오나요?"라고 질문한다 — 변수를 설정하거나 취소하기 위해서다. 동시에 여러 GA가 활성화될 수 있으므로 단일한 "활성 GA"라는 개념은 존재하지 않는다. 대신 ASC의 `ActivatableAbilities` 목록(ASC가 소유한 부여된 GA 목록)을 순회하면서 찾고자 하는 `Asset 또는 Granted GameplayTag`와 일치하는 항목을 직접 탐색해야 한다.
 
 `UAbilitySystemComponent::GetActivatableAbilities()`는 순회할 수 있는 `TArray<FGameplayAbilitySpec>`을 반환한다.
 

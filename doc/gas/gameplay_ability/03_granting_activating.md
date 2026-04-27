@@ -11,7 +11,7 @@
 
 GA를 ASC에 부여하면 ASC의 `ActivatableAbilities` 목록에 추가되어, 조건이 충족될 때 해당 GA를 활성화할 수 있게 된다.
 
-GA 부여는 **서버에서만** 수행하며, [`GameplayAbilitySpec`](#concepts-ga-spec)이 owning client로 자동 복제된다. 다른 클라이언트(simulated proxy)는 GameplayAbilitySpec을 받지 않는다.
+GA 부여는 **서버에서만** 수행하며, `GameplayAbilitySpec`이 owning client로 자동 복제된다. 다른 클라이언트(simulated proxy)는 GameplayAbilitySpec을 받지 않는다.
 
 샘플 프로젝트는 Character 클래스에 `TArray<TSubclassOf<UGDGameplayAbility>>`를 저장해두고 게임 시작 시 읽어서 부여한다:
 ```c++
@@ -38,7 +38,7 @@ GA를 부여할 때, `UGameplayAbility` 클래스, 어빌리티 레벨, 바인�
 <a name="concepts-ga-activating"></a>
 #### 4.6.4 GA 활성화 (Activating)
 
-입력 액션이 할당된 GA는 해당 입력이 눌리고 GameplayTag 요건이 충족되면 자동으로 활성화된다. 하지만 이것이 항상 원하는 방식은 아닐 수 있다. ASC는 GA를 활성화하는 네 가지 추가 방법을 제공한다: GameplayTag, GameplayAbility 클래스, GameplayAbilitySpec 핸들, 그리고 이벤트. 이벤트로 GA를 활성화하면 [이벤트와 함께 페이로드 데이터를 전달](#concepts-ga-data)할 수 있다.
+입력 액션이 할당된 GA는 해당 입력이 눌리고 GameplayTag 요건이 충족되면 자동으로 활성화된다. 하지만 이것이 항상 원하는 방식은 아닐 수 있다. ASC는 GA를 활성화하는 네 가지 추가 방법을 제공한다: GameplayTag, GameplayAbility 클래스, GameplayAbilitySpec 핸들, 그리고 이벤트. 이벤트로 GA를 활성화하면 이벤트와 함께 페이로드 데이터를 전달할 수 있다.
 
 ```c++
 UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -92,7 +92,7 @@ GA `Triggers`는 GameplayTag가 추가되거나 제거될 때 GA를 활성화하
 
 커스텀 `UGameplayAbility` 클래스에 GA 부여 시 자동 활성화 여부를 지정하는 `bool` 변수를 추가하는 것을 권장한다. 샘플 프로젝트에서는 패시브 방어구 중첩 어빌리티에 이 방식을 사용한다.
 
-패시브 GA는 일반적으로 [`Net Execution Policy`](#concepts-ga-net)를 `Server Only`로 설정한다.
+패시브 GA는 일반적으로 `Net Execution Policy`를 `Server Only`로 설정한다.
 
 ```c++
 void UGDGameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo * ActorInfo, const FGameplayAbilitySpec & Spec)

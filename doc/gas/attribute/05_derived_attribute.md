@@ -9,7 +9,7 @@
 <a name="concepts-a-derived"></a>
 #### 4.3.5 Derived Attribute
 
-하나 이상의 다른 Attribute로부터 일부 또는 전체 값을 파생하는 Attribute를 만들려면 하나 이상의 `Attribute Based` 또는 [`MMC`](#concepts-ge-mmc) [`Modifier`](#concepts-ge-mods)를 가진 `Infinite` GameplayEffect를 사용한다. Derived Attribute는 의존하는 Attribute가 업데이트되면 자동으로 갱신된다.
+하나 이상의 다른 Attribute로부터 일부 또는 전체 값을 파생하는 Attribute를 만들려면 하나 이상의 `Attribute Based` 또는 `MMC` `Modifier`를 가진 `Infinite` GameplayEffect를 사용한다. Derived Attribute는 의존하는 Attribute가 업데이트되면 자동으로 갱신된다.
 
 Derived Attribute의 모든 Modifier에 대한 최종 공식은 Modifier Aggregator와 동일한 공식을 사용한다. 특정 순서로 계산이 이루어져야 한다면 MMC 내부에서 모두 처리한다.
 

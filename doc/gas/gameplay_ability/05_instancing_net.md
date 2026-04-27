@@ -25,7 +25,7 @@ GA의 `Net Execution Policy`는 GA를 어디서 실행하는지와 그 순서를
 | `Net Execution Policy` | 설명 |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Local Only` | GA가 owning client에서만 실행된다. 로컬 코스메틱 변경만 이루어지는 어빌리티에 유용하다. 싱글플레이어 게임은 `Server Only`를 사용할 것. |
-| `Local Predicted` | `Local Predicted` GA는 owning client에서 먼저 활성화된 후 서버에서 활성화된다. 서버는 클라이언트가 잘못 예측한 내용을 수정한다. [Prediction](#concepts-p) 참조. |
+| `Local Predicted` | `Local Predicted` GA는 owning client에서 먼저 활성화된 후 서버에서 활성화된다. 서버는 클라이언트가 잘못 예측한 내용을 수정한다. Prediction 참조. |
 | `Server Only` | GA가 서버에서만 실행된다. 패시브 GA는 일반적으로 `Server Only`를 사용한다. 싱글플레이어 게임에 권장한다. |
 | `Server Initiated` | `Server Initiated` GA는 서버에서 먼저 활성화된 후 owning client에서 활성화된다. 개인적으로 거의 사용하지 않는 방식이다. |
 

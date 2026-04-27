@@ -9,13 +9,13 @@
 <a name="concepts-ge-definition"></a>
 #### 4.5.1 GameplayEffect 정의
 
-[`GameplayEffect`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayEffect/index.html)(GE)는 어빌리티가 자신 또는 다른 대상의 [Attribute](#concepts-a)와 [GameplayTag](#concepts-gt)를 변경하는 수단이다. 즉각적인 데미지·힐링부터 이동 속도 버프나 스턴 같은 장기 지속 상태 이상까지 모두 GE로 표현할 수 있다. `UGameplayEffect` 클래스는 **데이터 전용 클래스**로 설계되었으며, 단일 게임플레이 효과를 정의한다. GE에 별도의 로직을 추가해서는 안 된다. 일반적으로 디자이너는 `UGameplayEffect`의 Blueprint 자식 클래스를 다수 만들어 사용한다.
+[`GameplayEffect`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayEffect/index.html)(GE)는 어빌리티가 자신 또는 다른 대상의 Attribute와 GameplayTag를 변경하는 수단이다. 즉각적인 데미지·힐링부터 이동 속도 버프나 스턴 같은 장기 지속 상태 이상까지 모두 GE로 표현할 수 있다. `UGameplayEffect` 클래스는 **데이터 전용 클래스**로 설계되었으며, 단일 게임플레이 효과를 정의한다. GE에 별도의 로직을 추가해서는 안 된다. 일반적으로 디자이너는 `UGameplayEffect`의 Blueprint 자식 클래스를 다수 만들어 사용한다.
 
-GE는 [Modifier](#concepts-ge-mods)와 [Execution(`GameplayEffectExecutionCalculation`)](#concepts-ge-ec)을 통해 Attribute를 변경한다.
+GE는 Modifier와 Execution(`GameplayEffectExecutionCalculation`)을 통해 Attribute를 변경한다.
 
 GE에는 세 가지 지속 시간 유형이 있다: `Instant`, `Duration`, `Infinite`.
 
-또한 GE는 [GameplayCue](#concepts-gc)를 추가하거나 실행할 수 있다. `Instant` GE는 GameplayCue GameplayTag에 대해 `Execute`를 호출하며, `Duration` 또는 `Infinite` GE는 `Add`와 `Remove`를 호출한다.
+또한 GE는 GameplayCue를 추가하거나 실행할 수 있다. `Instant` GE는 GameplayCue GameplayTag에 대해 `Execute`를 호출하며, `Duration` 또는 `Infinite` GE는 `Add`와 `Remove`를 호출한다.
 
 | Duration Type | GameplayCue 이벤트 | 사용 시점 |
 | ------------- | ----------------- | --------- |
@@ -29,9 +29,9 @@ Attribute의 BaseValue를 변경하고 GameplayCue를 Execute하는 측면에서
 지속 데미지(DoT) 같은 효과에 유용하다.
 
 > **참고**  
-> Periodic Effect는 [예측(Prediction)](#concepts-p)이 불가능하다.
+> Periodic Effect는 예측(Prediction)이 불가능하다.
 
-`Duration`과 `Infinite` GE는 `Ongoing Tag Requirements`를 충족하지 못하는 경우 적용 이후에도 일시적으로 켜고 끌 수 있다([Gameplay Effect Tags](#concepts-ge-tags) 참조). GE를 끄면 Modifier와 적용된 GameplayTag의 효과는 제거되지만, GE 자체가 제거되지는 않는다. GE를 다시 켜면 Modifier와 GameplayTag가 재적용된다.
+`Duration`과 `Infinite` GE는 `Ongoing Tag Requirements`를 충족하지 못하는 경우 적용 이후에도 일시적으로 켜고 끌 수 있다(Gameplay Effect Tags 참조). GE를 끄면 Modifier와 적용된 GameplayTag의 효과는 제거되지만, GE 자체가 제거되지는 않는다. GE를 다시 켜면 Modifier와 GameplayTag가 재적용된다.
 
 Attribute에서 유래하지 않는 데이터를 사용하는 MMC를 가진 `Duration` 또는 `Infinite` GE의 Modifier를 수동으로 재계산해야 할 경우, `UAbilitySystemComponent::ActiveGameplayEffects.SetActiveGameplayEffectLevel(FActiveGameplayEffectHandle ActiveHandle, int32 NewLevel)`을 현재와 동일한 레벨 값으로 호출하면 된다. 현재 레벨은 `UAbilitySystemComponent::ActiveGameplayEffects.GetActiveGameplayEffect(ActiveHandle).Spec.GetLevel()`로 가져올 수 있다. Backing Attribute에 기반하는 Modifier는 해당 Attribute가 업데이트될 때 자동으로 갱신된다. `SetActiveGameplayEffectLevel()`이 Modifier를 업데이트하는 핵심 함수는 다음과 같다.
 
@@ -42,7 +42,7 @@ Effect.Spec.CalculateModifierMagnitudes();
 UpdateAllAggregatorModMagnitudes(Effect);
 ```
 
-GE는 일반적으로 직접 인스턴스화되지 않는다. 어빌리티나 ASC가 GE를 적용하고자 할 때, GE의 `ClassDefaultObject`로부터 [`GameplayEffectSpec`](#concepts-ge-spec)을 생성한다. 성공적으로 적용된 `GameplayEffectSpec`은 `FActiveGameplayEffect`라는 새 구조체에 추가되며, ASC는 이를 `ActiveGameplayEffects`라는 전용 컨테이너 구조체로 관리한다.
+GE는 일반적으로 직접 인스턴스화되지 않는다. 어빌리티나 ASC가 GE를 적용하고자 할 때, GE의 `ClassDefaultObject`로부터 `GameplayEffectSpec`을 생성한다. 성공적으로 적용된 `GameplayEffectSpec`은 `FActiveGameplayEffect`라는 새 구조체에 추가되며, ASC는 이를 `ActiveGameplayEffects`라는 전용 컨테이너 구조체로 관리한다.
 
 ---
 

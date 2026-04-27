@@ -42,7 +42,7 @@ void AGSWeapon::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracke
 <a name=”concepts-as-design-itemattributes-attributeset”></a>
 ###### 4.4.2.3.2 아이템에 AttributeSet 사용
 
-아이템에 별도 `AttributeSet`을 두고, [플레이어의 인벤토리에 추가될 때 플레이어 ASC에 등록](#concepts-as-design-addremoveruntime)하는 방식은 작동은 하지만 몇 가지 중요한 제약이 있다. 초기 [GASShooter](https://github.com/tranek/GASShooter) 버전에서 무기 탄약에 이 방식을 사용한 적이 있다. 무기는 최대 탄창 크기, 현재 탄약, 예비 탄약 등을 무기 클래스에 있는 `AttributeSet`에 저장한다. 예비 탄약을 공유해야 한다면 캐릭터의 공유 탄약 `AttributeSet`에 두면 된다. 서버에서 무기가 인벤토리에 추가되면, 무기는 자신의 `AttributeSet`을 플레이어 `ASC::SpawnedAttributes`에 추가하고 서버는 이를 클라이언트에 복제한다. 무기가 인벤토리에서 제거되면 `ASC::SpawnedAttributes`에서도 제거된다.
+아이템에 별도 `AttributeSet`을 두고, 플레이어의 인벤토리에 추가될 때 플레이어 ASC에 등록하는 방식은 작동은 하지만 몇 가지 중요한 제약이 있다. 초기 [GASShooter](https://github.com/tranek/GASShooter) 버전에서 무기 탄약에 이 방식을 사용한 적이 있다. 무기는 최대 탄창 크기, 현재 탄약, 예비 탄약 등을 무기 클래스에 있는 `AttributeSet`에 저장한다. 예비 탄약을 공유해야 한다면 캐릭터의 공유 탄약 `AttributeSet`에 두면 된다. 서버에서 무기가 인벤토리에 추가되면, 무기는 자신의 `AttributeSet`을 플레이어 `ASC::SpawnedAttributes`에 추가하고 서버는 이를 클라이언트에 복제한다. 무기가 인벤토리에서 제거되면 `ASC::SpawnedAttributes`에서도 제거된다.
 
 `AttributeSet`이 `OwnerActor`가 아닌 곳(예: 무기)에 위치하면 초기에 컴파일 오류가 발생할 수 있다. 해결책은 생성자 대신 `BeginPlay()`에서 `AttributeSet`을 생성하고, 무기에 `IAbilitySystemInterface`를 구현하여 플레이어 인벤토리에 무기를 추가할 때 ASC 포인터를 설정하는 것이다.
 

@@ -12,9 +12,9 @@
 <a name="concepts-targeting-data"></a>
 #### 4.11.1 Target Data
 
-[`FGameplayAbilityTargetData`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/FGameplayAbilityTargetData/index.html)는 네트워크를 통해 전달하기 위한 범용 타게팅 데이터 구조체다. `TargetData`는 일반적으로 `AActor`/`UObject` 레퍼런스, `FHitResult`, 그 외 일반적인 위치/방향/원점 정보를 담는다. 그러나 서브클래싱을 통해 원하는 거의 모든 데이터를 넣을 수 있으며, [`GameplayAbility` 내에서 클라이언트와 서버 사이에 데이터를 전달](#concepts-ga-data)하는 간단한 수단으로 활용된다. 기본 구조체 `FGameplayAbilityTargetData`는 직접 사용하는 것이 아니라 서브클래싱하여 사용한다. `GAS`는 `GameplayAbilityTargetTypes.h`에 기본 제공하는 `FGameplayAbilityTargetData` 서브클래스 구조체들을 포함하고 있다.
+[`FGameplayAbilityTargetData`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/FGameplayAbilityTargetData/index.html)는 네트워크를 통해 전달하기 위한 범용 타게팅 데이터 구조체다. `TargetData`는 일반적으로 `AActor`/`UObject` 레퍼런스, `FHitResult`, 그 외 일반적인 위치/방향/원점 정보를 담는다. 그러나 서브클래싱을 통해 원하는 거의 모든 데이터를 넣을 수 있으며, `GameplayAbility` 내에서 클라이언트와 서버 사이에 데이터를 전달하는 간단한 수단으로 활용된다. 기본 구조체 `FGameplayAbilityTargetData`는 직접 사용하는 것이 아니라 서브클래싱하여 사용한다. `GAS`는 `GameplayAbilityTargetTypes.h`에 기본 제공하는 `FGameplayAbilityTargetData` 서브클래스 구조체들을 포함하고 있다.
 
-`TargetData`는 일반적으로 [`Target Actors`](#concepts-targeting-actors)가 생성하거나 **수동으로 생성**되며, [`AbilityTasks`](#concepts-at) 및 [`GameplayEffects`](#concepts-ge)에서 [`EffectContext`](#concepts-ge-context)를 통해 소비된다. `EffectContext`에 들어가 있기 때문에, [`Executions`](#concepts-ge-ec), [`MMCs`](#concepts-ge-mmc), [`GameplayCues`](#concepts-gc), 그리고 [`AttributeSet`](#concepts-as) 백엔드 함수들이 `TargetData`에 접근할 수 있다.
+`TargetData`는 일반적으로 `Target Actors`가 생성하거나 **수동으로 생성**되며, `AbilityTasks` 및 `GameplayEffects`에서 `EffectContext`를 통해 소비된다. `EffectContext`에 들어가 있기 때문에, `Executions`, `MMCs`, `GameplayCues`, 그리고 `AttributeSet` 백엔드 함수들이 `TargetData`에 접근할 수 있다.
 
 우리는 보통 `FGameplayAbilityTargetData`를 직접 전달하지 않고, 대신 내부에 `FGameplayAbilityTargetData` 포인터의 `TArray`를 가진 [`FGameplayAbilityTargetDataHandle`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/FGameplayAbilityTargetDataHandle/index.html)을 사용한다. 이 중간 구조체는 `TargetData`의 다형성(polymorphism)을 지원한다.
 

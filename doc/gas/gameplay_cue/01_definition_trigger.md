@@ -28,9 +28,9 @@
 > **참고**  
 > `GameplayCueNotify_Actor`를 사용할 때는 `Auto Destroy on Remove`를 반드시 체크해야 한다. 그렇지 않으면 이후에 동일한 `GameplayCueTag`로 `Add`를 호출해도 동작하지 않는다.
 
-`Full` 이외의 ASC [Replication Mode](#concepts-asc-rm)를 사용할 때, `Add` 및 `Remove` `GC` 이벤트는 서버 플레이어(리슨 서버)에서 두 번 발생한다. 한 번은 `GE` 적용 시, 또 한 번은 클라이언트에게 "Minimal" `NetMultiCast`를 통해서다. 단, `WhileActive` 이벤트는 여전히 한 번만 발생한다. 클라이언트에서는 모든 이벤트가 한 번씩만 발생한다.
+`Full` 이외의 ASC Replication Mode를 사용할 때, `Add` 및 `Remove` `GC` 이벤트는 서버 플레이어(리슨 서버)에서 두 번 발생한다. 한 번은 `GE` 적용 시, 또 한 번은 클라이언트에게 "Minimal" `NetMultiCast`를 통해서다. 단, `WhileActive` 이벤트는 여전히 한 번만 발생한다. 클라이언트에서는 모든 이벤트가 한 번씩만 발생한다.
 
-샘플 프로젝트에는 스턴과 스프린트 효과를 위한 `GameplayCueNotify_Actor`와, FireGun의 발사체 임팩트를 위한 `GameplayCueNotify_Static`이 포함되어 있다. 이 `GC`들은 `GE`를 통해 복제하는 대신 [로컬에서 트리거](#concepts-gc-local)하는 방식으로 추가 최적화가 가능하다. 샘플 프로젝트에서는 초보자 친화적인 방식을 보여주기 위해 이 방식을 선택했다.
+샘플 프로젝트에는 스턴과 스프린트 효과를 위한 `GameplayCueNotify_Actor`와, FireGun의 발사체 임팩트를 위한 `GameplayCueNotify_Static`이 포함되어 있다. 이 `GC`들은 `GE`를 통해 복제하는 대신 로컬에서 트리거하는 방식으로 추가 최적화가 가능하다. 샘플 프로젝트에서는 초보자 친화적인 방식을 보여주기 위해 이 방식을 선택했다.
 
 <a name="concepts-gc-trigger"></a>
 #### 4.8.2 GameplayCue 트리거

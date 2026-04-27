@@ -9,7 +9,7 @@
 <a name="concepts-as-postgameplayeffectexecute"></a>
 #### 4.4.6 PostGameplayEffectExecute()
 
-`PostGameplayEffectExecute(const FGameplayEffectModCallbackData & Data)`는 인스턴트 [`GameplayEffect`](#concepts-ge)에 의해 `Attribute`의 `BaseValue`가 변경된 **이후에만** 발동된다. `GameplayEffect`로 인한 `Attribute` 변경 시 추가적인 `Attribute` 조작을 수행하기에 적합한 위치다.
+`PostGameplayEffectExecute(const FGameplayEffectModCallbackData & Data)`는 인스턴트 `GameplayEffect`에 의해 `Attribute`의 `BaseValue`가 변경된 **이후에만** 발동된다. `GameplayEffect`로 인한 `Attribute` 변경 시 추가적인 `Attribute` 조작을 수행하기에 적합한 위치다.
 
 예를 들어, 샘플 프로젝트에서는 이 함수에서 최종 피해 `Meta Attribute`를 Health `Attribute`에서 차감한다. 방어막(Shield) `Attribute`가 있다면 먼저 방어막에서 피해를 차감하고 나머지를 Health에서 차감한다. 또한 샘플 프로젝트는 이 위치를 피격 반응 애니메이션 재생, 부유 피해 숫자(Floating Damage Numbers) 표시, 처치자에게 경험치와 골드 보상 지급에도 활용한다. 설계상 피해 `Meta Attribute`는 항상 인스턴트 `GameplayEffect`를 통해 전달되며, `Attribute` setter를 통해 직접 설정되지 않는다.
 

@@ -15,13 +15,13 @@
 2. `ServerSetReplicatedTargetData()` (선택)
 3. `ServerEndAbility()`
 
-한 프레임 내에 이 모든 작업이 하나의 원자적 그룹으로 수행된다면, 2~3개의 RPC를 하나의 RPC로 묶어 최적화할 수 있다. `GAS`에서는 이 RPC 최적화 기법을 `Ability Batching`이라고 한다. `Ability Batching`의 대표적인 사용 사례는 히트스캔 총이다. 히트스캔 총은 어빌리티를 활성화하고, 라인 트레이스를 수행하고, [`TargetData`](#concepts-targeting-data)를 서버로 전송하고, 어빌리티를 종료하는 모든 동작을 한 프레임 내의 하나의 원자적 그룹으로 처리한다. [GASShooter](https://github.com/tranek/GASShooter) 샘플 프로젝트는 히트스캔 총에 이 기법을 적용하여 시연한다.
+한 프레임 내에 이 모든 작업이 하나의 원자적 그룹으로 수행된다면, 2~3개의 RPC를 하나의 RPC로 묶어 최적화할 수 있다. `GAS`에서는 이 RPC 최적화 기법을 `Ability Batching`이라고 한다. `Ability Batching`의 대표적인 사용 사례는 히트스캔 총이다. 히트스캔 총은 어빌리티를 활성화하고, 라인 트레이스를 수행하고, `TargetData`를 서버로 전송하고, 어빌리티를 종료하는 모든 동작을 한 프레임 내의 하나의 원자적 그룹으로 처리한다. [GASShooter](https://github.com/tranek/GASShooter) 샘플 프로젝트는 히트스캔 총에 이 기법을 적용하여 시연한다.
 
 반자동 총은 최적 사례로서 `CallServerTryActivateAbility()`, `ServerSetReplicatedTargetData()`(총알 히트 결과), `ServerEndAbility()`를 세 개의 RPC 대신 하나의 RPC로 묶는다.
 
 완전 자동/버스트 총의 경우, 첫 번째 총알에 대해 `CallServerTryActivateAbility()`와 `ServerSetReplicatedTargetData()`를 두 개의 RPC 대신 하나의 RPC로 배치한다. 이후 각 총알은 자체적인 `ServerSetReplicatedTargetData()` RPC를 사용한다. 마지막으로 총 발사가 멈출 때 `ServerEndAbility()`가 별도의 RPC로 전송된다. 이는 최악의 경우로, 두 개의 RPC 절약이 아닌 첫 번째 총알에서 하나의 RPC만 절약된다.
 
-`Ability Batching`은 [ASC](#concepts-asc)에서 기본적으로 비활성화되어 있다. `Ability Batching`을 활성화하려면 `ShouldDoServerAbilityRPCBatch()`를 override하여 true를 반환하도록 한다.
+`Ability Batching`은 ASC에서 기본적으로 비활성화되어 있다. `Ability Batching`을 활성화하려면 `ShouldDoServerAbilityRPCBatch()`를 override하여 true를 반환하도록 한다.
 
 ```c++
 virtual bool ShouldDoServerAbilityRPCBatch() const override { return true; }

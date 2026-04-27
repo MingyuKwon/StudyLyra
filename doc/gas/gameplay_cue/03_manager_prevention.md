@@ -39,7 +39,7 @@ virtual bool ShouldAsyncLoadRuntimeObjectLibraries() const override
 <a name="concepts-gc-prevention"></a>
 #### 4.8.6 GameplayCue 발동 차단
 
-때로는 `GameplayCue`가 발동되지 않도록 해야 할 때가 있다. 예를 들어 공격을 막았을 때, 데미지 `GameplayEffect`에 연결된 히트 임팩트를 재생하지 않거나 대신 다른 것을 재생하고 싶을 수 있다. 이는 [`GameplayEffectExecutionCalculations`](#concepts-ge-ec) 내에서 `OutExecutionOutput.MarkGameplayCuesHandledManually()`를 호출하고, 그 다음 `Target` 또는 `Source`의 ASC에 수동으로 원하는 `GameplayCue` 이벤트를 전달함으로써 처리할 수 있다.
+때로는 `GameplayCue`가 발동되지 않도록 해야 할 때가 있다. 예를 들어 공격을 막았을 때, 데미지 `GameplayEffect`에 연결된 히트 임팩트를 재생하지 않거나 대신 다른 것을 재생하고 싶을 수 있다. 이는 `GameplayEffectExecutionCalculations` 내에서 `OutExecutionOutput.MarkGameplayCuesHandledManually()`를 호출하고, 그 다음 `Target` 또는 `Source`의 ASC에 수동으로 원하는 `GameplayCue` 이벤트를 전달함으로써 처리할 수 있다.
 
 특정 ASC에서 어떤 `GameplayCue`도 발동되지 않도록 완전히 억제하려면 `AbilitySystemComponent->bSuppressGameplayCues = true`로 설정하면 된다.
 

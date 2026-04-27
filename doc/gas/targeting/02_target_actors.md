@@ -9,7 +9,7 @@
 <a name="concepts-targeting-actors"></a>
 #### 4.11.2 Target Actors
 
-`GameplayAbility`는 `WaitTargetData` `AbilityTask`와 함께 [`TargetActors`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/AGameplayAbilityTargetActor/index.html)를 스폰하여 월드에서 타게팅 정보를 시각화하고 수집한다. `TargetActor`는 선택적으로 [`GameplayAbilityWorldReticles`](#concepts-targeting-reticles)를 사용하여 현재 타겟을 표시할 수 있다. 확인(confirmation) 시 타게팅 정보는 [`TargetData`](#concepts-targeting-data)로 반환되어 `GameplayEffect`에 전달된다.
+`GameplayAbility`는 `WaitTargetData` `AbilityTask`와 함께 [`TargetActors`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/AGameplayAbilityTargetActor/index.html)를 스폰하여 월드에서 타게팅 정보를 시각화하고 수집한다. `TargetActor`는 선택적으로 `GameplayAbilityWorldReticles`를 사용하여 현재 타겟을 표시할 수 있다. 확인(confirmation) 시 타게팅 정보는 `TargetData`로 반환되어 `GameplayEffect`에 전달된다.
 
 `TargetActor`는 `AActor` 기반이므로 스태틱 메시나 데칼처럼 **어디서**, **어떻게** 타게팅하는지를 나타내는 어떤 종류의 시각 컴포넌트도 사용할 수 있다. 스태틱 메시는 캐릭터가 건설할 오브젝트의 배치를 시각화하는 데 사용될 수 있다. 데칼은 지면 위의 범위 효과(area of effect)를 표시하는 데 사용할 수 있다. 샘플 프로젝트는 Meteor 어빌리티의 데미지 범위를 나타내기 위해 지면 데칼이 있는 [`AGameplayAbilityTargetActor_GroundTrace`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/AGameplayAbilityTargetActor_Grou-/index.html)를 사용한다. 아무것도 표시하지 않아도 된다. 예를 들어 [GASShooter](https://github.com/tranek/GASShooter)에서처럼 즉각적으로 타겟까지 라인을 추적하는 히트스캔 총기라면 아무것도 표시하는 것이 의미가 없다.
 
@@ -18,7 +18,7 @@ TargetActor는 기본 트레이스나 콜리전 오버랩을 사용하여 타게
 | `EGameplayTargetingConfirmation::Type` | 타겟 확인 시점 |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Instant` | 타게팅이 즉시 발생하며, 특별한 로직이나 '발사' 시점을 결정하는 사용자 입력이 없다. |
-| `UserConfirmed` | [어빌리티가 `Confirm` 입력에 바인딩](#concepts-ga-input)되어 있거나 `UAbilitySystemComponent::TargetConfirm()`을 호출할 때 타게팅이 발생한다. `TargetActor`는 바인딩된 `Cancel` 입력이나 `UAbilitySystemComponent::TargetCancel()` 호출에도 응답하여 타게팅을 취소한다. |
+| `UserConfirmed` | 어빌리티가 `Confirm` 입력에 바인딩되어 있거나 `UAbilitySystemComponent::TargetConfirm()`을 호출할 때 타게팅이 발생한다. `TargetActor`는 바인딩된 `Cancel` 입력이나 `UAbilitySystemComponent::TargetCancel()` 호출에도 응답하여 타게팅을 취소한다. |
 | `Custom` | GameplayTargeting Ability가 `UGameplayAbility::ConfirmTaskByInstanceName()`을 호출하여 타게팅 데이터가 준비됐을 때를 직접 결정한다. `TargetActor`는 `UGameplayAbility::CancelTaskByInstanceName()`에도 응답하여 타게팅을 취소한다. |
 | `CustomMulti` | GameplayTargeting Ability가 `UGameplayAbility::ConfirmTaskByInstanceName()`을 호출하여 타게팅 데이터가 준비됐을 때를 직접 결정한다. `TargetActor`는 `UGameplayAbility::CancelTaskByInstanceName()`에도 응답하여 타게팅을 취소한다. 데이터가 생성될 때 `AbilityTask`를 종료하지 않아야 한다. |
 
@@ -33,9 +33,9 @@ TargetActor는 기본 트레이스나 콜리전 오버랩을 사용하여 타게
 | 일반 `TargetActor` 파라미터 | 설명 |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Debug | `true`이면 비-쉬핑(non-shipping) 빌드에서 `TargetActor`가 트레이스를 수행할 때마다 디버그 트레이스/오버랩 정보가 그려진다. `Instant`가 아닌 `TargetActor`는 `Tick()`에서 트레이스를 수행하므로 이 디버그 드로우 호출도 `Tick()`에서 발생한다. |
-| Filter | [선택] 트레이스/오버랩이 발생할 때 `Actor`를 타겟에서 필터링(제거)하기 위한 특수 구조체. 일반적인 사용 사례는 플레이어의 `Pawn`을 필터링하거나 특정 클래스의 타겟만 필요로 하는 것이다. 고급 사용 사례는 [Target Data Filters](#concepts-target-data-filters)를 참고한다. |
+| Filter | [선택] 트레이스/오버랩이 발생할 때 `Actor`를 타겟에서 필터링(제거)하기 위한 특수 구조체. 일반적인 사용 사례는 플레이어의 `Pawn`을 필터링하거나 특정 클래스의 타겟만 필요로 하는 것이다. 고급 사용 사례는 Target Data Filters를 참고한다. |
 | Reticle Class | [선택] `TargetActor`가 스폰할 `AGameplayAbilityWorldReticle`의 서브클래스. |
-| Reticle Parameters | [선택] Reticle을 설정한다. [Reticles](#concepts-targeting-reticles) 참고. |
+| Reticle Parameters | [선택] Reticle을 설정한다. Reticles 참고. |
 | Start Location | 트레이스가 시작되어야 하는 위치를 나타내는 특수 구조체. 일반적으로 플레이어의 시점(viewpoint), 무기 총구, 또는 `Pawn`의 위치가 된다. |
 
 기본 `TargetActor` 클래스에서는 `Actor`가 트레이스/오버랩 범위 안에 직접 있을 때만 유효한 타겟으로 인정된다. 트레이스/오버랩 범위를 벗어나면(이동하거나 시선을 돌리면) 더 이상 유효하지 않다. `TargetActor`가 마지막으로 유효했던 타겟을 기억하게 하려면, 커스텀 `TargetActor` 클래스에 이 기능을 추가해야 한다. 이를 "persistent target"이라고 부르는데, `TargetActor`가 확인 또는 취소를 받거나, `TargetActor`가 트레이스/오버랩에서 새로운 유효 타겟을 찾거나, 타겟이 더 이상 유효하지 않을 때(파괴될 때)까지 유지된다. GASShooter는 로켓 런처의 보조 어빌리티 유도 로켓 타게팅에 persistent target을 사용한다.

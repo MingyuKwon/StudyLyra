@@ -13,11 +13,11 @@ GAS는 클라이언트 측 예측(client-side prediction)을 기본 지원하지
 
 GAS 관련 예측의 공식적인 참고 자료는 플러그인 소스 코드의 `GameplayPrediction.h`다.
 
-Epic의 관점은 "빠져나갈 수 있는" 것만 예측하는 것이다. 예를 들어, Paragon과 Fortnite는 데미지를 예측하지 않는다. 이는 어차피 예측할 수 없는 [`ExecutionCalculations`](#concepts-ge-ec)를 데미지에 사용하기 때문일 가능성이 높다. 물론 데미지 같은 것을 예측하려고 시도하는 것은 얼마든지 가능하다.
+Epic의 관점은 "빠져나갈 수 있는" 것만 예측하는 것이다. 예를 들어, Paragon과 Fortnite는 데미지를 예측하지 않는다. 이는 어차피 예측할 수 없는 `ExecutionCalculations`를 데미지에 사용하기 때문일 가능성이 높다. 물론 데미지 같은 것을 예측하려고 시도하는 것은 얼마든지 가능하다.
 
 > ... 우리는 "모든 것을 예측하자: 매끄럽게, 자동으로"라는 해결책에 전면적으로 동의하지 않습니다. 우리는 여전히 플레이어 예측은 최소한으로 유지하는 것이 최선이라고 생각합니다 (즉, 빠져나갈 수 있는 최소한의 것만 예측하세요).
 
-*새로운 [Network Prediction Plugin](#concepts-p-npp)에 관한 Epic의 Dave Ratti 코멘트*
+*새로운 Network Prediction Plugin에 관한 Epic의 Dave Ratti 코멘트*
 
 **예측되는 것:**
 > * Ability 활성화
@@ -62,7 +62,7 @@ GAS의 예측은 **Prediction Key** 개념을 기반으로 동작한다. Predict
 * 클라이언트는 `GameplayAbility`를 활성화할 때 Prediction Key를 생성한다. 이것이 `Activation Prediction Key`다.
 * 클라이언트는 `CallServerTryActivateAbility()`를 통해 이 Prediction Key를 서버에 전송한다.
 * 클라이언트는 Prediction Key가 유효한 동안 적용하는 모든 `GameplayEffect`에 이 키를 추가한다.
-* Prediction Key가 스코프를 벗어나면, 같은 `GameplayAbility` 내에서의 추가 예측 효과는 새로운 [Scoped Prediction Window](#concepts-p-windows)가 필요하다.
+* Prediction Key가 스코프를 벗어나면, 같은 `GameplayAbility` 내에서의 추가 예측 효과는 새로운 Scoped Prediction Window가 필요하다.
 
 * 서버는 클라이언트에서 Prediction Key를 받는다.
 * 서버는 자신이 적용하는 모든 `GameplayEffect`에 이 Prediction Key를 추가한다.
@@ -72,7 +72,7 @@ GAS의 예측은 **Prediction Key** 개념을 기반으로 동작한다. Predict
 * 클라이언트는 서버로부터 Prediction Key를 돌려받는다. 이것이 `Replicated Prediction Key`다. 이 Prediction Key는 이제 stale(만료) 처리된다.
 * 클라이언트는 이제 stale 상태가 된 Replicated Prediction Key로 생성한 **모든** `GameplayEffect`를 제거한다. 서버가 복제한 `GameplayEffect`는 유지된다. 클라이언트가 추가했지만 서버로부터 대응하는 복제본을 받지 못한 `GameplayEffect`는 오예측(misprediction)으로 처리된다.
 
-Prediction Key는 `Activation`을 시작으로 `GameplayAbility` 내의 원자적 명령 묶음 "window" 동안만 유효함이 보장된다. 사실상 단 하나의 프레임 동안만 유효하다고 생각하면 된다. latent action `AbilityTask`의 콜백에서는 더 이상 유효한 Prediction Key가 없다. 단, `AbilityTask`에 새로운 [Scoped Prediction Window](#concepts-p-windows)를 생성하는 내장 Synch Point가 있는 경우는 예외다.
+Prediction Key는 `Activation`을 시작으로 `GameplayAbility` 내의 원자적 명령 묶음 "window" 동안만 유효함이 보장된다. 사실상 단 하나의 프레임 동안만 유효하다고 생각하면 된다. latent action `AbilityTask`의 콜백에서는 더 이상 유효한 Prediction Key가 없다. 단, `AbilityTask`에 새로운 Scoped Prediction Window를 생성하는 내장 Synch Point가 있는 경우는 예외다.
 
 ---
 

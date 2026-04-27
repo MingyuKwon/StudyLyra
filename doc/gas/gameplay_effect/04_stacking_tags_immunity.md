@@ -25,11 +25,11 @@ Stacking 타입에는 두 가지가 있다: Aggregate by Source와 Aggregate by 
 <a name="concepts-ge-ga"></a>
 #### 4.5.6 Granted Abilities (GE로 어빌리티 부여)
 
-`GameplayEffect`는 ASC에 새로운 [GameplayAbility](#concepts-ga)를 부여할 수 있다. `Duration`과 `Infinite` `GameplayEffect`만 어빌리티를 부여할 수 있다.
+`GameplayEffect`는 ASC에 새로운 GameplayAbility를 부여할 수 있다. `Duration`과 `Infinite` `GameplayEffect`만 어빌리티를 부여할 수 있다.
 
-일반적인 사용 사례는 다른 플레이어에게 넉백이나 끌어당기기처럼 특정 행동을 강제로 취하게 하고 싶을 때다. 해당 대상에게 GE를 적용하여 자동으로 활성화되는 어빌리티([Passive Abilities](#concepts-ga-activating-passive) 참조)를 부여하고, 이 어빌리티가 원하는 동작을 수행하게 한다.
+일반적인 사용 사례는 다른 플레이어에게 넉백이나 끌어당기기처럼 특정 행동을 강제로 취하게 하고 싶을 때다. 해당 대상에게 GE를 적용하여 자동으로 활성화되는 어빌리티(Passive Abilities 참조)를 부여하고, 이 어빌리티가 원하는 동작을 수행하게 한다.
 
-디자이너는 GE가 부여하는 어빌리티, 부여 레벨, 바인딩할 [입력](#concepts-ga-input), 그리고 부여된 어빌리티에 대한 제거 정책을 설정할 수 있다.
+디자이너는 GE가 부여하는 어빌리티, 부여 레벨, 바인딩할 입력, 그리고 부여된 어빌리티에 대한 제거 정책을 설정할 수 있다.
 
 | 제거 정책                  | 설명 |
 | -------------------------- | ---- |
@@ -40,7 +40,7 @@ Stacking 타입에는 두 가지가 있다: Aggregate by Source와 Aggregate by 
 <a name="concepts-ge-tags"></a>
 #### 4.5.7 GameplayEffect Tags
 
-`GameplayEffect`는 여러 [`GameplayTagContainer`](#concepts-gt)를 보유한다. 디자이너는 각 카테고리에 대해 `Added`와 `Removed` `GameplayTagContainer`를 편집하며, 컴파일 시 결과가 `Combined` `GameplayTagContainer`에 반영된다. `Added` 태그는 이 `GameplayEffect`가 부모 클래스에 없던 새 태그를 추가하는 것이며, `Removed` 태그는 부모 클래스에는 있지만 이 자식 클래스에는 없는 태그를 제거하는 것이다.
+`GameplayEffect`는 여러 `GameplayTagContainer`를 보유한다. 디자이너는 각 카테고리에 대해 `Added`와 `Removed` `GameplayTagContainer`를 편집하며, 컴파일 시 결과가 `Combined` `GameplayTagContainer`에 반영된다. `Added` 태그는 이 `GameplayEffect`가 부모 클래스에 없던 새 태그를 추가하는 것이며, `Removed` 태그는 부모 클래스에는 있지만 이 자식 클래스에는 없는 태그를 제거하는 것이다.
 
 | 카테고리                          | 설명 |
 | --------------------------------- | ---- |
@@ -53,7 +53,7 @@ Stacking 타입에는 두 가지가 있다: Aggregate by Source와 Aggregate by 
 <a name="concepts-ge-immunity"></a>
 #### 4.5.8 Immunity (면역)
 
-`GameplayEffect`는 [GameplayTag](#concepts-gt)를 기반으로 다른 `GameplayEffect`의 적용을 효과적으로 차단하는 면역(Immunity)을 부여할 수 있다. `Application Tag Requirements`를 통해서도 유사한 효과를 낼 수 있지만, Immunity 시스템을 사용하면 면역으로 인해 `GameplayEffect`가 차단될 때를 감지할 수 있는 델리게이트 `UAbilitySystemComponent::OnImmunityBlockGameplayEffectDelegate`를 제공한다.
+`GameplayEffect`는 GameplayTag를 기반으로 다른 `GameplayEffect`의 적용을 효과적으로 차단하는 면역(Immunity)을 부여할 수 있다. `Application Tag Requirements`를 통해서도 유사한 효과를 낼 수 있지만, Immunity 시스템을 사용하면 면역으로 인해 `GameplayEffect`가 차단될 때를 감지할 수 있는 델리게이트 `UAbilitySystemComponent::OnImmunityBlockGameplayEffectDelegate`를 제공한다.
 
 `GrantedApplicationImmunityTags`는 Source ASC(관련 Source 어빌리티의 `AbilityTags` 포함)가 지정된 태그 중 하나라도 보유하고 있는지 확인한다. 이는 특정 캐릭터 또는 소스의 태그를 기반으로 해당 소스로부터의 모든 `GameplayEffect`에 대해 면역을 제공하는 방법이다.
 

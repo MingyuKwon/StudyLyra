@@ -29,7 +29,7 @@ GA로 구현하지 말아야 할 것:
 
 GA는 기본적으로 레벨을 가지며, 이를 통해 Attribute의 변화량이나 GA의 동작 방식을 조절할 수 있다.
 
-GA는 [`Net Execution Policy`](#concepts-ga-net)에 따라 owning client 및/또는 서버에서 실행되지만, **simulated proxy에서는 실행되지 않는다.** Net Execution Policy는 GA가 로컬에서 [예측(Prediction)](#concepts-p)될지 여부를 결정한다. GA는 선택적인 코스트와 쿨다운 GameplayEffect를 기본 지원한다. 시간이 걸리는 동작(이벤트 대기, Attribute 변화 대기, 플레이어 타겟 선택, Root Motion Source를 이용한 캐릭터 이동 등)에는 [`AbilityTask`](#concepts-at)를 사용한다. **Simulated client는 GA를 실행하지 않는다.** 대신 서버가 어빌리티를 실행할 때, simulated proxy에서 시각적으로 재생되어야 하는 것(예: 애니메이션 몽타주)은 AbilityTask를 통해 복제되거나 RPC로 전달되며, 사운드·파티클 같은 코스메틱 요소는 [`GameplayCue`](#concepts-gc)를 통해 처리된다.
+GA는 `Net Execution Policy`에 따라 owning client 및/또는 서버에서 실행되지만, **simulated proxy에서는 실행되지 않는다.** Net Execution Policy는 GA가 로컬에서 예측(Prediction)될지 여부를 결정한다. GA는 선택적인 코스트와 쿨다운 GameplayEffect를 기본 지원한다. 시간이 걸리는 동작(이벤트 대기, Attribute 변화 대기, 플레이어 타겟 선택, Root Motion Source를 이용한 캐릭터 이동 등)에는 `AbilityTask`를 사용한다. **Simulated client는 GA를 실행하지 않는다.** 대신 서버가 어빌리티를 실행할 때, simulated proxy에서 시각적으로 재생되어야 하는 것(예: 애니메이션 몽타주)은 AbilityTask를 통해 복제되거나 RPC로 전달되며, 사운드·파티클 같은 코스메틱 요소는 `GameplayCue`를 통해 처리된다.
 
 모든 GA는 `ActivateAbility()` 함수를 오버라이드하여 게임플레이 로직을 구현한다. GA가 완료되거나 취소될 때 실행되는 추가 로직은 `EndAbility()`에 넣는다.
 
@@ -44,7 +44,7 @@ GA는 [`Net Execution Policy`](#concepts-ga-net)에 따라 owning client 및/또
 <a name="concepts-ga-definition-reppolicy"></a>
 #### 4.6.1.1 Replication Policy
 
-이 옵션은 사용하지 말 것. 이름이 오해를 유발하지만 실제로는 필요하지 않다. [`GameplayAbilitySpec`](#concepts-ga-spec)은 기본적으로 서버에서 owning client로 자동 복제된다. 앞서 언급했듯이, **GA는 simulated proxy에서 실행되지 않는다.** 시각적 변경 사항은 AbilityTask와 GameplayCue를 통해 simulated proxy로 복제하거나 RPC한다. Epic의 Dave Ratti는 이 옵션을 [향후 제거할 의향](https://epicgames.ent.box.com/s/m1egifkxv3he3u3xezb9hzbgroxyhx89)을 밝힌 바 있다.
+이 옵션은 사용하지 말 것. 이름이 오해를 유발하지만 실제로는 필요하지 않다. `GameplayAbilitySpec`은 기본적으로 서버에서 owning client로 자동 복제된다. 앞서 언급했듯이, **GA는 simulated proxy에서 실행되지 않는다.** 시각적 변경 사항은 AbilityTask와 GameplayCue를 통해 simulated proxy로 복제하거나 RPC한다. Epic의 Dave Ratti는 이 옵션을 [향후 제거할 의향](https://epicgames.ent.box.com/s/m1egifkxv3he3u3xezb9hzbgroxyhx89)을 밝힌 바 있다.
 
 <a name="concepts-ga-definition-remotecancel"></a>
 #### 4.6.1.2 Server Respects Remote Ability Cancellation
@@ -54,7 +54,7 @@ GA는 [`Net Execution Policy`](#concepts-ga-net)에 따라 owning client 및/또
 <a name="concepts-ga-definition-repinputdirectly"></a>
 #### 4.6.1.3 Replicate Input Directly
 
-이 옵션을 활성화하면 입력 press/release 이벤트가 항상 서버로 복제된다. Epic은 이 방식 대신, [ASC에 입력이 바인딩되어 있는 경우](#concepts-ga-input) 기존 입력 관련 [`AbilityTask`](#concepts-at)에 내장된 `Generic Replicated Events`를 활용하도록 권장한다.
+이 옵션을 활성화하면 입력 press/release 이벤트가 항상 서버로 복제된다. Epic은 이 방식 대신, ASC에 입력이 바인딩되어 있는 경우 기존 입력 관련 `AbilityTask`에 내장된 `Generic Replicated Events`를 활용하도록 권장한다.
 
 Epic의 주석:
 ```c++

@@ -13,7 +13,7 @@
 
 Epic의 Dave Ratti는 쿨다운 예측에서 발생하는 `latency reconciliation` 문제 — 레이턴시가 높은 플레이어가 낮은 플레이어에 비해 불리해지는 문제 — 를 수정하는 데 [관심을 표명](https://epicgames.ent.box.com/s/m1egifkxv3he3u3xezb9hzbgroxyhx89)한 바 있다.
 
-새로운 [`Network Prediction` 플러그인](#concepts-p-npp)은 과거 `CharacterMovementComponent`가 그랬듯 GAS와 완전히 상호운용(interoperable)될 것으로 기대된다.
+새로운 `Network Prediction` 플러그인은 과거 `CharacterMovementComponent`가 그랬듯 GAS와 완전히 상호운용(interoperable)될 것으로 기대된다.
 
 <a name="concepts-p-npp"></a>
 #### 4.10.5 Network Prediction Plugin

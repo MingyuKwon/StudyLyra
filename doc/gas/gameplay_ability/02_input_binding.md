@@ -11,7 +11,7 @@
 
 ASC는 입력 액션을 직접 바인딩하여, 부여된 GA에 해당 입력을 할당할 수 있다. 입력 액션이 할당된 GA는 GameplayTag 요건이 충족된 상태에서 해당 입력이 눌리면 자동으로 활성화된다. 또한 입력에 반응하는 내장 AbilityTask를 사용하려면 이 입력 할당이 필요하다.
 
-GA 활성화용 입력 외에도, ASC는 범용 `Confirm`과 `Cancel` 입력을 별도로 받는다. 이는 [`Target Actor`](#concepts-targeting-actors) 확인이나 취소와 같은 AbilityTask 기능에 사용된다.
+GA 활성화용 입력 외에도, ASC는 범용 `Confirm`과 `Cancel` 입력을 별도로 받는다. 이는 `Target Actor` 확인이나 취소와 같은 AbilityTask 기능에 사용된다.
 
 ASC에 입력을 바인딩하려면, 먼저 InputAction 이름을 byte 값으로 변환하는 enum을 정의해야 한다. enum 이름은 프로젝트 설정의 InputAction 이름과 정확히 일치해야 한다. `DisplayName`은 일치하지 않아도 된다.
 
