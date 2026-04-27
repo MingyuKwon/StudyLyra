@@ -151,6 +151,34 @@ void UMyExecution::Execute_Implementation(...) const
 | 태그 버전만 사용 가능 | Yes | Yes (`FName` 버전도 가능하나 비권장) |
 | 태그-값 쌍 없으면 | 런타임 에러 + 0 반환 | 기본값 반환 (경고 선택적) |
 
+### SetByCaller 값의 네트워크 동기화
+
+> 소스: `GameplayEffect.h` (SetByCallerTagMagnitudes UPROPERTY), `GameplayEffectTypes.cpp:1288`
+
+**서버→클라이언트 방향은 복제된다. 클라이언트→서버 방향은 불가능하다.**
+
+`FGameplayEffectSpec`의 SetByCaller TMap은 `UPROPERTY`이므로, 서버에서 GE가 Apply된 뒤 `FActiveGameplayEffect`(FFastArraySerializerItem)가 클라이언트로 복제될 때 Spec 안의 SetByCaller 값도 함께 전달된다.
+
+단, Spec 핸들 자체의 직접 전송은 의도적으로 막혀있다:
+
+```cpp
+// GameplayEffectTypes.cpp:1288
+bool FGameplayEffectSpecHandle::NetSerialize(FArchive& Ar, ...)
+{
+    ABILITY_LOG(Fatal, TEXT("FGameplayEffectSpecHandle should not be NetSerialized"));
+}
+```
+
+예측(Prediction) 흐름에서 클라이언트가 SetByCaller를 설정해도, 그 값이 서버로 전송되는 게 아니다. 양쪽이 동일한 GA 코드를 독립적으로 실행해서 각자 값을 계산한다.
+
+| 시나리오 | 전달 여부 |
+|---|---|
+| 서버 GE Apply → 클라이언트 복제 | ✓ FActiveGameplayEffect.Spec 안에 포함 |
+| 클라이언트가 Spec에 SetByCaller 설정 | ✗ 로컬 예측에만 쓰임 |
+| Spec 핸들을 직접 RPC 전송 | ✗ Fatal로 차단 |
+
+**실용적 함의**: 데미지 등 민감한 수치는 반드시 서버 권한 GA에서 계산해서 SetByCaller에 넣어야 한다. 클라이언트가 계산한 값을 서버에 신뢰시킬 방법이 없다.
+
 ### Snapshotting — Spec 생성 시점에 Attribute 캡처
 
 > 소스: `GameplayEffectAttributeCaptureDefinition.h`, `LyraDamageExecution.cpp`, `LyraHealExecution.cpp`
