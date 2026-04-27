@@ -84,9 +84,72 @@ GE는 CDO 하나를 모든 적용이 공유
 
 - **Level** — 발동한 어빌리티 레벨. CDO에 저장 불가 (매 발동마다 다름)
 - **EffectContext** — 발동자(Instigator), HitResult 등 런타임 컨텍스트
-- **SetByCaller TMap** — 어빌리티가 런타임에 계산한 값을 MMC/Execution으로 전달하는 수단
+- **SetByCaller TMap** — 어빌리티가 런타임에 계산한 값을 GE 쪽으로 전달하는 수단 (아래 참조)
 - **Captured Attributes (Snapshot)** — 발동 시점의 Attribute 값 보존. 이후 Attribute가 바뀌어도 발동 당시 값 유지
 - **DynamicGrantedTags / DynamicAssetTags** — 런타임에만 결정되는 태그
+
+### SetByCaller 사용 패턴
+
+> 소스: `LyraGameplayTags.h/cpp`, `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`, `LyraGameData.h`
+
+SetByCaller는 Spec에 `TMap<FGameplayTag, float>`로 저장되는 키-값 쌍이다. 호출자가 float 값을 태그에 묶어 Spec에 실어보내고, GE 쪽에서 그 태그로 값을 꺼내 쓴다.
+
+#### 사용 맥락 1 — GE Modifier의 Magnitude로 사용
+
+GE Blueprint에서 Modifier의 Magnitude 타입을 `SetByCaller`로 설정하고 태그를 지정해두면, Spec에 해당 태그의 값이 있을 때 그 값이 Modifier 수치로 사용된다.
+
+Lyra는 `DamageGameplayEffect_SetByCaller`, `HealGameplayEffect_SetByCaller`라는 범용 GE를 `ULyraGameData`에 등록해두고 여러 곳에서 재사용한다.
+
+```cpp
+// LyraGameData.h
+// "데미지 수치만 다르고 나머지는 동일한 GE"를 재사용하기 위한 범용 에셋
+TSoftClassPtr<UGameplayEffect> DamageGameplayEffect_SetByCaller;
+TSoftClassPtr<UGameplayEffect> HealGameplayEffect_SetByCaller;
+```
+
+```cpp
+// LyraGameplayTags.h — SetByCaller용 태그를 전용으로 선언
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Damage);  // "SetByCaller.Damage"
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Heal);    // "SetByCaller.Heal"
+```
+
+**호출자 쪽 코드** (LyraCheatManager.cpp, LyraHealthComponent.cpp 동일 패턴):
+
+```cpp
+// 1. 범용 GE로 Spec 생성
+TSubclassOf<UGameplayEffect> DamageGE =
+    ULyraAssetManager::GetSubclass(ULyraGameData::Get().DamageGameplayEffect_SetByCaller);
+FGameplayEffectSpecHandle SpecHandle =
+    ASC->MakeOutgoingSpec(DamageGE, 1.0f, ASC->MakeEffectContext());
+
+// 2. 이번 적용에 사용할 수치를 태그에 묶어 Spec에 주입
+SpecHandle.Data->SetSetByCallerMagnitude(LyraGameplayTags::SetByCaller_Damage, DamageAmount);
+
+// 3. 적용 — GE의 Modifier가 SetByCaller.Damage 값을 읽어 Attribute에 반영
+ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+```
+
+#### 사용 맥락 2 — MMC / Execution 내부에서 직접 읽기
+
+GE Modifier 없이 Execution 코드에서 직접 `GetSetByCallerMagnitude`로 읽을 수도 있다. GE Blueprint에 미리 정의할 필요가 없어서 유연하다.
+
+```cpp
+void UMyExecution::Execute_Implementation(...) const
+{
+    const FGameplayEffectSpec& Spec = ExecutionParams.GetOwningSpec();
+    float DamageAmount = Spec.GetSetByCallerMagnitude(LyraGameplayTags::SetByCaller_Damage,
+                                                       /*WarnIfNotFound=*/true, /*Default=*/0.f);
+    // DamageAmount로 계산 후 OutExecutionOutput에 밀어넣기
+}
+```
+
+#### 두 맥락 비교
+
+| | Modifier로 사용 | EC/MMC에서 직접 읽기 |
+|---|---|---|
+| GE Blueprint 사전 정의 | **필요** (Modifier에 태그 지정) | 불필요 |
+| 태그 버전만 사용 가능 | Yes | Yes (`FName` 버전도 가능하나 비권장) |
+| 태그-값 쌍 없으면 | 런타임 에러 + 0 반환 | 기본값 반환 (경고 선택적) |
 
 ### Snapshotting — Spec 생성 시점에 Attribute 캡처
 
