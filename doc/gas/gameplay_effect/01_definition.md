@@ -50,91 +50,52 @@ GE는 일반적으로 직접 인스턴스화되지 않는다. 어빌리티나 AS
 
 ### GE에 로직을 넣으면 안 되는 이유
 
-GE가 **인스턴스화되지 않는다**는 설계 때문이다.
+> 소스: `GameplayEffect.h:2096`, `GameplayEffect.cpp:937~991`
 
-GE를 적용할 때 실제로 일어나는 일:
+GE는 절대 `new`로 인스턴스화되지 않는다. CDO 하나를 모든 적용이 공유한다.
 
 ```
-UGameplayEffect (ClassDefaultObject만 존재)
+UGameplayEffect (CDO 하나만 존재)
     ↓ 적용 시
-GameplayEffectSpec 생성 (CDO 기반 스냅샷)
+FGameplayEffectSpec 생성 (Spec.Def → CDO 포인터)
     ↓ 성공 시
 FActiveGameplayEffect (컨테이너에 추가)
 ```
 
-GE 자체는 **CDO 하나만** 존재한다. `new UGameplayEffect()`가 호출되는 게 아니라, CDO에서 데이터를 읽어 `GameplayEffectSpec`을 만드는 방식이다. 따라서 GE에 로직을 추가해도:
+따라서 GE에 게임 로직을 추가해도 세 가지 이유로 동작하지 않는다:
 
-- **실행 시점 제어 불가** — 언제 호출할지 GAS가 알 방법이 없음
-- **인스턴스 상태를 가질 수 없음** — CDO 하나를 여러 적용이 공유하므로 상태 저장이 위험
-- **복제 흐름과 충돌** — GAS의 예측/복제 시스템은 Spec 기반으로 작동하므로, GE에 직접 로직을 끼워넣으면 복제 타이밍 보장이 깨짐
+- **GAS가 그 함수를 모른다** — GAS가 GE에 호출하는 훅은 `CanApply` / `OnAddedToActiveContainer` / `OnExecuted` / `OnApplied` 로 고정되어 있다. 서브클래싱해서 함수를 추가해도 GAS는 그 함수를 언제 호출할지 알 방법이 없다
+- **상태를 가질 수 없다** — CDO를 여러 적용이 동시에 공유하므로 멤버 변수에 값을 쓰면 서로 덮어쓴다
+- **복제/예측과 충돌** — GAS의 복제·예측 시스템은 Spec 기반으로 작동한다. CDO에 로직을 끼워넣으면 실행 보장이 깨진다
 
-**"공유 함수를 직접 만들면 안 되나?"** 라고 생각할 수 있지만, GAS가 그 함수의 존재를 모른다는 게 핵심이다. GAS가 GE에 대해 호출하는 훅은 `CanApply`, `OnAddedToActiveContainer`, `OnExecuted`, `OnApplied` 로 고정되어 있다. `UGameplayEffect`를 서브클래싱해서 함수를 추가해도 GAS는 그 함수를 언제 호출할지 알 방법이 없어 아무도 호출하지 않는다. 상태 없는 순수 함수라면 CDO 공유 문제는 없지만, 그런 코드는 GE가 아닌 헬퍼 클래스에 두면 된다. GAS 적용 흐름과 연동되어야 하는 로직은 반드시 `UGameplayEffectComponent`의 훅을 통해야 한다.
-
-### 로직을 넣는 올바른 위치
-
-로직의 복잡도에 따라 두 곳으로 나뉜다.
-
-| 상황 | 사용할 것 | 역할 |
-|---|---|---|
-| "얼마나 변경할지" 계산이 필요할 때 | **MMC** (`ModifierMagnitudeCalculation`) | Attribute 하나의 변경량을 동적으로 계산 |
-| Source/Target Attribute를 같이 보거나, 여러 Attribute를 한 번에 바꾸거나, 조건 분기가 필요할 때 | **Execution** (`GameplayEffectExecutionCalculation`) | 완전한 계산 로직, 복수 Attribute 변경 가능 |
-
-- **MMC**: `CalculateBaseMagnitude_Implementation` 하나만 오버라이드, 결과값(float) 반환
-- **Execution**: `Execute_Implementation`에서 `OutExecutionOutput`에 Attribute 수정을 직접 밀어넣음
-
-GE는 **"무엇을, 얼마나, 어떤 조건에서"를 선언하는 설계도**이고, 실제 계산 로직은 GE가 참조하는 MMC/Execution 안에 캡슐화한다.
-
-### `UGameplayEffect`에 함수가 많은 이유
-
-> 소스: `GameplayEffect.h:2096`, `GameplayEffect.cpp:937~991`
-
-`UGameplayEffect`에 함수가 많아 보이지만, 종류를 나눠보면 전부 "게임 로직"이 아니다.
-
-| 종류 | 예시 | 설명 |
-|---|---|---|
-| UObject 라이프사이클 | `PostLoad`, `PostCDOCompiled`, `PreSave` | 엔진이 애셋 로드/저장 시 자동 호출. 디자이너가 호출하는 게 아님 |
-| GAS 프레임워크 훅 | `CanApply`, `OnAddedToActiveContainer`, `OnExecuted`, `OnApplied` | GAS가 내부적으로 호출. 실제 내용은 `GEComponents` 순회 위임 |
-| 읽기 전용 Accessor | `GetGrantedTags`, `GetAssetTags`, `FindComponent<T>` | 데이터 조회만 함 |
-| Deprecated 변환 헬퍼 (private) | `ConvertTagRequirementsComponent` 등 | UE 5.3 GEComponent 구조 마이그레이션용 내부 함수 |
-
-핵심은 GAS 프레임워크 훅들의 구현이다:
+GAS 프레임워크 훅들의 실제 구현은 전부 `GEComponents` 순회 위임이다. `UGameplayEffect` 자체에는 판단 로직이 없다:
 
 ```cpp
 // GameplayEffect.cpp:937
 bool UGameplayEffect::CanApply(...) const
 {
     for (const UGameplayEffectComponent* GEComponent : GEComponents)
-        if (GEComponent && !GEComponent->CanGameplayEffectApply(...))
-            return false;
+        if (!GEComponent->CanGameplayEffectApply(...)) return false;
     return true;
 }
-
-bool UGameplayEffect::OnAddedToActiveContainer(...) const
-{
-    bool bShouldBeActive = true;
-    for (const UGameplayEffectComponent* GEComponent : GEComponents)
-        bShouldBeActive = GEComponent->OnActiveGameplayEffectAdded(...) && bShouldBeActive;
-    return bShouldBeActive;
-}
+// OnAddedToActiveContainer / OnExecuted / OnApplied 모두 동일한 패턴
 ```
 
-`GEComponents` 배열을 순회해서 각 컴포넌트에 **위임**할 뿐이다. `UGameplayEffect` 자체에는 판단 로직이 없다.
+`UGameplayEffect`의 나머지 함수들도 게임 로직이 아니다:
 
-#### CDO 메서드 직접 호출 구조
+| 종류 | 예시 |
+|---|---|
+| UObject 라이프사이클 | `PostLoad`, `PostCDOCompiled` — 엔진이 자동 호출 |
+| 읽기 전용 Accessor | `GetGrantedTags`, `FindComponent<T>` |
+| Deprecated 변환 헬퍼 (private) | `ConvertTagRequirementsComponent` 등 — UE 5.3 마이그레이션용 |
 
-`UGameplayEffect`는 절대 `new`로 인스턴스화되지 않는다. `FGameplayEffectSpec`이 항상 `Def` 포인터로 CDO를 가리키고, 프레임워크가 그 CDO의 메서드를 직접 호출한다.
+**로직을 넣는 올바른 위치:**
 
-```
-Spec.Def = UGameplayEffect의 CDO
-
-적용 흐름:
-  Spec.Def->CanApply(Container, Spec)              // GEComponents 순회
-  Spec.Def->OnAddedToActiveContainer(Container, ActiveGE)
-  Spec.Def->OnExecuted(Container, Spec, Key)       // Instant/Periodic 실행 시
-  Spec.Def->OnApplied(Container, Spec, Key)
-```
-
-"GE에 로직을 넣지 말라"는 말의 실제 의미는: **`UGameplayEffect`를 서브클래싱해서 이 훅들을 오버라이드하거나 게임 전용 코드를 추가하지 말라**는 것이다. 실제 로직은 `GEComponents` 배열 안의 `UGameplayEffectComponent` 서브클래스에 넣는다.
+| 상황 | 사용할 것 |
+|---|---|
+| Attribute 변경량 동적 계산 | **MMC** — `CalculateBaseMagnitude_Implementation` 오버라이드 |
+| 복수 Attribute 변경, 조건 분기 | **Execution** — `Execute_Implementation`에서 `OutExecutionOutput`에 직접 밀어넣기 |
+| GE 적용/실행 흐름에 끼어들기 | **GEComponent** — `UGameplayEffectComponent` 서브클래스, `GEComponents` 배열에 추가 |
 
 ### Periodic Effect가 예측 불가능한 이유
 
