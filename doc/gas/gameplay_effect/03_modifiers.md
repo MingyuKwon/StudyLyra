@@ -189,11 +189,83 @@ Instant GE는 Aggregator를 거치지 않고 `BaseValue`를 직접 영구 수정
 
 ```
 Aggregator.Evaluate()
-  → UpdateQualifiesOnAllMods()       태그 조건 체크 → IsQualified 갱신
-  → EvaluateWithBase(BaseValue)
-       ((BaseValue + Additive) * Multiplicitive) / Division
+  → UpdateQualifiesOnAllMods()    태그 조건 체크 → IsQualified 갱신
+  → ModChannels.EvaluateWithBase(BaseValue)
+       Channel0 → Channel1 → ... 순서대로 순차 계산
   → 반환값 = CurrentValue
 ```
+
+---
+
+### 집산 공식과 연산 종류
+
+> 소스: `GameplayEffectTypes.h:112`, `GameplayEffectAggregator.cpp:76`
+
+공식은 엔진에 고정되어 있다. Modifier를 아무리 많이 붙여도 이 틀 안에서 처리된다.
+
+```cpp
+// GameplayEffectTypes.h:116 — 엔진 주석에 명시된 공식
+((BaseValue + AddBase) * MultiplyAdditive / DivideAdditive * MultiplyCompound) + AddFinal
+```
+
+| 연산 | 동작 | 비고 |
+|---|---|---|
+| `AddBase` | BaseValue에 더함. 먼저 처리 | 구버전 이름: `Additive` |
+| `MultiplyAdditive` | **더해진 뒤** 한 번에 곱함 (1.5 + 1.5 = ×2.0) | 구버전: `Multiplicitive` |
+| `DivideAdditive` | **더해진 뒤** 한 번에 나눔 | 구버전: `Division` |
+| `Override` | 결과를 즉시 덮어씀 | 아래 참조 |
+| `MultiplyCompound` | **진짜 곱셈** (1.5 × 1.5 = ×2.25) | UE 5.x 신규 |
+| `AddFinal` | 모든 곱셈 후 마지막에 덧셈 | UE 5.x 신규 |
+
+공식 자체를 바꾸려면 엔진 코드 수정이 필요하다.
+
+#### Override는 나머지를 전부 건너뛴다
+
+```cpp
+// GameplayEffectAggregator.cpp:78
+float FAggregatorModChannel::EvaluateWithBase(float InlineBaseValue, ...) const
+{
+    for (const FAggregatorMod& Mod : Mods[EGameplayModOp::Override])
+    {
+        if (Mod.Qualifies())
+            return Mod.EvaluatedMagnitude;  // 즉시 반환 — AddBase/Multiply 계산 안 함
+    }
+    // Override가 없을 때만 아래 도달
+    float Additive = SumMods(...);
+    ...
+    return ((InlineBaseValue + Additive) * Multiplicitive / Division * CompoundMultiply) + FinalAdd;
+}
+```
+
+Qualify된 Override가 하나라도 있으면 Add/Multiply/AddFinal 계산 전체를 건너뛴다.
+
+Override가 여러 개면 **먼저 Apply된 것(배열 앞쪽)** 이 이긴다. 개념 요약의 "마지막으로 적용된 Modifier가 우선된다"는 설명과 실제 코드가 반대다.
+
+---
+
+### Channel — Modifier 계층을 직렬로 쌓는 것
+
+> 소스: `GameplayEffectAggregator.h:181`, `GameplayEffectAggregator.cpp:250`
+
+기본적으로 모든 Modifier는 Channel0 하나에 들어간다. Channel을 여러 개 쓰면 **이전 채널의 계산 결과가 다음 채널의 BaseValue**가 된다.
+
+```cpp
+// GameplayEffectAggregator.cpp:250
+float ComputedValue = InlineBaseValue;
+for (auto& ChannelEntry : ModChannelsMap)   // Channel0 → 1 → 2 → ...
+    ComputedValue = CurChannel.EvaluateWithBase(ComputedValue, Parameters);
+```
+
+```
+BaseValue=100
+  Channel0: Add+50        → 150
+  Channel1: Override=200  → 200   ← Channel0 결과(150) 무시, 200으로 덮어씀
+  Channel2: Add+10        → 210   ← Override된 200에 추가 보정 가능
+```
+
+Override는 같은 Channel 안의 계산만 건너뛴다. 다음 Channel의 계산은 막지 못한다.
+
+Channel0~Channel9까지 10개 슬롯이 있으며, `AbilitySystemGlobals`에서 활성화해야 사용 가능하다. 대부분의 게임에서는 Channel0만 쓴다.
 
 ---
 
