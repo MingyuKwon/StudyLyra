@@ -4,7 +4,9 @@
 > `Engine/Source/Runtime/Engine/Public/Net/RepLayout.h`  
 > `Engine/Source/Runtime/Engine/Private/Net/RepLayout.cpp`  
 > `Engine/Source/Runtime/Engine/Private/DataReplication.cpp`  
-> `Engine/Source/Runtime/Engine/Private/ActorChannel.cpp`
+> `Engine/Source/Runtime/Engine/Private/ActorChannel.cpp`  
+> `Engine/Source/Runtime/CoreUObject/Private/UObject/PropertyBaseObject.cpp`  
+> `Engine/Source/Runtime/CoreUObject/Private/UObject/PropertyStruct.cpp`
 
 `UPROPERTY(Replicated)`를 선언만 하면 자동으로 복제된다.
 그 "자동"이 내부적으로 어떻게 동작하는지.
@@ -159,6 +161,63 @@ void OnRep_Health(float OldHealth);  // 복제 직전 값이 들어옴
 ```
 
 이전 값은 복제 직전 Shadow Buffer에서 꺼낸다.
+
+---
+
+## Actor 직렬화 실제 호출 체인
+
+Actor는 사용자가 구현하는 단일 직렬화 함수가 없다.
+RepLayout이 프로퍼티 단위로 쪼개 `FProperty::NetSerializeItem` 가상함수를 호출한다.
+
+```
+UActorChannel::ReplicateActor()
+  ↓
+FObjectReplicator::ReplicateProperties()          // DataReplication.cpp:1908
+  ↓
+FRepLayout::ReplicateProperties()                 // 변경 목록 계산 포함
+  ↓
+FRepLayout::SendProperties()
+  ↓
+FRepLayout::SendProperties_r()                    // RepLayout.cpp:2767
+  ↓ 변경된 Cmd 하나씩 순회
+Cmd.Property->NetSerializeItem(Writer, PackageMap, Data)   // RepLayout.cpp:2924
+  │
+  ├─ FBoolProperty::NetSerializeItem()        → 1비트
+  ├─ FNumericProperty::NetSerializeItem()     → sizeof(T) 바이트
+  ├─ FObjectPropertyBase::NetSerializeItem()  → Map->SerializeObject() → GUID 4바이트
+  └─ FStructProperty::NetSerializeItem()
+       ├─ STRUCT_NetSerializeNative 있음 → CppStructOps->NetSerialize() 호출
+       └─ 없음 → RepLayout이 빌드 시점에 리프 필드로 전개했으므로 이 경로엔 오지 않음
+```
+
+`FProperty::NetSerializeItem`은 엔진 내부의 FProperty 서브클래스들이 각자 구현하는 가상함수다.
+사용자가 Actor에 구현하는 `NetSerialize`(USTRUCT 용)와 이름이 비슷하지만 완전히 다른 것이다.
+
+---
+
+## Actor에서 사용자가 직렬화를 제어할 수 있는 곳
+
+**1. GetLifetimeReplicatedProps — 어떤 필드를 복제할지**
+
+```cpp
+void AMyActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    DOREPLIFETIME(AMyActor, Health);                        // 모든 클라이언트
+    DOREPLIFETIME_CONDITION(AMyActor, Ammo, COND_OwnerOnly); // 소유자만
+    // 여기 없는 UPROPERTY(Replicated) 필드는 복제 목록에서 제외됨
+}
+```
+
+**2. USTRUCT 타입 프로퍼티의 NetSerialize — 어떻게 직렬화할지**
+
+```cpp
+UPROPERTY(Replicated)
+FHitData HitData;   // FHitData에 NetSerialize를 구현하면 해당 필드의 직렬화 방식을 제어 가능
+```
+
+Actor 전체를 하나의 덩어리로 직렬화하는 진입점은 없다.
+"어떤 필드를" → `GetLifetimeReplicatedProps`,
+"그 필드를 어떻게" → 필드 타입이 USTRUCT면 `NetSerialize`, 기본 타입이면 엔진이 자동 처리.
 
 ---
 
