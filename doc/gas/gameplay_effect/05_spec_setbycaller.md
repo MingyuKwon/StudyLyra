@@ -65,212 +65,91 @@ Blueprint에서 오탈자를 방지하기 위해 `FName` 버전보다 `GameplayT
 
 ### Spec이 별도로 존재하는 이유
 
-GE가 CDO 하나를 공유하기 때문에 오히려 Spec이 반드시 필요해진다.
-
-```
-GE는 CDO 하나를 모든 적용이 공유
-  → CDO는 절대 수정 불가 (공유 객체)
-  → "이번 적용에만 해당하는 데이터"를 담을 별도 객체가 필요
-  → FGameplayEffectSpec
-```
+GE는 CDO 하나를 모든 적용이 공유한다. CDO는 수정 불가이므로 "이번 적용에만 해당하는 데이터"를 담을 별도 객체가 필요하다.
 
 | | `UGameplayEffect` (CDO) | `FGameplayEffectSpec` |
 |---|---|---|
-| 수명 | 에셋 수명 내내 유지 | 적용마다 생성, 적용 후 소멸 or FActiveGameplayEffect에 보관 |
+| 수명 | 에셋 수명 내내 유지 | 적용마다 생성 → Apply 후 FActiveGameplayEffect에 보관 |
 | 공유 | 모든 적용이 공유 | 적용마다 각자 하나씩 |
-| 역할 | 정적 설계 (Modifier 목록, Duration 타입 등) | 동적 적용 컨텍스트 |
+| 역할 | 정적 설계 | 동적 적용 컨텍스트 |
 
-**Spec이 담는 "이번 적용에만 해당하는 데이터":**
-
-- **Level** — 발동한 어빌리티 레벨. CDO에 저장 불가 (매 발동마다 다름)
-- **EffectContext** — 발동자(Instigator), HitResult 등 런타임 컨텍스트
-- **SetByCaller TMap** — 어빌리티가 런타임에 계산한 값을 GE 쪽으로 전달하는 수단 (아래 참조)
-- **Captured Attributes (Snapshot)** — 발동 시점의 Attribute 값 보존. 이후 Attribute가 바뀌어도 발동 당시 값 유지
-- **DynamicGrantedTags / DynamicAssetTags** — 런타임에만 결정되는 태그
+Spec이 담는 데이터: Level, EffectContext(Instigator/HitResult), SetByCaller TMap, Captured Attributes(Snapshot), DynamicGrantedTags/DynamicAssetTags
 
 ### GESpec 복제 구조
 
 > 소스: `GameplayEffect.h:1334`, `GameplayEffect.h:1406`, `GameplayEffect.h:1639`, `GameplayEffect.cpp:5153`
 
-GESpec은 직접 전송되지 않는다. Apply 결과물인 `FActiveGameplayEffect` 안에 담겨, 컨테이너 단위로 델타 복제된다.
-
-#### 구조
-
-```cpp
-// GameplayEffect.h:1639
-struct FActiveGameplayEffectsContainer : public FFastArraySerializer
-// TStructOpsTypeTraits: WithNetDeltaSerializer = true
-
-// GameplayEffect.h:1334
-struct FActiveGameplayEffect : public FFastArraySerializerItem
-
-// GameplayEffect.h:1406 — Spec은 FActiveGameplayEffect의 필드
-UPROPERTY()
-FGameplayEffectSpec Spec;
-```
-
-#### 복제 흐름
-
-```cpp
-// GameplayEffect.cpp:5153
-bool FActiveGameplayEffectsContainer::NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
-{
-    // ReplicationMode 체크 (Minimal이면 false 반환)
-    ...
-    return FastArrayDeltaSerialize<FActiveGameplayEffect>(
-        GameplayEffects_Internal, DeltaParms, *this);
-}
-```
-
-`FastArrayDeltaSerialize`가 `GameplayEffects_Internal`(TArray) 을 스캔해 변경된 항목만 델타 전송한다. `FGameplayEffectSpec`은 커스텀 `NetSerialize`가 없으므로 표준 UPROPERTY 기반 직렬화를 사용한다.
-
-#### 클라이언트 반응 콜백
-
-```cpp
-// FActiveGameplayEffect 멤버
-void PreReplicatedRemove(const FActiveGameplayEffectsContainer&);   // GE 제거 직전
-void PostReplicatedAdd(const FActiveGameplayEffectsContainer&);     // GE 새로 수신
-void PostReplicatedChange(const FActiveGameplayEffectsContainer&);  // GE 변경 수신 (스택, Duration 등)
-```
-
-`PostReplicatedAdd`에서 GameplayCue Add, Tag 적용, Inhibition 체크 등이 일어난다.
-
-#### ReplicationMode별 동작
+GESpec은 직접 전송되지 않는다. Apply 결과물인 `FActiveGameplayEffect` 안에 필드로 담겨, 컨테이너 단위로 델타 복제된다.
 
 ```
-Minimal  → FActiveGameplayEffectsContainer 전체 복제 안 함
-Mixed    → Owner에게만 전체 복제 (다른 클라이언트는 최소 복제)
-Full     → 모든 클라이언트에 전체 복제
+FActiveGameplayEffectsContainer : FFastArraySerializer  (WithNetDeltaSerializer)
+  └─ TArray<FActiveGameplayEffect> GameplayEffects_Internal
+        └─ UPROPERTY() FGameplayEffectSpec Spec
 ```
 
-Lyra의 `ULyraAbilitySystemComponent`는 `Mixed` 모드를 사용한다.
+`NetDeltaSerialize` → `FastArrayDeltaSerialize` → 변경된 항목만 델타 전송. `FGameplayEffectSpec`은 커스텀 `NetSerialize`가 없으므로 표준 UPROPERTY 기반 직렬화를 사용한다.
+
+**클라이언트 반응 콜백** (`FFastArraySerializerItem` 인터페이스):
+- `PostReplicatedAdd` — 새 GE 수신 시 (GameplayCue Add, Tag 적용)
+- `PostReplicatedChange` — GE 변경 시 (스택 수, Duration 등)
+- `PreReplicatedRemove` — GE 제거 직전
+
+**ReplicationMode**: `Minimal`(복제 안 함) / `Mixed`(Owner에게만 전체) / `Full`(모두에게 전체). Lyra는 `Mixed`.
 
 ### SetByCaller 사용 패턴
 
-> 소스: `LyraGameplayTags.h/cpp`, `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`, `LyraGameData.h`
+> 소스: `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`, `LyraGameData.h`
 
-SetByCaller는 Spec에 담기는 `TMap<FGameplayTag, float>` 키-값 쌍이다. 호출자가 값을 태그에 묶어 Spec에 주입하고, GE 쪽에서 꺼내 쓴다.
+SetByCaller는 Spec에 담기는 `TMap<FGameplayTag, float>` 키-값 쌍이다. 호출자가 값을 태그에 묶어 주입하고, GE 쪽에서 꺼내 쓴다.
 
-#### 맥락 1 — GE Modifier의 Magnitude로 사용
-
-GE Blueprint에서 Modifier의 Magnitude 타입을 `SetByCaller`로 지정해두면, 호출자가 Spec에 넣은 값이 그대로 Modifier 수치로 사용된다. Lyra는 `DamageGameplayEffect_SetByCaller` / `HealGameplayEffect_SetByCaller` 같은 범용 GE를 등록해두고 여러 곳에서 재사용한다.
+**맥락 1 — GE Modifier의 Magnitude로 사용**: GE Blueprint에서 Magnitude 타입을 `SetByCaller`로 지정해두면, Spec에 넣은 값이 그대로 Modifier 수치가 된다. Lyra는 `DamageGameplayEffect_SetByCaller` 같은 범용 GE를 재사용한다.
 
 ```cpp
 // LyraCheatManager.cpp, LyraHealthComponent.cpp 동일 패턴
 FGameplayEffectSpecHandle SpecHandle =
     ASC->MakeOutgoingSpec(ULyraGameData::Get().DamageGameplayEffect_SetByCaller, 1.0f, ASC->MakeEffectContext());
-
 SpecHandle.Data->SetSetByCallerMagnitude(LyraGameplayTags::SetByCaller_Damage, DamageAmount);
 ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 ```
 
-#### 맥락 2 — Execution / MMC 코드에서 직접 읽기
-
-Execution 코드에서 `GetSetByCallerMagnitude`로 직접 읽는 방법이다. GE Blueprint에 미리 정의할 필요가 없어 유연하다.
+**맥락 2 — Execution / MMC에서 직접 읽기**: GE Blueprint 사전 정의 불필요. 없는 키를 읽으면 기본값 반환.
 
 ```cpp
 float DamageAmount = Spec.GetSetByCallerMagnitude(
     LyraGameplayTags::SetByCaller_Damage, /*WarnIfNotFound=*/true, /*Default=*/0.f);
 ```
 
-#### 두 맥락 비교
-
 | | Modifier로 사용 | EC/MMC에서 직접 읽기 |
 |---|---|---|
 | GE Blueprint 사전 정의 | **필요** | 불필요 |
 | 태그-값 쌍 없으면 | 런타임 에러 + 0 반환 | 기본값 반환 (경고 선택적) |
 
-### SetByCaller 값의 네트워크 동기화
+### SetByCaller와 복제
 
-> 소스: `GameplayEffect.h:1258`, `GameplayEffect.h:1232`, `GameplayEffect.h:1639`, `GameplayEffect.cpp:5153`
+> 소스: `GameplayEffect.h:1258`, `GameplayEffect.h:1232`
 
-**SetByCaller TMap 자체는 복제되지 않는다. 복제되는 것은 Apply 시 계산된 결과(Modifiers)다.**
-
-#### SetByCaller TMap — UPROPERTY조차 없다
+SetByCaller TMap은 `UPROPERTY` 선언 자체가 없다. 직렬화 대상이 아니므로 클라이언트에 전달되지 않는다.
 
 ```cpp
-// GameplayEffect.h:1257~1259
-/** Map of set by caller magnitudes */
-TMap<FName, float>         SetByCallerNameMagnitudes;   // UPROPERTY 없음
-TMap<FGameplayTag, float>  SetByCallerTagMagnitudes;    // UPROPERTY 없음
-```
+// GameplayEffect.h:1258 — UPROPERTY 없음
+TMap<FName, float>         SetByCallerNameMagnitudes;
+TMap<FGameplayTag, float>  SetByCallerTagMagnitudes;
 
-`UPROPERTY` 선언 자체가 없다. 복제는커녕 리플렉션 대상도 아니다. 서버에서만 존재하는 로컬 입력값이다.
-
-#### 복제되는 것은 Modifiers TArray
-
-```cpp
-// GameplayEffect.h:1232~1233 — UPROPERTY() 있음, 복제됨
+// GameplayEffect.h:1232 — UPROPERTY() 있음, 복제됨
 UPROPERTY()
-TArray<FModifierSpec> Modifiers;
-
-// GameplayEffect.h:739 — FModifierSpec 내부
-UPROPERTY()
-float EvaluatedMagnitude;   // Apply 시 SetByCaller 값으로 계산된 최종 수치
+TArray<FModifierSpec> Modifiers;   // EvaluatedMagnitude (계산된 결과)
 ```
 
-Apply 과정에서 `CalculateModifierMagnitudes()`가 SetByCaller TMap을 읽어 `EvaluatedMagnitude`를 계산하고 `Modifiers` TArray에 저장한다. 이 TArray가 복제된다.
-
-#### 복제 경로 — FFastArraySerializer
-
-```cpp
-// GameplayEffect.h:1639
-struct FActiveGameplayEffectsContainer : public FFastArraySerializer
-{
-    // WithNetDeltaSerializer = true
-};
-
-// GameplayEffect.cpp:5153
-bool RetVal = FastArrayDeltaSerialize<FActiveGameplayEffect>(
-    GameplayEffects_Internal, DeltaParms, *this);
-```
-
-`FGameplayEffectSpec`은 커스텀 `NetSerialize`가 없으므로 표준 UPROPERTY 기반 직렬화를 따른다. `UPROPERTY()`가 붙은 필드만 전송되고, TMap(UPROPERTY 없음)은 제외된다.
-
-#### RPC 전용 경량 버전 — FGameplayEffectSpecForRPC
-
-```cpp
-// GameplayEffect.h:1275
-/** This is a cut down version of the gameplay effect spec used for RPCs. */
-struct FGameplayEffectSpecForRPC
-{
-    UPROPERTY() const UGameplayEffect* Def;
-    UPROPERTY() TArray<FGameplayEffectModifiedAttribute> ModifiedAttributes;
-    UPROPERTY() FGameplayEffectContextHandle EffectContext;
-    UPROPERTY() float Level;
-    // SetByCaller 없음
-};
-```
-
-GameplayCue RPC 등에서 효과 정보를 전달할 때 쓰는 별도 구조체다. SetByCaller 필드가 아예 없다.
-
-#### 전체 흐름
-
-```
-서버:
-  SetByCaller TMap 설정 (서버 로컬)
-      ↓ ApplyGameplayEffectSpec()
-      ↓ CalculateModifierMagnitudes()
-         → SetByCaller 값 읽어 EvaluatedMagnitude 계산
-         → Spec.Modifiers[i].EvaluatedMagnitude 에 저장
-      ↓ FActiveGameplayEffect 컨테이너에 추가
-      ↓ FFastArraySerializer 델타 직렬화
-         → UPROPERTY() Modifiers TArray 전송 ✓
-         → SetByCaller TMap 전송 안 됨 ✗
-
-클라이언트:
-  Spec.Modifiers[i].EvaluatedMagnitude 수신
-  SetByCaller TMap은 비어있음
-```
+Apply 시 `CalculateModifierMagnitudes()`가 SetByCaller 값을 읽어 `Modifiers[i].EvaluatedMagnitude`에 저장한다. 클라이언트는 TMap 원본이 아니라 이 계산 결과를 받는다. `FGameplayEffectSpecHandle::NetSerialize`는 Fatal로 막혀있어 핸들 직접 전송도 불가하다.
 
 | 시나리오 | 전달 여부 |
 |---|---|
 | 서버 GE Apply → 클라이언트 복제 | ✓ Modifiers TArray (EvaluatedMagnitude) |
-| SetByCaller TMap 자체 | ✗ UPROPERTY 없으므로 직렬화 제외 |
-| 클라이언트가 Spec에 SetByCaller 설정 | ✗ 로컬 예측에만 쓰임 |
-| Spec 핸들을 직접 RPC 전송 | ✗ Fatal로 차단 |
+| SetByCaller TMap 자체 | ✗ UPROPERTY 없음 |
+| 클라이언트 SetByCaller 설정 | ✗ 로컬 예측에만 쓰임 |
+| Spec 핸들 직접 RPC 전송 | ✗ Fatal로 차단 |
 
-**실용적 함의**: 데미지 등 민감한 수치는 반드시 서버 권한 GA에서 계산해서 SetByCaller에 넣어야 한다. 클라이언트는 SetByCaller 원본값을 받는 게 아니라 이미 계산된 Modifier 수치(결과)를 받는다.
+데미지 등 민감한 수치는 서버 권한 GA에서 계산해야 한다. 클라이언트 계산값을 서버에 신뢰시킬 방법이 없다.
 
 ### Snapshotting — Spec 생성 시점에 Attribute 캡처
 
