@@ -314,3 +314,78 @@ FAutoConsoleVariableRef CVarAllowNonInstancedGAs(..., CVarAllowNonInstancedGAsVa
 
 UE 5.5부터 `EGameplayAbilityInstancingPolicy::NonInstanced`는 deprecated → removed됐다. 결국 "Instanced에서만 동작한다"는 조건은 현재 버전에서 항상 충족된다.
 
+---
+
+### Lyra의 Cost — GE를 쓰지 않는다
+
+> 소스: `LyraAbilityCost.h`, `LyraAbilityCost_ItemTagStack.cpp`, `LyraAbilityCost_PlayerTagStack.cpp`, `LyraAbilityCost_InventoryItem.h`, `LyraGameplayAbility.cpp:202`
+
+개념 요약(4.5.14)은 Cost를 Instant GE로 구현하는 패턴을 설명한다. Lyra는 이 방식을 쓰지 않는다. Cost GE 필드는 비어있고, 대신 `ULyraAbilityCost`라는 별도 추상 클래스를 도입했다.
+
+```cpp
+// LyraGameplayAbility.h:202
+UPROPERTY(EditDefaultsOnly, Instanced, Category = Costs)
+TArray<TObjectPtr<ULyraAbilityCost>> AdditionalCosts;
+```
+
+`CheckCost` / `ApplyCost`를 오버라이드해서 배열을 순회한다.
+
+```cpp
+// LyraGameplayAbility.cpp:202
+bool ULyraGameplayAbility::CheckCost(...) const
+{
+    if (!Super::CheckCost(...)) return false;  // GE 기반 Cost는 여기서 처리 (비어있으면 pass)
+
+    for (const TObjectPtr<ULyraAbilityCost>& AdditionalCost : AdditionalCosts)
+        if (!AdditionalCost->CheckCost(this, ...)) return false;
+
+    return true;
+}
+
+void ULyraGameplayAbility::ApplyCost(...) const
+{
+    Super::ApplyCost(...);  // GE 기반 Cost 처리
+
+    for (const TObjectPtr<ULyraAbilityCost>& AdditionalCost : AdditionalCosts)
+    {
+        if (AdditionalCost->ShouldOnlyApplyCostOnHit())
+        {
+            // TargetData에 HitResult가 있을 때만 차감
+            if (!DetermineIfAbilityHitTarget()) continue;
+        }
+        AdditionalCost->ApplyCost(this, ...);
+    }
+}
+```
+
+Lyra가 제공하는 `ULyraAbilityCost` 구현체 세 가지:
+
+| 클래스 | 차감 대상 | 주요 로직 |
+|---|---|---|
+| `LyraAbilityCost_ItemTagStack` | 장착 아이템의 TagStack (탄약 등) | `ItemInstance->RemoveStatTagStack(Tag, NumStacks)` |
+| `LyraAbilityCost_PlayerTagStack` | PlayerState의 TagStack | `PS->RemoveStatTagStack(Tag, NumStacks)` |
+| `LyraAbilityCost_InventoryItem` | 인벤토리 아이템 수량 | `InventoryManager->ConsumeItemsByDefinition(...)` |
+
+세 구현체 모두 `ApplyCost`에서 `IsNetAuthority()` 체크를 먼저 한다 — **클라이언트에서는 실제 차감을 하지 않는다.** 즉, 이 Cost는 예측되지 않는다.
+
+**GE를 버린 이유**: Lyra의 Cost는 Attribute 수치가 아니라 인벤토리 아이템과 TagStack이다. GE의 Modifier는 `FGameplayAttributeData` 위에서만 동작하므로 인벤토리를 건드릴 수 없다. `ULyraAbilityCost`로 추상화하면 GE Modifier 규칙에 묶이지 않고 임의의 게임 로직을 Cost로 표현할 수 있다.
+
+**`bOnlyApplyCostOnHit`**: 히트가 확인된 경우에만 비용을 차감한다. 탄약이 이 플래그를 쓰면 "발사했지만 히트 미스"인 경우 탄약이 소모되지 않는다. 서버에서 TargetData의 HitResult 유무로 판단한다.
+
+---
+
+### Lyra의 Cooldown — 표준 GE 방식 그대로
+
+> 소스: `GA_Hero_Dash.uasset`, `GA_Grenade.uasset`, `LyraGameplayAbility.cpp:36`
+
+Cost와 달리 Cooldown은 개념 요약(4.5.15)의 표준 방식을 그대로 사용한다. `ULyraGameplayAbility`에 쿨다운 관련 커스텀 로직이 없고, `ApplyCooldown` / `GetCooldownTags`를 오버라이드하지 않는다. Duration GE를 `CooldownGameplayEffect` 필드에 블루프린트에서 할당하는 방식이다.
+
+```cpp
+// LyraGameplayAbility.cpp:36 — 생성자 기본값
+InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+```
+
+어빌리티별 고유 Cooldown GE를 쓰는 "처음에는 이렇게" 방식이다. Dash와 Grenade 각각 별도의 Cooldown GE를 갖는다. 개념 요약에서 말하는 SetByCaller나 MMC로 공유 GE를 재사용하는 고급 패턴은 Lyra에 없다.
+
+**Cooldown이 GE로 남은 이유**: 쿨다운은 "일정 시간 동안 태그를 보유한다"는 Duration GE의 본질적 기능이다. 인벤토리 조작이 필요 없고, Attribute 조작도 없으며, 태그 부여와 시간 경과만 있다. GE가 가장 직접적인 도구이므로 굳이 바꿀 이유가 없다.
+
