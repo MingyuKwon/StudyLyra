@@ -19,6 +19,7 @@
 | [02_actor_replication.md](02_actor_replication.md) | Actor 복제 상세 — bReplicates, Relevancy, Priority, 프로퍼티 Diff, Shadow Buffer |
 | [03_rpc.md](03_rpc.md) | RPC — ProcessEvent 흐름, Server/Client/Multicast, Reliable/Unreliable, Validation |
 | [04_actor_channel.md](04_actor_channel.md) | UActorChannel — Channel 구조, FObjectReplicator, OpenPacketId, CloseReason별 동작 |
+| [net_serialize/](net_serialize/README.md) | 직렬화/역직렬화 — FArchive·FBitWriter/Reader, NetSerialize, TStructOpsTypeTraits, FFastArraySerializer |
 
 ---
 
@@ -30,8 +31,26 @@
   → 각 클라이언트 연결마다 Relevancy + Priority 정렬
   → ActorChannel::ReplicateActor()
       → 현재값 vs Shadow Buffer 비교
-      → 바뀐 프로퍼티만 직렬화 → 패킷 전송
+      → 바뀐 프로퍼티만 직렬화 (NetSerialize / FBitWriter)
+      → Bunch → Packet → UDP 전송
 클라이언트 수신
+  → FBitReader로 역직렬화
   → 프로퍼티 값 적용
   → OnRep_XXX 콜백 호출
+```
+
+---
+
+## 직렬화 계층 요약
+
+```
+UPROPERTY 복제
+  → RepLayout이 프로퍼티 목록 관리
+  → 구조체면 NetSerialize 있으면 호출, 없으면 필드별 자동 직렬화
+  → FBitWriter에 비트 단위로 기록 → Bunch → Packet
+
+FFastArraySerializer (배열 델타)
+  → 배열 항목별 ID·변경 여부 추적
+  → 변경된 항목만 NetDeltaSerialize로 전송
+  → 수신 측 Pre/PostReplicated 콜백으로 보조 캐시(TMap 등) 재건
 ```
