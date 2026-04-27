@@ -62,3 +62,28 @@ Blueprint에서 오탈자를 방지하기 위해 `FName` 버전보다 `GameplayT
 ---
 
 ## 내 분석
+
+### Spec이 별도로 존재하는 이유
+
+GE가 CDO 하나를 공유하기 때문에 오히려 Spec이 반드시 필요해진다.
+
+```
+GE는 CDO 하나를 모든 적용이 공유
+  → CDO는 절대 수정 불가 (공유 객체)
+  → "이번 적용에만 해당하는 데이터"를 담을 별도 객체가 필요
+  → FGameplayEffectSpec
+```
+
+| | `UGameplayEffect` (CDO) | `FGameplayEffectSpec` |
+|---|---|---|
+| 수명 | 에셋 수명 내내 유지 | 적용마다 생성, 적용 후 소멸 or FActiveGameplayEffect에 보관 |
+| 공유 | 모든 적용이 공유 | 적용마다 각자 하나씩 |
+| 역할 | 정적 설계 (Modifier 목록, Duration 타입 등) | 동적 적용 컨텍스트 |
+
+**Spec이 담는 "이번 적용에만 해당하는 데이터":**
+
+- **Level** — 발동한 어빌리티 레벨. CDO에 저장 불가 (매 발동마다 다름)
+- **EffectContext** — 발동자(Instigator), HitResult 등 런타임 컨텍스트
+- **SetByCaller TMap** — 어빌리티가 런타임에 계산한 값을 MMC/Execution으로 전달하는 수단
+- **Captured Attributes (Snapshot)** — 발동 시점의 Attribute 값 보존. 이후 Attribute가 바뀌어도 발동 당시 값 유지
+- **DynamicGrantedTags / DynamicAssetTags** — 런타임에만 결정되는 태그
