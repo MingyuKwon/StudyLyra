@@ -105,3 +105,65 @@ PlayerB가 Apply할 때 PlayerA 인스턴스를 못 찾아서 자기 인스턴�
 |---|---|---|
 | AggregateByTarget | 하나 | "이 디버프는 Target에 최대 N중첩" — 누가 걸든 공유 카운터 |
 | AggregateBySource | Source당 하나 | "각 플레이어가 독립적으로 최대 N중첩 적용 가능" — Source별 독립 카운터 |
+
+---
+
+### UE 5.3 — 모놀리식 UGameplayEffect → GEComponent 분리
+
+> 소스: `GameplayEffect.h:41`, `GameplayEffectComponents/` 폴더 전체
+
+UE 5.3 이전에는 `UGameplayEffect` 클래스 하나에 태그 요건, 면역, 어빌리티 부여 등 모든 설정이 직접 UPROPERTY로 들어있었다. 5.3부터 이 필드들이 전부 `UE_DEPRECATED(5.3, ...)` + `DeprecatedProperty`로 전환되고, `UGameplayEffectComponent` 서브클래스들로 분리됐다.
+
+```
+// GameplayEffect.h:41
+Since Unreal 5.3, we have deprecated the Monolithic UGameplayEffect
+and instead rely on UGameplayEffectComponents.
+```
+
+기존 필드들은 에디터에서 읽기 전용으로 남아있고, 저장 시 자동 fix-up 과정을 통해 GEComponent로 마이그레이션된다.
+
+#### 기존 필드 → 컴포넌트 대응표
+
+| 기존 UGameplayEffect 필드 (5.3 Deprecated) | 대체 컴포넌트 |
+|---|---|
+| `InheritableOwnedTagsContainer` (GrantedTags) | `UTargetTagsGameplayEffectComponent` |
+| `OngoingTagRequirements` | `UTargetTagRequirementsGameplayEffectComponent` |
+| `ApplicationTagRequirements` | `UTargetTagRequirementsGameplayEffectComponent` |
+| `RemoveGameplayEffectsWithTags` | `URemoveOtherGameplayEffectComponent` |
+| `GrantedApplicationImmunityTags` | `UImmunityGameplayEffectComponent` |
+| `GrantedApplicationImmunityQuery` | `UImmunityGameplayEffectComponent` |
+| Granted Abilities | `UAbilitiesGameplayEffectComponent` |
+| Asset Tags | `UAssetTagsGameplayEffectComponent` |
+
+Stacking, Modifiers, Executions, GameplayCues, Duration/Period는 변경 없이 `UGameplayEffect`에 잔류한다.
+
+#### 컴포넌트별 변경 포인트
+
+**UTargetTagRequirementsGameplayEffectComponent**
+
+기존에 없던 `RemovalTagRequirements`가 추가됐다. 기존 `OngoingTagRequirements`는 조건 불충족 시 GE를 일시 억제(bIsInhibited)했지만, Removal은 조건 충족 시 GE를 영구 제거한다.
+
+```cpp
+// TargetTagRequirementsGameplayEffectComponent.h
+FGameplayTagRequirements ApplicationTagRequirements; // 적용 시 pass/fail (기존과 동일)
+FGameplayTagRequirements OngoingTagRequirements;     // 적용 후 켜짐/꺼짐 (기존과 동일)
+FGameplayTagRequirements RemovalTagRequirements;     // 충족 시 영구 제거 (신규)
+```
+
+**UImmunityGameplayEffectComponent**
+
+기존 태그 기반 면역(`GrantedApplicationImmunityTags`)과 쿼리 기반 면역(`GrantedApplicationImmunityQuery`)을 `FGameplayEffectQuery` 배열 하나로 통합했다. 쿼리가 태그보다 더 세밀한 조건을 표현할 수 있다.
+
+```cpp
+// ImmunityGameplayEffectComponent.h
+TArray<FGameplayEffectQuery> ImmunityQueries; // 태그 기반 + 쿼리 기반 통합
+```
+
+**URemoveOtherGameplayEffectComponent**
+
+기존 `RemoveGameplayEffectsWithTags`는 태그 목록으로 대상을 지정했다. 컴포넌트로 오면서 `FGameplayEffectQuery` 배열로 바뀌어 더 복잡한 조건(클래스, 레벨, 태그 조합 등)으로 제거 대상을 지정할 수 있다.
+
+```cpp
+// RemoveOtherGameplayEffectComponent.h
+TArray<FGameplayEffectQuery> RemoveGameplayEffectQueries;
+```
