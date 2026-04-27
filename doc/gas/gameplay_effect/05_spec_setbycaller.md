@@ -125,13 +125,19 @@ float DamageAmount = Spec.GetSetByCallerMagnitude(
 
 ### SetByCaller 값의 네트워크 동기화
 
-> 소스: `GameplayEffect.h` (SetByCallerTagMagnitudes UPROPERTY), `GameplayEffectTypes.cpp:1288`
+> 소스: `GameplayEffect.h:1258`, `GameplayEffectTypes.cpp:1288`
 
-**서버→클라이언트 방향은 복제된다. 클라이언트→서버 방향은 불가능하다.**
+**클라이언트→서버 방향은 불가능하다. 서버→클라이언트 방향은 Spec 커스텀 직렬화 경로를 통해 전달된다.**
 
-`FGameplayEffectSpec`의 SetByCaller TMap은 `UPROPERTY`이므로, 서버에서 GE가 Apply된 뒤 `FActiveGameplayEffect`(FFastArraySerializerItem)가 클라이언트로 복제될 때 Spec 안의 SetByCaller 값도 함께 전달된다.
+먼저 흔한 오해를 짚고 넘어간다.
 
-단, Spec 핸들 자체의 직접 전송은 의도적으로 막혀있다:
+**TMap UPROPERTY ≠ 자동 복제**  
+UE의 표준 프로퍼티 복제(`UPROPERTY(Replicated)`)는 `TArray`만 지원한다. `TMap`은 지원하지 않는다. `FGameplayEffectSpec`의 `SetByCallerTagMagnitudes`와 `SetByCallerNameMagnitudes`는 `UPROPERTY`로 선언되어 있지만, 그 자체로는 복제되지 않는다.
+
+**실제 복제 경로**  
+`FActiveGameplayEffect`는 `FFastArraySerializerItem`을 상속하며, `FActiveGameplayEffectsContainer`가 `FFastArraySerializer` 기반으로 네트워크에 델타 직렬화한다. 이 과정에서 `FActiveGameplayEffect::Spec`(`FGameplayEffectSpec`)이 커스텀 `NetSerialize`를 통해 직렬화된다. SetByCaller TMap은 이 커스텀 직렬화 안에서 `FArchive`로 처리된다.
+
+단, Spec **핸들** 자체의 직접 전송은 의도적으로 막혀있다:
 
 ```cpp
 // GameplayEffectTypes.cpp:1288
@@ -145,7 +151,7 @@ bool FGameplayEffectSpecHandle::NetSerialize(FArchive& Ar, ...)
 
 | 시나리오 | 전달 여부 |
 |---|---|
-| 서버 GE Apply → 클라이언트 복제 | ✓ FActiveGameplayEffect.Spec 안에 포함 |
+| 서버 GE Apply → 클라이언트 복제 | ✓ FActiveGameplayEffect 커스텀 직렬화 경로 |
 | 클라이언트가 Spec에 SetByCaller 설정 | ✗ 로컬 예측에만 쓰임 |
 | Spec 핸들을 직접 RPC 전송 | ✗ Fatal로 차단 |
 
