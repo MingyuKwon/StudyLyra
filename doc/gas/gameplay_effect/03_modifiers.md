@@ -150,6 +150,53 @@ float FAggregatorModChannel::MultiplyMods(const TArray<FAggregatorMod>& InMods, 
 
 ## 내 분석
 
+### Aggregator — Modifier를 모아 CurrentValue를 계산하는 객체
+
+> 소스: `GameplayEffectAggregator.h:278`, `GameplayEffect.h:1960`
+
+**Attribute 하나당 Aggregator 하나**가 존재한다. 그 Attribute에 영향을 주는 모든 Duration/Infinite GE의 Modifier를 모아두고, 요청 시 `BaseValue + 모든 Mod`를 집산해서 `CurrentValue`를 계산한다.
+
+```cpp
+// GameplayEffect.h:1960 — FActiveGameplayEffectsContainer 안
+TMap<FGameplayAttribute, FAggregatorRef> AttributeAggregatorMap;
+// AttributeAggregatorMap[Health]    → Health Aggregator
+// AttributeAggregatorMap[MoveSpeed] → MoveSpeed Aggregator
+```
+
+#### Aggregator 내부 구조
+
+```cpp
+// GameplayEffectAggregator.h:278
+struct FAggregator
+{
+    float BaseValue;                            // Instant GE가 영구 수정하는 기준값
+    FAggregatorModChannelContainer ModChannels; // 쌓인 Modifier들 (연산별로 분류)
+    TArray<FActiveGameplayEffectHandle> Dependents; // 변화 구독 GE 목록
+    FOnAggregatorDirty OnDirty;                 // 값 변경 시 알림 델리게이트
+};
+```
+
+#### GE Apply/Remove와 Aggregator
+
+```
+GE Apply  → AddAggregatorMod()    → Mod 추가 → OnDirty 발생 → CurrentValue 재계산
+GE Remove → RemoveAggregatorMod() → Mod 제거 → OnDirty 발생 → CurrentValue 재계산
+```
+
+Instant GE는 Aggregator를 거치지 않고 `BaseValue`를 직접 영구 수정한다. Duration/Infinite GE만 Aggregator에 Modifier를 등록하며, 제거될 때 함께 빠진다.
+
+#### CurrentValue 계산 흐름
+
+```
+Aggregator.Evaluate()
+  → UpdateQualifiesOnAllMods()       태그 조건 체크 → IsQualified 갱신
+  → EvaluateWithBase(BaseValue)
+       ((BaseValue + Additive) * Multiplicitive) / Division
+  → 반환값 = CurrentValue
+```
+
+---
+
 ### Modifier와 태그의 관계
 
 > 소스: `GameplayEffectAggregator.h:55`, `GameplayEffectAggregator.cpp:28`
