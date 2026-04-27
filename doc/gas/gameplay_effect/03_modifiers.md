@@ -149,3 +149,76 @@ float FAggregatorModChannel::MultiplyMods(const TArray<FAggregatorMod>& InMods, 
 ---
 
 ## 내 분석
+
+### Modifier와 태그의 관계
+
+> 소스: `GameplayEffectAggregator.h:55`, `GameplayEffectAggregator.cpp:28`
+
+태그와 Modifier의 관계는 두 종류다.
+
+#### 관계 1 — Modifier의 집산 포함 여부를 태그로 제어
+
+`FAggregatorMod`(Aggregator에 쌓이는 Modifier 단위)는 태그 조건을 갖는다.
+
+```cpp
+// GameplayEffectAggregator.h:57
+struct FAggregatorMod
+{
+    const FGameplayTagRequirements* SourceTagReqs;  // Source가 가져야 할 태그 조건
+    const FGameplayTagRequirements* TargetTagReqs;  // Target이 가져야 할 태그 조건
+    float EvaluatedMagnitude;
+    mutable bool IsQualified;   // 이 Modifier가 집산에 포함되는지 여부
+};
+```
+
+`UpdateQualifies()`가 Source/Target의 현재 태그를 조건과 비교해 `IsQualified`를 결정한다.
+
+```cpp
+// GameplayEffectAggregator.cpp:33
+bool bSourceMet = (!SourceTagReqs || SourceTagReqs->IsEmpty())
+                  || SourceTagReqs->RequirementsMet(SrcTags);
+bool bTargetMet = (!TargetTagReqs || TargetTagReqs->IsEmpty())
+                  || TargetTagReqs->RequirementsMet(TgtTags);
+IsQualified = bSourceMet && bTargetMet && ...;
+```
+
+집산 시 `SumMods()`는 `Qualifies()`가 true인 Modifier만 합산에 포함한다.
+
+```cpp
+for (const FAggregatorMod& Mod : InMods)
+{
+    if (Mod.Qualifies())   // false면 이 Modifier는 무시
+        Sum += (Mod.EvaluatedMagnitude - Bias);
+}
+```
+
+**사용 예**: "독 상태(Tag: Status.Poisoned)일 때만 방어력 감소 Modifier 적용"처럼 상황에 따라 Modifier를 선택적으로 켜고 끌 수 있다.
+
+#### 관계 2 — AttributeBased Modifier의 TagFilter
+
+`Attribute Based` Modifier가 Source Attribute 값을 읽을 때, 그 Attribute에 영향을 주는 Modifier 중 특정 태그를 가진 것만 포함하거나 제외하는 필터다.
+
+```cpp
+// GameplayEffectAggregator.cpp:62
+const FGameplayTagContainer* SourceTags =
+    HandleComponent->GetGameplayEffectSourceTagsFromHandle(ActiveHandle);
+bSourceFilterMet = (SourceTags && SourceTags->HasAll(Parameters.AppliedSourceTagFilter));
+```
+
+**사용 예**: "내 공격력 계산 시 장비 버프 GE에서 온 Modifier만 제외하고 계산"처럼 세밀한 Attribute 값 필터링에 쓴다.
+
+#### 핵심 — 태그 조건 평가 타이밍
+
+Modifier의 태그 조건은 **GE Apply 시점에 한 번만 평가**된다.
+
+```
+GE Apply 시:  Modifier가 Aggregator에 등록 → 태그 조건 체크 → IsQualified 결정
+이후:         태그가 바뀌어도 IsQualified 재계산 없음
+
+예시:
+  Apply 시 Target에 "Shield" 태그 있음 → IsQualified = true
+  나중에 Shield 태그 제거됨
+  Attribute 집산 시: IsQualified = true 그대로 → Modifier 여전히 적용
+```
+
+적용 이후 태그 변화에 반응하려면 Modifier 태그 조건이 아니라 `OngoingTagRequirements`(GE 전체를 켜고 끄는 것)를 써야 한다.
