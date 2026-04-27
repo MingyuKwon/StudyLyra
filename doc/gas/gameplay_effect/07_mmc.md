@@ -83,3 +83,96 @@ float UPAMMC_PoisonMana::CalculateBaseMagnitude_Implementation(const FGameplayEf
 ---
 
 ## 내 분석
+
+### Lyra는 MMC를 쓰지 않는다 — ExecCalc를 선택한 이유
+
+> 소스: `LyraDamageExecution.cpp`, `LyraHealExecution.cpp`
+
+Lyra C++ 코드베이스에 `UGameplayModMagnitudeCalculation` 서브클래스가 없다. 데미지와 힐링 계산 모두 `UGameplayEffectExecutionCalculation`(ExecCalc)으로 구현됐다. 이 선택이 MMC와 ExecCalc의 차이를 이해하는 핵심이다.
+
+**MMC의 역할**: GE의 Modifier 하나에 대해 float 값 하나를 반환한다. 단일 Attribute 하나를 조작하는 계산에 적합하다.
+
+**ExecCalc의 역할**: 여러 Attribute를 한 번에 조작하고, 출력도 여러 개(`OutExecutionOutput.AddOutputModifier`)를 낼 수 있다.
+
+Lyra의 데미지 계산이 ExecCalc여야 하는 이유:
+
+```cpp
+// LyraDamageExecution.cpp:131
+const float DamageDone = FMath::Max(
+    BaseDamage * DistanceAttenuation * PhysicalMaterialAttenuation * DamageInteractionAllowedMultiplier, 0.0f);
+
+OutExecutionOutput.AddOutputModifier(
+    FGameplayModifierEvaluatedData(ULyraHealthSet::GetDamageAttribute(), EGameplayModOp::Additive, DamageDone));
+```
+
+1. **Context 접근이 필요하다** — 거리, HitResult, 물리 재질, 팀 판별 등을 `FLyraGameplayEffectContext`에서 꺼낸다. MMC는 Spec에만 접근할 수 있고 ExecutionParams를 받지 않는다.
+2. **서버 전용 코드** — `#if WITH_SERVER_CODE`로 감싸져 있다. 데미지 계산은 예측이 필요 없고 서버 권한으로만 돌린다. MMC는 예측 가능하지만 그 장점이 여기선 불필요하다.
+3. **팀 판별** — `ULyraTeamSubsystem::CanCauseDamage()`를 호출해서 아군 피해를 차단한다. 이런 외부 시스템 접근은 ExecCalc에서만 가능하다.
+
+---
+
+### Attribute 캡처 패턴 — static 싱글톤으로 정의
+
+> 소스: `LyraDamageExecution.cpp:14`, `LyraHealExecution.cpp:11`
+
+MMC든 ExecCalc든 Attribute 캡처 정의 방식은 동일하다. Lyra의 패턴:
+
+```cpp
+// LyraDamageExecution.cpp:14
+struct FDamageStatics
+{
+    FGameplayEffectAttributeCaptureDefinition BaseDamageDef;
+
+    FDamageStatics()
+    {
+        // Source의 BaseDamage를, Snapshot=true로 캡처
+        BaseDamageDef = FGameplayEffectAttributeCaptureDefinition(
+            ULyraCombatSet::GetBaseDamageAttribute(),
+            EGameplayEffectAttributeCaptureSource::Source,
+            true  // bSnapshot: Spec 생성 시점(발사 시점) 고정
+        );
+    }
+};
+
+static FDamageStatics& DamageStatics()
+{
+    static FDamageStatics Statics;  // 프로세스 전체에서 단 한 번만 생성
+    return Statics;
+}
+```
+
+`static` 지역변수로 만든 이유: `FGameplayEffectAttributeCaptureDefinition`은 생성 비용이 있는데, 모든 데미지 적용마다 새로 만드는 건 낭비다. 한 번만 만들고 계속 재사용한다. MMC 예시 코드에서도 동일한 패턴을 권장한다.
+
+생성자에서 `RelevantAttributesToCapture`에 등록하는 것도 필수다:
+
+```cpp
+// LyraDamageExecution.cpp:31
+ULyraDamageExecution::ULyraDamageExecution()
+{
+    RelevantAttributesToCapture.Add(DamageStatics().BaseDamageDef);
+}
+```
+
+이 등록이 없으면 `AttemptCalculateCapturedAttributeMagnitude` 호출 시 "Spec에 캡처 정의가 없다"는 오류가 난다. MMC에서 `GetCapturedAttributeMagnitude`를 쓸 때도 동일하다.
+
+---
+
+### MMC vs ExecCalc — 언제 무엇을 쓰나
+
+> 소스: `GameplayEffect.h`, `GameplayEffectExecutionCalculation.h`
+
+두 클래스의 핵심 차이:
+
+| | MMC | ExecCalc |
+|---|---|---|
+| 반환 | float 하나 (Modifier 하나) | 여러 Modifier 출력 가능 |
+| 예측 | 가능 | 불가능 |
+| Context 접근 | Spec 통해 간접 접근 | `ExecutionParams`로 직접 접근 |
+| 외부 시스템 접근 | 제한적 | 자유로움 |
+| 용도 | "이 Modifier의 크기를 동적으로 계산" | "이 GE가 발생시키는 모든 결과를 계산" |
+
+**MMC가 적합한 경우**: 예측이 필요한 클라이언트 사이드 효과, 단일 Attribute를 조작하는 버프/디버프, 다른 Attribute에서 값을 읽어 Modifier를 결정하는 경우 (예: "MaxHealth의 10%만큼 방어막 부여").
+
+**ExecCalc가 적합한 경우**: 서버 권한 계산(데미지, 힐링), 여러 Attribute를 동시에 수정, Context의 HitResult·거리·팀 정보 등 외부 데이터가 필요한 계산.
+
+Lyra의 데미지 파이프라인은 예측 없이 서버 권한으로 처리하고 복잡한 외부 정보가 필요하기 때문에 ExecCalc가 올바른 선택이다.
