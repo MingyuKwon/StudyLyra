@@ -82,6 +82,58 @@ GE 자체는 **CDO 하나만** 존재한다. `new UGameplayEffect()`가 호출�
 
 GE는 **"무엇을, 얼마나, 어떤 조건에서"를 선언하는 설계도**이고, 실제 계산 로직은 GE가 참조하는 MMC/Execution 안에 캡슐화한다.
 
+### `UGameplayEffect`에 함수가 많은 이유
+
+> 소스: `GameplayEffect.h:2096`, `GameplayEffect.cpp:937~991`
+
+`UGameplayEffect`에 함수가 많아 보이지만, 종류를 나눠보면 전부 "게임 로직"이 아니다.
+
+| 종류 | 예시 | 설명 |
+|---|---|---|
+| UObject 라이프사이클 | `PostLoad`, `PostCDOCompiled`, `PreSave` | 엔진이 애셋 로드/저장 시 자동 호출. 디자이너가 호출하는 게 아님 |
+| GAS 프레임워크 훅 | `CanApply`, `OnAddedToActiveContainer`, `OnExecuted`, `OnApplied` | GAS가 내부적으로 호출. 실제 내용은 `GEComponents` 순회 위임 |
+| 읽기 전용 Accessor | `GetGrantedTags`, `GetAssetTags`, `FindComponent<T>` | 데이터 조회만 함 |
+| Deprecated 변환 헬퍼 (private) | `ConvertTagRequirementsComponent` 등 | UE 5.3 GEComponent 구조 마이그레이션용 내부 함수 |
+
+핵심은 GAS 프레임워크 훅들의 구현이다:
+
+```cpp
+// GameplayEffect.cpp:937
+bool UGameplayEffect::CanApply(...) const
+{
+    for (const UGameplayEffectComponent* GEComponent : GEComponents)
+        if (GEComponent && !GEComponent->CanGameplayEffectApply(...))
+            return false;
+    return true;
+}
+
+bool UGameplayEffect::OnAddedToActiveContainer(...) const
+{
+    bool bShouldBeActive = true;
+    for (const UGameplayEffectComponent* GEComponent : GEComponents)
+        bShouldBeActive = GEComponent->OnActiveGameplayEffectAdded(...) && bShouldBeActive;
+    return bShouldBeActive;
+}
+```
+
+`GEComponents` 배열을 순회해서 각 컴포넌트에 **위임**할 뿐이다. `UGameplayEffect` 자체에는 판단 로직이 없다.
+
+#### CDO 메서드 직접 호출 구조
+
+`UGameplayEffect`는 절대 `new`로 인스턴스화되지 않는다. `FGameplayEffectSpec`이 항상 `Def` 포인터로 CDO를 가리키고, 프레임워크가 그 CDO의 메서드를 직접 호출한다.
+
+```
+Spec.Def = UGameplayEffect의 CDO
+
+적용 흐름:
+  Spec.Def->CanApply(Container, Spec)              // GEComponents 순회
+  Spec.Def->OnAddedToActiveContainer(Container, ActiveGE)
+  Spec.Def->OnExecuted(Container, Spec, Key)       // Instant/Periodic 실행 시
+  Spec.Def->OnApplied(Container, Spec, Key)
+```
+
+"GE에 로직을 넣지 말라"는 말의 실제 의미는: **`UGameplayEffect`를 서브클래싱해서 이 훅들을 오버라이드하거나 게임 전용 코드를 추가하지 말라**는 것이다. 실제 로직은 `GEComponents` 배열 안의 `UGameplayEffectComponent` 서브클래스에 넣는다.
+
 ### Periodic Effect가 예측 불가능한 이유
 
 `GameplayPrediction.h`에 이렇게 명시되어 있다:

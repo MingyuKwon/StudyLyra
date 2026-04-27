@@ -1362,3 +1362,44 @@ Owner->SetActiveGameplayEffectInhibit(Handle, !bActive, bInvokeGameplayCueEvents
 // bActive=true → !bActive=false → 억제 해제(켜기) 경로 실행
 // → 모든 초기 추가가 동일한 코드 경로를 타도록 보장
 ```
+
+---
+
+## 33. UGameplayEffect 함수 구조 및 CDO 호출 패턴
+
+> 소스: `Engine/.../GameplayAbilities/Public/GameplayEffect.h:2096`, `Private/GameplayEffect.cpp:937~991`
+
+### 함수 분류
+
+| 종류 | 예시 |
+|---|---|
+| UObject 라이프사이클 | `PostLoad`, `PostCDOCompiled`, `PreSave` |
+| GAS 프레임워크 훅 | `CanApply`, `OnAddedToActiveContainer`, `OnExecuted`, `OnApplied` |
+| 읽기 전용 Accessor | `GetGrantedTags`, `GetAssetTags`, `FindComponent<T>` |
+| Deprecated 변환 헬퍼 (private) | `ConvertTagRequirementsComponent` 등 (UE 5.3 마이그레이션용) |
+
+### GAS 프레임워크 훅은 GEComponents 위임만 함
+
+```cpp
+bool UGameplayEffect::CanApply(...) const
+{
+    for (const UGameplayEffectComponent* GEComponent : GEComponents)
+        if (!GEComponent->CanGameplayEffectApply(...)) return false;
+    return true;
+}
+// OnAddedToActiveContainer, OnExecuted, OnApplied 모두 동일한 패턴
+```
+
+### CDO 직접 호출 구조
+
+`FGameplayEffectSpec::Def`가 항상 CDO를 가리킴. 프레임워크가 CDO 메서드를 직접 호출:
+
+```
+Spec.Def->CanApply(...)
+Spec.Def->OnAddedToActiveContainer(...)
+Spec.Def->OnExecuted(...)   // GameplayEffect.cpp:3308
+Spec.Def->OnApplied(...)
+```
+
+"GE에 로직을 넣지 말라" = `UGameplayEffect` 서브클래싱해서 훅을 오버라이드하지 말라는 의미.
+실제 로직은 `GEComponents` 안의 `UGameplayEffectComponent` 서브클래스에 넣는다.
