@@ -75,6 +75,34 @@ GE는 CDO 하나를 모든 적용이 공유한다. CDO는 수정 불가이므로
 
 Spec이 담는 데이터: Level, EffectContext(Instigator/HitResult), SetByCaller TMap, Captured Attributes(Snapshot), DynamicGrantedTags/DynamicAssetTags
 
+### SetByCaller가 필요한 이유
+
+> 소스: `LyraGameData.h`, `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`
+
+어빌리티가 런타임에 계산한 수치를 GE에 전달해야 하는 상황에서 선택지가 몇 가지 있다.
+
+**대안 1 — 수치마다 별도 GE Blueprint**: `Damage10_GE`, `Damage20_GE`... 런타임에 결정되는 값은 표현 불가.
+
+**대안 2 — Attribute에 먼저 써두고 GE가 읽기**: Apply 전에 `CombatSet.BaseDamage = 50` 세팅 → GE Modifier가 Attribute 참조. 문제는 Attribute가 ASC에 귀속된 전역 상태라는 점이다. 여러 GE가 동시에 Apply되면 값이 오염된다.
+
+**대안 3 — SetByCaller**: Spec 자체에 키-값을 넣어 운반. Spec은 적용마다 독립적이므로 오염 없음.
+
+```
+GE Blueprint:  Modifier Magnitude 타입 = SetByCaller(Tag: "Damage")
+어빌리티:      Spec 생성 → Spec["Damage"] = 50.0f 주입 → Apply
+GE Modifier:   Spec["Damage"] 읽어 50.0f 사용
+```
+
+Lyra가 `DamageGameplayEffect_SetByCaller` GE 하나로 모든 데미지 소스를 재사용하는 이유가 여기 있다.
+
+**발사체 패턴에서의 추가 가치**: Spec이 값을 들고 이동하므로 발사 시점 수치가 명중까지 보존된다. Attribute 참조였다면 명중 시점에 버프 등으로 바뀐 값이 사용된다.
+
+```
+발사 시점: Spec 생성 + Spec["Damage"] = 50 (공격력 50 기준)
+비행 중:   공격자 공격력 100으로 증가 (버프)
+명중 시점: Spec["Damage"] = 50 그대로 → Apply  (Attribute 참조였다면 100)
+```
+
 ### GESpec 복제 구조
 
 > 소스: `GameplayEffect.h:1334`, `GameplayEffect.h:1406`, `GameplayEffect.h:1639`, `GameplayEffect.cpp:5153`
