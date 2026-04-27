@@ -255,3 +255,51 @@ ExecCalc → Damage Meta Attribute += DamageDone
 **2. 서버 권한 보장** — 데미지는 예측하지 않는다. `#if WITH_SERVER_CODE`로 클라이언트 실행을 차단하고, 서버가 계산한 결과를 복제한다. MMC는 클라이언트에서도 실행되므로 서버 전용 시스템(`ULyraTeamSubsystem`) 호출이 위험하다.
 
 **3. 여러 소스의 값 조합** — BaseDamage(Attribute 캡처) × 거리·재질 감쇠·팀 판별(Context) 조합이 필요하다. SetByCaller는 float 하나만 전달하므로 이 구조를 표현할 수 없고, ExecCalc만이 여러 소스의 데이터를 자유롭게 조합할 수 있다.
+
+---
+
+### Attribute 캡처 = Aggregator 전체
+
+> 소스: `GameplayEffect.cpp:3870`, `GameplayEffectAggregator.cpp:579`
+
+`FGameplayEffectAttributeCaptureSpec`의 `AttributeAggregator` 필드는 `FAggregatorRef` 타입이다. 캡처는 CurrentValue float 하나가 아니라 **Aggregator 전체(BaseValue + ModChannels)**를 들고 온다.
+
+```cpp
+// GameplayEffect.cpp:3870
+void FActiveGameplayEffectsContainer::CaptureAttributeForGameplayEffect(
+    OUT FGameplayEffectAttributeCaptureSpec& OutCaptureSpec)
+{
+    FAggregatorRef& AttributeAggregator = FindOrCreateAttributeAggregator(
+        OutCaptureSpec.BackingDefinition.AttributeToCapture);
+
+    if (OutCaptureSpec.BackingDefinition.bSnapshot)
+        OutCaptureSpec.AttributeAggregator.TakeSnapshotOf(AttributeAggregator); // 독립 복사
+    else
+        OutCaptureSpec.AttributeAggregator = AttributeAggregator;               // 원본 참조
+}
+
+// GameplayEffectAggregator.cpp:579
+void FAggregator::TakeSnapshotOf(const FAggregator& AggToSnapshot)
+{
+    BaseValue   = AggToSnapshot.BaseValue;   // Additive/Multiplicative Base
+    ModChannels = AggToSnapshot.ModChannels; // 채널별 Modifier 목록 전체
+}
+```
+
+**bSnapshot=true**: 캡처 시점의 BaseValue + ModChannels를 별도 Aggregator에 복사한다. 이후 원본이 변경돼도 캡처값은 불변이다.
+
+**bSnapshot=false**: 원본 Aggregator의 참조만 저장한다. `AttemptCalculateCapturedAttributeMagnitude`를 호출하는 시점(Execute 시점)에 원본을 읽으므로 최신 상태가 반영된다.
+
+**CurrentValue float이 아닌 Aggregator 전체를 캡처하는 이유** — `AttemptCalculateCapturedAttributeMagnitude`는 내부적으로 `EvaluateParameters`(SourceTags, TargetTags)를 받아 태그 조건부 Modifier의 포함 여부를 실행 시점에 판단한다.
+
+```cpp
+FAggregatorEvaluateParameters EvaluationParameters;
+EvaluationParameters.SourceTags = SourceTags;
+EvaluationParameters.TargetTags = TargetTags;
+
+float BaseDamage = 0.0f;
+ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
+    DamageStatics().BaseDamageDef, EvaluationParameters, BaseDamage);
+```
+
+예를 들어 "Status.Burning 태그가 있을 때만 적용되는 +10 Modifier"가 Aggregator에 들어 있다면, 단순 CurrentValue float을 미리 계산해 버리면 이 조건을 나중에 평가할 수 없다. Aggregator 전체를 캡처해야 Execute 시점에 태그를 보고 포함 여부를 결정할 수 있다.
