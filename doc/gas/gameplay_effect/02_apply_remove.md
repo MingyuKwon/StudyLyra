@@ -47,3 +47,72 @@ virtual void OnRemoveGameplayEffectCallback(const FActiveGameplayEffect& EffectR
 ---
 
 ## 내 분석
+
+### 서버 GE 적용 후 클라이언트 동기화 구조
+
+> 소스: `GameplayEffect.cpp:2764`, `GameplayEffect.cpp:5072`, `AbilitySystemComponent.h:889`
+
+서버에서 GE가 적용되면 `FActiveGameplayEffect`가 컨테이너에 추가되고, `FFastArraySerializer`가 변경을 클라이언트로 델타 복제한다. 단, **서버와 클라이언트가 들고 있는 데이터가 동일하지 않다.**
+
+#### 복제되는 것 vs 복제되지 않는 것
+
+| 필드 | 복제 여부 | 비고 |
+|---|---|---|
+| `Spec.Modifiers` (EvaluatedMagnitude) | ✓ | 계산된 Modifier 수치 |
+| `Spec.Duration / Period / Level` | ✓ | |
+| `Spec.EffectContext` | ✓ | Instigator, HitResult 등 |
+| `Spec.DynamicGrantedTags / StackCount` | ✓ | |
+| `StartServerWorldTime` | ✓ | 서버 기준 시작 시각 |
+| `PredictionKey` | ✓ | |
+| `Handle` | ✗ NotReplicated | 클라에서 `GenerateNewHandle()`로 재발급 |
+| `bIsInhibited` | ✗ NotReplicated | 클라가 현재 태그 상태로 재계산 |
+| `StartWorldTime` | ✗ NotReplicated | `StartServerWorldTime`으로 로컬 시계 기준 재계산 |
+| `SetByCallerTagMagnitudes` | ✗ UPROPERTY 없음 | 클라에는 빈 TMap |
+| `CapturedSourceTags / TargetTags` | ✗ NotReplicated | |
+| `DurationHandle / PeriodHandle` | ✗ (타이머) | 서버만 소유 |
+
+```cpp
+// GameplayEffect.cpp:2866 — PostReplicatedAdd 에서 클라이언트 재구성
+Handle = FActiveGameplayEffectHandle::GenerateNewHandle(InArray.Owner);  // Handle 재발급
+RecomputeStartWorldTime(WorldTimeSeconds, ServerWorldTime);              // 로컬 시간 재계산
+```
+
+#### ReplicationMode에 따라 구조 자체가 달라진다
+
+```cpp
+// GameplayEffect.cpp:5079
+Minimal  →  COND_Never    // FActiveGameplayEffectsContainer 자체가 복제 안 됨
+Mixed    →  COND_OwnerOnly // Owner에게만 복제
+Full     →  COND_None     // 모든 클라이언트에 복제
+```
+
+Minimal / Mixed 모드에서 **Simulated Proxy(다른 플레이어)**는 `FActiveGameplayEffectsContainer`를 받지 않는다. 대신 두 가지가 별도로 복제된다:
+
+- `MinimalReplicationTags` — GE가 부여한 GameplayTag 목록
+- `MinimalReplicationGameplayCues` — GameplayCue 이벤트 (RPC)
+
+```cpp
+// GameplayEffect.cpp:4618 — Simulated Proxy에는 Cue만
+if (ShouldUseMinimalReplication())
+    Owner->AddGameplayCue_MinimalReplication(CueTag, Effect.Spec.GetEffectContext());
+```
+
+Lyra는 `Mixed` 모드. 내 캐릭터(Owner)에게는 전체 GE 목록이 복제되고, 다른 플레이어들에게는 태그와 GameplayCue만 전달된다.
+
+#### 최종 정리
+
+```
+서버:
+  FActiveGameplayEffect 완전체
+  (Handle, Timers, SetByCaller TMap, CapturedTags, bIsInhibited 등 전부)
+
+클라이언트 Owner (Mixed/Full):
+  Spec 핵심 데이터 수신
+  Handle 재발급 / bIsInhibited 재계산 / StartWorldTime 재계산
+  SetByCaller TMap, Timers, CapturedTags 없음
+
+Simulated Proxy (Mixed 모드):
+  FActiveGameplayEffect 없음
+  MinimalReplicationTags + GameplayCue 이벤트만 수신
+```
+
