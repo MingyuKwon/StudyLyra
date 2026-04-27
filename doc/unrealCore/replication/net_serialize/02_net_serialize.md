@@ -13,18 +13,155 @@
 
 ## 자동 직렬화 vs 커스텀 NetSerialize
 
-UPROPERTY가 붙은 구조체는 엔진이 **자동으로** 필드를 순서대로 직렬화한다.
-커스텀 `NetSerialize`가 없으면 엔진이 반사(reflection) 정보로 모든 UPROPERTY를 순회한다.
+### 자동 직렬화 — UPROPERTY 필드만, CPF_RepSkip 제외
 
-자동 직렬화의 단점:
-- 필드 전체를 보낸다 — 일부 조건에서 특정 필드를 생략하는 최적화 불가
-- 정밀도를 선택할 수 없다 — `FVector`를 96비트(float 3개) 대신 48비트로 보내려면 커스텀이 필요
-- 불필요한 데이터가 포함될 수 있다
+구조체에 커스텀 `NetSerialize`가 없으면 RepLayout이 반사(reflection) 정보로 필드를 순회한다.
+**이때 보이는 것은 `UPROPERTY()`가 붙은 필드뿐이다.**
 
-커스텀 `NetSerialize`를 쓰면:
-- 보낼 필드와 건너뛸 필드를 직접 선택
-- 수치 정밀도를 낮춰 대역폭 절약 (양자화, quantization)
-- 서버에서만 의미 있는 필드는 직렬화에서 제외
+```cpp
+// RepLayout.cpp:5620 — 구조체 내부 필드 순회
+for (TFieldIterator<FProperty> It(Struct); It; ++It)
+{
+    if (It->PropertyFlags & CPF_RepSkip)  // UPROPERTY(NotReplicated) 는 건너뜀
+        continue;
+
+    NetProperties.Add(*It);  // UPROPERTY 필드만 여기 들어옴
+}
+```
+
+`TFieldIterator<FProperty>`는 UHT(Unreal Header Tool)가 생성한 `FProperty` 객체를 순회한다.
+`UPROPERTY()` 매크로가 없는 필드는 UHT가 `FProperty`를 생성하지 않으므로
+이터레이터에 아예 나타나지 않는다.
+
+```cpp
+USTRUCT()
+struct FMyStruct
+{
+    GENERATED_BODY()
+
+    UPROPERTY() float Health;     // ← FProperty 생성됨 → 자동 직렬화 대상
+    UPROPERTY() FVector Position; // ← FProperty 생성됨 → 자동 직렬화 대상
+    float CachedValue;            // ← FProperty 없음   → 완전히 투명, 직렬화 안 됨
+    int32 LocalDebugId;           // ← FProperty 없음   → 완전히 투명, 직렬화 안 됨
+};
+```
+
+`UPROPERTY()`가 붙어있어도 `NotReplicated` 지정자가 있으면 `CPF_RepSkip` 플래그가 세팅되어 건너뛴다.
+
+```cpp
+UPROPERTY(NotReplicated) int32 ServerOnlyData;  // CPF_RepSkip → 직렬화에서 제외
+```
+
+### STRUCT_NetSerializeNative — 커스텀 분기점
+
+RepLayout이 구조체 필드를 재귀 탐색하다가 중첩 구조체를 만나면,
+그 구조체에 `STRUCT_NetSerializeNative` 플래그가 있는지 먼저 확인한다.
+
+```cpp
+// RepLayout.cpp:5720
+if (EnumHasAnyFlags(Struct->StructFlags, STRUCT_NetSerializeNative))
+{
+    // 커스텀 NetSerialize가 있다 → 내부 필드 탐색하지 않고 NetSerialize 직접 호출
+    Cmd.Type = ERepLayoutCmdType::NetSerializeStructWithObjectReferences;
+    ...
+}
+else
+{
+    // 커스텀 없음 → UPROPERTY 필드 재귀 탐색
+    return InitFromStructProperty<BuildType>(...);
+}
+```
+
+`STRUCT_NetSerializeNative`는 `TStructOpsTypeTraits`에 `WithNetSerializer = true`를 선언하면
+UHT가 자동으로 설정한다.
+커스텀 `NetSerialize`가 있는 구조체는 내부가 블랙박스로 취급되고 함수 하나로 직렬화가 위임된다.
+
+### 자동 직렬화의 한계
+
+```cpp
+USTRUCT()
+struct FCharacterState
+{
+    GENERATED_BODY()
+
+    UPROPERTY() float Health;       // 32비트 — 항상 전송
+    UPROPERTY() float MaxHealth;    // 32비트 — 항상 전송
+    UPROPERTY() FVector Position;   // 96비트(float 3개) — 항상 전송
+    UPROPERTY() bool bIsAlive;      // 32비트 (bool은 legacy로 4바이트)
+    // 합계: 매번 최소 160비트 전송
+};
+```
+
+자동 직렬화의 한계:
+- **필드 전체를 보낸다** — `bIsAlive`만 바뀌어도 구조체 전체가 전송됨
+- **정밀도를 선택할 수 없다** — `Position`을 96비트 대신 30비트로 양자화 불가
+- **조건부 생략 불가** — `Health`가 MaxHealth와 같을 때 생략하는 최적화 불가
+- **서버 전용 필드 혼입** — 서버만 쓰는 필드가 UPROPERTY라면 클라이언트에도 전송됨
+
+### 커스텀 NetSerialize로 해결
+
+```cpp
+USTRUCT()
+struct FCharacterState
+{
+    GENERATED_BODY()
+
+    UPROPERTY() float    Health;
+    UPROPERTY() float    MaxHealth;
+    UPROPERTY() FVector  Position;
+    UPROPERTY() bool     bIsAlive;
+    float                CachedRatio;  // UPROPERTY 없음 → 직렬화 안 됨 (서버 계산용)
+
+    bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+    {
+        uint8 Flags = 0;
+
+        if (Ar.IsSaving())
+        {
+            if (!bIsAlive)      Flags |= (1 << 0);  // 죽었을 때만 플래그
+            if (Health < MaxHealth) Flags |= (1 << 1);  // 체력이 깎였을 때만 전송
+        }
+
+        Ar << Flags;  // 1바이트 — 무엇이 오는지 알림
+
+        if (Flags & (1 << 0))
+        {
+            uint8 Bit = (Flags >> 0) & 1;
+            Ar.SerializeBits(&Bit, 1);  // bIsAlive → 1비트
+            if (Ar.IsLoading()) bIsAlive = !!Bit;
+        }
+
+        if (Flags & (1 << 1))
+        {
+            // Position을 FVector_NetQuantize10으로 양자화 (96비트 → ~60비트)
+            FVector_NetQuantize10 QuantizedPos(Position);
+            QuantizedPos.NetSerialize(Ar, Map, bOutSuccess);
+            if (Ar.IsLoading()) Position = QuantizedPos;
+
+            Ar << Health;  // 32비트 — 범위 제한 없어 그대로
+        }
+
+        // CachedRatio는 아예 없음 — 서버가 매번 재계산
+
+        bOutSuccess = !Ar.IsError();
+        return true;
+    }
+};
+
+template<>
+struct TStructOpsTypeTraits<FCharacterState> : public TStructOpsTypeTraitsBase2<FCharacterState>
+{
+    enum { WithNetSerializer = true };
+};
+```
+
+결과 비교:
+
+| 케이스 | 자동 직렬화 | 커스텀 NetSerialize |
+|--------|------------|-------------------|
+| 체력 풀 + 살아있음 | 160비트 항상 전송 | Flags 1바이트만 전송 |
+| 체력 감소 + 이동 | 160비트 | Flags + Position(60비트) + Health(32비트) ≈ 100비트 |
+| 사망 | 160비트 | Flags + bIsAlive(1비트) ≈ 9비트 |
 
 ---
 
