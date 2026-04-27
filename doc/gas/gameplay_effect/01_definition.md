@@ -81,3 +81,33 @@ GE 자체는 **CDO 하나만** 존재한다. `new UGameplayEffect()`가 호출�
 - **Execution**: `Execute_Implementation`에서 `OutExecutionOutput`에 Attribute 수정을 직접 밀어넣음
 
 GE는 **"무엇을, 얼마나, 어떤 조건에서"를 선언하는 설계도**이고, 실제 계산 로직은 GE가 참조하는 MMC/Execution 안에 캡슐화한다.
+
+### Periodic Effect가 예측 불가능한 이유
+
+`GameplayPrediction.h`에 이렇게 명시되어 있다:
+
+```
+What is not predicted:
+  - GameplayEffect removal
+  - GameplayEffect periodic effects (dots ticking)
+```
+
+GAS Prediction 시스템은 클라이언트가 효과를 먼저 로컬에 적용(낙관적 실행)하고, 서버가 PredictionKey로 검증 후 확인 or 롤백하는 구조다. Instant GE는 "지금 이 순간" 발생하는 단발 이벤트라서 클라이언트와 서버가 같은 사건을 독립적으로 재현할 수 있다.
+
+Periodic GE는 세 가지 이유로 이 구조가 깨진다:
+
+| 문제 | 설명 |
+|---|---|
+| **클락 불일치** | 각 틱 타이밍은 서버의 게임 클락이 결정한다. 네트워크 레이턴시로 클라이언트/서버 시간이 항상 어긋나므로, 클라이언트가 예측한 틱 시점과 서버의 실제 틱 시점이 다르다 |
+| **BaseValue 영구 수정** | 각 틱은 Instant GE처럼 BaseValue를 바꾼다. CurrentValue 수정과 달리 BaseValue 변경은 롤백이 까다롭다 |
+| **오차 누적** | 단발 이벤트는 PredictionKey 하나로 처리되지만, 주기적 틱은 N번의 이벤트가 연속 발생한다. 틱마다 예측 오차가 쌓이면 클라이언트/서버 상태가 점점 벌어진다 |
+
+```
+Instant GE:   [클라이언트 적용] ←── 서버 확인 1회 → 완료  (예측 가능 ✓)
+
+Periodic GE:  [틱1] [틱2] [틱3] [틱4] ...
+              각 틱이 서버 시간 기준으로 발생
+              클라이언트가 언제 틱이 올지 알 수 없음  (예측 불가 ✗)
+```
+
+따라서 DoT 효과는 **서버에서만 처리**하고 클라이언트는 결과를 복제(Replicate)받는 방식으로 동작한다. Epic도 이를 한계로 인식하고 있으며 `GameplayPrediction.h`에 "미래에 추가 가능성이 있다"고 명시되어 있다.
