@@ -64,3 +64,44 @@ Stacking 타입에는 두 가지가 있다: Aggregate by Source와 Aggregate by 
 ---
 
 ## 내 분석
+
+### AggregateBySource vs AggregateByTarget — 인스턴스 분리 기준
+
+> 소스: `GameplayEffect.cpp:3614`
+
+두 타입의 차이는 `FindStackableActiveGameplayEffect` 함수의 조건 하나다.
+
+```cpp
+// GameplayEffect.cpp:3629
+if (ActiveEffect.Spec.Def == Spec.Def &&
+    ((StackingType == EGameplayEffectStackingType::AggregateByTarget) ||
+     (SourceASC && SourceASC == ActiveEffect.Spec.GetContext().GetInstigatorAbilitySystemComponent())))
+```
+
+이 함수가 "기존에 쌓인 같은 GE 인스턴스가 있는지" 찾는다.
+- 찾으면 → 기존 인스턴스의 StackCount를 올림
+- 못 찾으면 → 새 `FActiveGameplayEffect` 인스턴스 생성
+
+**AggregateByTarget**: GE 클래스가 같으면 찾음 (Source 무관)
+
+```
+PlayerA 3번, PlayerB 2번 독 공격 → Target에 인스턴스 하나
+  [PoisonGE] StackCount = 5   ← PlayerA 3 + PlayerB 2 합산
+```
+
+**AggregateBySource**: GE 클래스가 같고 Source ASC도 같아야 찾음
+
+```
+PlayerA 3번, PlayerB 2번 독 공격 → Target에 인스턴스 둘
+  [PoisonGE] InstigatorASC = PlayerA, StackCount = 3
+  [PoisonGE] InstigatorASC = PlayerB, StackCount = 2
+```
+
+PlayerB가 Apply할 때 PlayerA 인스턴스를 못 찾아서 자기 인스턴스를 별도로 생성한다.
+
+**용도 비교**:
+
+| 타입 | 인스턴스 수 | 대표 용도 |
+|---|---|---|
+| AggregateByTarget | 하나 | "이 디버프는 Target에 최대 N중첩" — 누가 걸든 공유 카운터 |
+| AggregateBySource | Source당 하나 | "각 플레이어가 독립적으로 최대 N중첩 적용 가능" — Source별 독립 카운터 |
