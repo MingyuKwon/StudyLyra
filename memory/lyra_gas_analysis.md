@@ -1298,3 +1298,67 @@ Data.EffectSpec.GetContext().GetInstigator();
 
 `FGameplayEffectModCallbackData`는 서버에서만 채워짐.
 클라이언트 측 `FOnAttributeChangeData` 델리게이트 콜백에서 이 포인터는 nullptr일 수 있음.
+
+---
+
+## 32. Ongoing Tag Requirements — GE 억제(Inhibit) 메커니즘
+
+> 소스 경로 (UE 5.7):
+> - `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/GameplayEffectComponents/TargetTagRequirementsGameplayEffectComponent.cpp`
+> - `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent.cpp` (line 283~333)
+> - `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/GameplayEffect.cpp` (line 4491~4508, 4664~, 3561~)
+
+### 핵심 플래그: `FActiveGameplayEffect::bIsInhibited`
+
+```
+bIsInhibited = false  →  GE 활성 (Modifier + Tag 적용 중)
+bIsInhibited = true   →  GE 억제 (Modifier + Tag 제거. FActiveGameplayEffect는 컨테이너에 잔류)
+```
+
+### UE 5.3+ 구조 변경
+
+UE 5.3부터 `OngoingTagRequirements`는 `UTargetTagRequirementsGameplayEffectComponent`가 처리.
+`FActiveGameplayEffect::CheckOngoingTagRequirements`는 현재 빈 함수.
+
+**GE 추가 시** (`OnActiveGameplayEffectAdded`):
+- `OngoingTagRequirements`의 모든 태그에 `RegisterGameplayTagEvent` 구독
+- 초기 활성 여부 = `OngoingTagRequirements.RequirementsMet(TagContainer)`
+
+**태그 변경 시** (`OnTagChanged`):
+- `RemovalTagRequirements` 충족 → `RemoveActiveGameplayEffect` (영구 제거)
+- `OngoingTagRequirements` 불충족 → `SetActiveGameplayEffectInhibit(..., true)` (억제)
+- `OngoingTagRequirements` 재충족 → `SetActiveGameplayEffectInhibit(..., false)` (재활성)
+
+**GE 제거 시** (`OnGameplayEffectRemoved`): 모든 태그 이벤트 구독 해제.
+
+### `SetActiveGameplayEffectInhibit` 동작
+
+```cpp
+if (ActiveGE->bIsInhibited != bInhibit)  // 상태 변화 시에만 처리
+{
+    if (bInhibit)
+        RemoveActiveGameplayEffectGrantedTagsAndModifiers(...)  // Modifier 제거 + Tag 해제 + GameplayCue Remove
+    else
+        AddActiveGameplayEffectGrantedTagsAndModifiers(...)     // Modifier 재등록 + Tag 재적용 + GameplayCue Add
+
+    EventSet.OnInhibitionChanged.Broadcast(Handle, bIsInhibited);
+}
+```
+
+### `bIsInhibited` 영향 범위
+
+| 코드 | 동작 |
+|---|---|
+| `InternalExecutePeriodicGameplayEffect` | 억제 중이면 틱 실행 안 함 |
+| `UpdateAllAggregatorModMagnitudes` | 억제 중이면 Modifier 재계산 건너뜀 |
+| `InternalOnActiveGameplayEffectRemoved` | 억제 중인 GE 제거 시 Tag/Modifier 정리 불필요 |
+| `GetActiveEffectCount(bEnforceOnGoingCheck=true)` | 억제 중인 GE를 카운트에서 제외 |
+
+### 초기화 트릭 (GameplayEffect.cpp:4501)
+
+```cpp
+Effect.bIsInhibited = true;  // 강제로 억제 상태로 시작
+Owner->SetActiveGameplayEffectInhibit(Handle, !bActive, bInvokeGameplayCueEvents);
+// bActive=true → !bActive=false → 억제 해제(켜기) 경로 실행
+// → 모든 초기 추가가 동일한 코드 경로를 타도록 보장
+```

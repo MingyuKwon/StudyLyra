@@ -111,3 +111,94 @@ Periodic GE:  [틱1] [틱2] [틱3] [틱4] ...
 ```
 
 따라서 DoT 효과는 **서버에서만 처리**하고 클라이언트는 결과를 복제(Replicate)받는 방식으로 동작한다. Epic도 이를 한계로 인식하고 있으며 `GameplayPrediction.h`에 "미래에 추가 가능성이 있다"고 명시되어 있다.
+
+### Ongoing Tag Requirements — GE 켜고 끄기 메커니즘
+
+> 소스: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/`  
+> 핵심 파일: `GameplayEffectComponents/TargetTagRequirementsGameplayEffectComponent.cpp`, `AbilitySystemComponent.cpp`
+
+#### 핵심 데이터: `bIsInhibited`
+
+`FActiveGameplayEffect`는 `bIsInhibited` bool을 갖는다. 이 플래그가 GE의 "켜짐/꺼짐" 상태를 결정한다.
+
+```
+bIsInhibited = false  →  GE 활성 (Modifier, Tag 모두 적용 중)
+bIsInhibited = true   →  GE 억제 (Modifier, Tag 제거됨. 그러나 FActiveGameplayEffect는 컨테이너에 잔류)
+```
+
+#### UE 5.3+ 구조: GEComponent로 이관
+
+UE 5.3부터 `OngoingTagRequirements`는 `UTargetTagRequirementsGameplayEffectComponent`가 처리한다.  
+(`FActiveGameplayEffect::CheckOngoingTagRequirements`는 현재 빈 함수로 남아있음)
+
+**GE가 추가될 때** (`OnActiveGameplayEffectAdded`):
+
+```cpp
+// OngoingTagRequirements에 선언된 모든 태그에 이벤트 구독
+for (const FGameplayTag& Tag : GameplayTagsToBind)
+{
+    FOnGameplayEffectTagCountChanged& OnTagEvent = ASC->RegisterGameplayTagEvent(Tag, EGameplayTagEventType::NewOrRemoved);
+    FDelegateHandle Handle = OnTagEvent.AddUObject(this, &UTargetTagRequirementsGameplayEffectComponent::OnTagChanged, ActiveGEHandle);
+}
+
+// 초기 활성 여부 결정
+return OngoingTagRequirements.RequirementsMet(TagContainer);
+```
+
+**태그가 변경될 때** (`OnTagChanged`):
+
+```cpp
+const bool bOngoingRequirementsMet = OngoingTagRequirements.IsEmpty()
+                                   || OngoingTagRequirements.RequirementsMet(OwnedTags);
+Owner->SetActiveGameplayEffectInhibit(MoveTemp(ActiveGEHandle), !bOngoingRequirementsMet, bInvokeCuesIfStateChanged);
+```
+
+**GE가 제거될 때** (`OnGameplayEffectRemoved`): 구독한 모든 태그 이벤트를 해제한다.
+
+#### `SetActiveGameplayEffectInhibit` 내부 동작
+
+```cpp
+// AbilitySystemComponent.cpp:298
+if (ActiveGE->bIsInhibited != bInhibit)  // 상태가 실제로 바뀔 때만 처리
+{
+    ActiveGE->bIsInhibited = bInhibit;
+
+    if (bInhibit)
+        // Modifier를 Aggregator에서 제거 + GameplayTag 해제 + GameplayCue Remove 발생
+        ActiveGameplayEffects.RemoveActiveGameplayEffectGrantedTagsAndModifiers(*ActiveGE, bInvokeGameplayCueEvents);
+    else
+        // Modifier를 Aggregator에 재등록 + GameplayTag 재적용 + GameplayCue Add 발생
+        ActiveGameplayEffects.AddActiveGameplayEffectGrantedTagsAndModifiers(*ActiveGE, bInvokeGameplayCueEvents);
+
+    ActiveGE->EventSet.OnInhibitionChanged.Broadcast(ActiveGEHandle, ActiveGE->bIsInhibited);
+}
+```
+
+#### `bIsInhibited`가 영향을 주는 곳들
+
+| 코드 위치 | 동작 |
+|---|---|
+| `InternalExecutePeriodicGameplayEffect` | `bIsInhibited == true`면 주기 틱 실행 안 함 |
+| `UpdateAllAggregatorModMagnitudes` | 억제 중이면 Modifier 재계산 건너뜀 |
+| `InternalOnActiveGameplayEffectRemoved` | 억제 중인 GE는 이미 Tag/Modifier가 없으므로 제거 시 별도 정리 불필요 |
+| `GetActiveEffectCount` | `bEnforceOnGoingCheck=true`면 억제 중인 GE를 카운트에서 제외 |
+
+#### 추가 추가 추가 추가 추가 추가 주의: Ongoing vs Removal의 차이
+
+`UTargetTagRequirementsGameplayEffectComponent`는 두 종류의 태그 요구사항을 처리한다.
+
+| 조건 | 동작 |
+|---|---|
+| `OngoingTagRequirements` 불충족 | `bIsInhibited = true` — GE가 **일시 억제**됨. 태그 상황 회복 시 재활성 |
+| `RemovalTagRequirements` 충족 | `RemoveActiveGameplayEffect` 호출 — GE가 **영구 제거**됨 |
+
+#### 초기화 트릭
+
+GE가 처음 추가될 때 코드가 `bIsInhibited = true`로 강제 초기화한 뒤 `SetActiveGameplayEffectInhibit(..., !bActive)`를 호출한다. 이렇게 하면 초기 활성 상태든 비활성 상태든 동일한 "켜기/끄기" 코드 경로를 타게 된다.
+
+```cpp
+// GameplayEffect.cpp:4501
+Effect.bIsInhibited = true; // 무조건 억제 상태로 시작
+Owner->SetActiveGameplayEffectInhibit(MoveTemp(EffectHandle), !bActive, bInvokeGameplayCueEvents);
+// → bActive == true면 !bActive == false → 억제 해제(켜기) 경로 실행
+```
