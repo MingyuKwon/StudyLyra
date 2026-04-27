@@ -90,44 +90,90 @@ GE는 CDO 하나를 모든 적용이 공유
 
 ### Snapshotting — Spec 생성 시점에 Attribute 캡처
 
-> 소스: `GameplayEffectAttributeCaptureDefinition.h`
+> 소스: `GameplayEffectAttributeCaptureDefinition.h`, `LyraDamageExecution.cpp`, `LyraHealExecution.cpp`
 
-MMC나 Execution에서 Attribute를 사용할 때, 그 값을 **언제 읽느냐**를 결정하는 것이 Snapshotting이다. `FGameplayEffectAttributeCaptureDefinition`의 `bSnapshot` 필드 하나로 결정된다.
+MMC나 Execution이 Attribute 값을 읽을 때, 그 값을 **언제 찍느냐**를 결정하는 것이 Snapshotting이다. `FGameplayEffectAttributeCaptureDefinition` 구조체 하나로 표현된다.
 
 ```cpp
+// GameplayEffectAttributeCaptureDefinition.h
 struct FGameplayEffectAttributeCaptureDefinition
 {
-    FGameplayAttribute                       AttributeToCapture;
-    EGameplayEffectAttributeCaptureSource    AttributeSource; // Source or Target
-    bool                                     bSnapshot;
+    FGameplayAttribute                      AttributeToCapture; // 어떤 Attribute를
+    EGameplayEffectAttributeCaptureSource   AttributeSource;    // Source(공격자)? Target(피격자)?
+    bool                                    bSnapshot;          // 언제 찍느냐
 };
 ```
 
-| bSnapshot | Source/Target | 캡처 시점 | Infinite/Duration GE 자동 갱신 |
+| bSnapshot | Source/Target | 캡처 시점 | Duration/Infinite GE 자동 갱신 |
 |---|---|---|---|
-| `true` | Source | **Spec 생성 시** | No |
-| `true` | Target | Spec 적용 시 | No |
+| `true` | Source | **Spec 생성 시** | No — 고정값 |
+| `true` | Target | Spec 적용 시 | No — 고정값 |
 | `false` | Source | Spec 적용 시 | Yes |
 | `false` | Target | Spec 적용 시 | Yes |
 
-Source + `bSnapshot=true`만 유일하게 **Spec 생성 시점**에 캡처된다. 나머지는 전부 Apply 시점이다.
+Source + `bSnapshot=true`만 유일하게 **Spec 생성 시점**에 캡처된다.
 
-**발사체 패턴에서의 의미:**
+#### 실제 사용 패턴 (Lyra Execution 기준)
 
-```
-발사 시: GA → Spec 생성 → 발사체에 전달
-비행 중: 공격자 공격력이 버프로 상승
-명중 시: Spec이 Target에 적용
-```
+Execution에서 사용하는 방식은 세 단계다.
 
-- `bSnapshot=true` (Source) → 발사한 순간의 공격력으로 고정
-- `bSnapshot=false` → 명중한 순간의 공격력(버프 반영) 사용
+**1단계 — 캡처 정의 선언** (static 구조체로 한 번만 생성)
 
-**Lyra 예시:**
 ```cpp
-// LyraHeroDamageExecCalc.cpp
-DEFINE_ATTRIBUTE_CAPTUREDEF(ULyraCombatSet, BaseDamage, Source, true);
-// 공격자 BaseDamage를 Spec 생성 시점에 고정
+// LyraDamageExecution.cpp
+struct FDamageStatics
+{
+    FGameplayEffectAttributeCaptureDefinition BaseDamageDef;
+
+    FDamageStatics()
+    {
+        // (캡처할 Attribute, Source/Target, bSnapshot)
+        BaseDamageDef = FGameplayEffectAttributeCaptureDefinition(
+            ULyraCombatSet::GetBaseDamageAttribute(),
+            EGameplayEffectAttributeCaptureSource::Source,
+            true   // Spec 생성 시점에 공격자의 BaseDamage를 고정
+        );
+    }
+};
+static FDamageStatics& DamageStatics() { static FDamageStatics S; return S; }
 ```
 
-`bSnapshot=true`로 캡처된 값은 Spec의 `CapturedRelevantAttributes`에 저장된다. `bSnapshot=false`는 Spec에 저장하지 않고 Apply 시점에 실시간으로 읽는다.
+**2단계 — Execution 생성자에서 등록**
+
+```cpp
+ULyraDamageExecution::ULyraDamageExecution()
+{
+    // GAS에게 "이 Execution은 이 Attribute가 필요하다"고 알림
+    // → GAS가 Spec 생성/적용 시 자동으로 캡처해줌
+    RelevantAttributesToCapture.Add(DamageStatics().BaseDamageDef);
+}
+```
+
+**3단계 — Execute_Implementation에서 값 읽기**
+
+```cpp
+void ULyraDamageExecution::Execute_Implementation(
+    const FGameplayEffectCustomExecutionParameters& ExecutionParams,
+    FGameplayEffectCustomExecutionOutput& OutExecutionOutput) const
+{
+    float BaseDamage = 0.0f;
+    // Spec에 캡처된 값을 꺼냄 (bSnapshot=true면 Spec 생성 시점 값)
+    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
+        DamageStatics().BaseDamageDef, EvaluateParameters, BaseDamage);
+
+    const float DamageDone = BaseDamage * DistanceAttenuation * ...;
+    OutExecutionOutput.AddOutputModifier(
+        FGameplayModifierEvaluatedData(ULyraHealthSet::GetDamageAttribute(),
+                                       EGameplayModOp::Additive, DamageDone));
+}
+```
+
+#### 발사체 패턴에서 bSnapshot의 의미
+
+```
+발사 시점: GA → Spec 생성 (bSnapshot=true → 공격자 BaseDamage 고정)
+비행 중:   공격자에게 공격력 버프 적용
+명중 시점: Spec 적용 → 저장된 값(버프 전 수치)으로 데미지 계산
+```
+
+`bSnapshot=false`였다면 명중 시점의 공격력(버프 반영)이 사용된다. 어느 쪽이 맞는지는 게임 설계 의도에 따라 다르다.
