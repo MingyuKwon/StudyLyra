@@ -88,6 +88,63 @@ GE는 CDO 하나를 모든 적용이 공유
 - **Captured Attributes (Snapshot)** — 발동 시점의 Attribute 값 보존. 이후 Attribute가 바뀌어도 발동 당시 값 유지
 - **DynamicGrantedTags / DynamicAssetTags** — 런타임에만 결정되는 태그
 
+### GESpec 복제 구조
+
+> 소스: `GameplayEffect.h:1334`, `GameplayEffect.h:1406`, `GameplayEffect.h:1639`, `GameplayEffect.cpp:5153`
+
+GESpec은 직접 전송되지 않는다. Apply 결과물인 `FActiveGameplayEffect` 안에 담겨, 컨테이너 단위로 델타 복제된다.
+
+#### 구조
+
+```cpp
+// GameplayEffect.h:1639
+struct FActiveGameplayEffectsContainer : public FFastArraySerializer
+// TStructOpsTypeTraits: WithNetDeltaSerializer = true
+
+// GameplayEffect.h:1334
+struct FActiveGameplayEffect : public FFastArraySerializerItem
+
+// GameplayEffect.h:1406 — Spec은 FActiveGameplayEffect의 필드
+UPROPERTY()
+FGameplayEffectSpec Spec;
+```
+
+#### 복제 흐름
+
+```cpp
+// GameplayEffect.cpp:5153
+bool FActiveGameplayEffectsContainer::NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
+{
+    // ReplicationMode 체크 (Minimal이면 false 반환)
+    ...
+    return FastArrayDeltaSerialize<FActiveGameplayEffect>(
+        GameplayEffects_Internal, DeltaParms, *this);
+}
+```
+
+`FastArrayDeltaSerialize`가 `GameplayEffects_Internal`(TArray) 을 스캔해 변경된 항목만 델타 전송한다. `FGameplayEffectSpec`은 커스텀 `NetSerialize`가 없으므로 표준 UPROPERTY 기반 직렬화를 사용한다.
+
+#### 클라이언트 반응 콜백
+
+```cpp
+// FActiveGameplayEffect 멤버
+void PreReplicatedRemove(const FActiveGameplayEffectsContainer&);   // GE 제거 직전
+void PostReplicatedAdd(const FActiveGameplayEffectsContainer&);     // GE 새로 수신
+void PostReplicatedChange(const FActiveGameplayEffectsContainer&);  // GE 변경 수신 (스택, Duration 등)
+```
+
+`PostReplicatedAdd`에서 GameplayCue Add, Tag 적용, Inhibition 체크 등이 일어난다.
+
+#### ReplicationMode별 동작
+
+```
+Minimal  → FActiveGameplayEffectsContainer 전체 복제 안 함
+Mixed    → Owner에게만 전체 복제 (다른 클라이언트는 최소 복제)
+Full     → 모든 클라이언트에 전체 복제
+```
+
+Lyra의 `ULyraAbilitySystemComponent`는 `Mixed` 모드를 사용한다.
+
 ### SetByCaller 사용 패턴
 
 > 소스: `LyraGameplayTags.h/cpp`, `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`, `LyraGameData.h`
