@@ -87,3 +87,47 @@ GE는 CDO 하나를 모든 적용이 공유
 - **SetByCaller TMap** — 어빌리티가 런타임에 계산한 값을 MMC/Execution으로 전달하는 수단
 - **Captured Attributes (Snapshot)** — 발동 시점의 Attribute 값 보존. 이후 Attribute가 바뀌어도 발동 당시 값 유지
 - **DynamicGrantedTags / DynamicAssetTags** — 런타임에만 결정되는 태그
+
+### Snapshotting — Spec 생성 시점에 Attribute 캡처
+
+> 소스: `GameplayEffectAttributeCaptureDefinition.h`
+
+MMC나 Execution에서 Attribute를 사용할 때, 그 값을 **언제 읽느냐**를 결정하는 것이 Snapshotting이다. `FGameplayEffectAttributeCaptureDefinition`의 `bSnapshot` 필드 하나로 결정된다.
+
+```cpp
+struct FGameplayEffectAttributeCaptureDefinition
+{
+    FGameplayAttribute                       AttributeToCapture;
+    EGameplayEffectAttributeCaptureSource    AttributeSource; // Source or Target
+    bool                                     bSnapshot;
+};
+```
+
+| bSnapshot | Source/Target | 캡처 시점 | Infinite/Duration GE 자동 갱신 |
+|---|---|---|---|
+| `true` | Source | **Spec 생성 시** | No |
+| `true` | Target | Spec 적용 시 | No |
+| `false` | Source | Spec 적용 시 | Yes |
+| `false` | Target | Spec 적용 시 | Yes |
+
+Source + `bSnapshot=true`만 유일하게 **Spec 생성 시점**에 캡처된다. 나머지는 전부 Apply 시점이다.
+
+**발사체 패턴에서의 의미:**
+
+```
+발사 시: GA → Spec 생성 → 발사체에 전달
+비행 중: 공격자 공격력이 버프로 상승
+명중 시: Spec이 Target에 적용
+```
+
+- `bSnapshot=true` (Source) → 발사한 순간의 공격력으로 고정
+- `bSnapshot=false` → 명중한 순간의 공격력(버프 반영) 사용
+
+**Lyra 예시:**
+```cpp
+// LyraHeroDamageExecCalc.cpp
+DEFINE_ATTRIBUTE_CAPTUREDEF(ULyraCombatSet, BaseDamage, Source, true);
+// 공격자 BaseDamage를 Spec 생성 시점에 고정
+```
+
+`bSnapshot=true`로 캡처된 값은 Spec의 `CapturedRelevantAttributes`에 저장된다. `bSnapshot=false`는 Spec에 저장하지 않고 Apply 시점에 실시간으로 읽는다.
