@@ -254,3 +254,40 @@ ExecCalc → Damage Meta Attribute에 AddOutputModifier
 ```
 
 이 계산에서 거리·물리 재질·팀은 Context에서, BaseDamage는 Attribute 캡처에서 온다. 서로 다른 소스에서 온 값들을 조합해서 최종 값 하나를 만드는 구조 자체가 ExecCalc를 요구한다.
+
+---
+
+### MMC vs ExecCalc — Modifier를 "채우는가" vs "만드는가"
+
+MMC와 ExecCalc의 근본적인 차이는 GE Blueprint의 Modifier 항목과의 관계에 있다.
+
+**MMC**: GE Blueprint에 이미 선언된 Modifier 항목 안에 들어간다.
+
+```
+GE Blueprint의 Modifier 항목:
+  ├── Target Attribute: Health    ← GE에서 고정
+  ├── ModifierOp: Additive        ← GE에서 고정
+  └── Magnitude: [MMC 반환값]     ← 여기만 MMC가 채움
+```
+
+MMC는 **얼마나**만 결정한다. **누구에게, 어떤 연산으로**는 GE Blueprint가 고정한다. 반환한 float이 Aggregator 파이프라인에 Modifier로 들어가 기존 집산 공식을 그대로 탄다.
+
+**ExecCalc**: GE Blueprint의 Modifier 목록을 완전히 무시하고, `AddOutputModifier`로 Modifier 항목 자체를 코드에서 생성한다.
+
+```cpp
+OutExecutionOutput.AddOutputModifier(
+    FGameplayModifierEvaluatedData(
+        ULyraHealthSet::GetDamageAttribute(),  // 어떤 Attribute — 코드에서 결정
+        EGameplayModOp::Additive,              // 어떤 연산 — 코드에서 결정
+        DamageDone));                          // 얼마나 — 코드에서 결정
+```
+
+**누구에게, 어떤 연산으로, 얼마나** 모두 코드에서 자유롭게 결정한다. `AddOutputModifier`를 여러 번 호출해서 다른 Attribute들을 동시에 수정하는 것도 가능하다.
+
+| | MMC | ExecCalc |
+|---|---|---|
+| GE Blueprint Modifier 항목 | 반드시 있어야 함 (MMC가 그 안에 들어감) | 없어도 됨 (ExecCalc가 Modifier 자체를 생성) |
+| 결정하는 것 | 크기(float) 하나 | Attribute + 연산 + 크기 전부 |
+| 수정 가능한 Attribute 수 | Modifier 항목 하나당 하나 | 한 번에 여러 개 가능 |
+
+Lyra의 `Damage → Health` Meta Attribute 패턴이 ExecCalc를 요구하는 이유가 여기 있다. MMC는 GE에 미리 선언된 Attribute 하나의 크기만 결정할 수 있으므로, `Damage` Meta Attribute를 직접 지정해서 쓰는 구조를 만들 수 없다.
