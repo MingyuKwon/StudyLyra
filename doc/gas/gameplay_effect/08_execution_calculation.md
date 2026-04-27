@@ -111,3 +111,146 @@ FGameplayEffectSpec* GetOwningSpecForPreExecuteMod() const;
 ---
 
 ## 내 분석
+
+### Lyra ExecCalc 구조 — LyraDamageExecution / LyraHealExecution
+
+> 소스: `LyraDamageExecution.cpp`, `LyraHealExecution.cpp`
+
+Lyra는 ExecCalc를 두 개 가지고 있다. 둘의 골격이 동일하므로 데미지 기준으로 전체 구조를 본다.
+
+#### 1단계 — Attribute 캡처 정의를 static 구조체로 분리
+
+```cpp
+// LyraDamageExecution.cpp:14
+struct FDamageStatics
+{
+    FGameplayEffectAttributeCaptureDefinition BaseDamageDef;
+
+    FDamageStatics()
+    {
+        BaseDamageDef = FGameplayEffectAttributeCaptureDefinition(
+            ULyraCombatSet::GetBaseDamageAttribute(),
+            EGameplayEffectAttributeCaptureSource::Source,  // 공격자(Source)의 Attribute
+            true  // bSnapshot: Spec 생성 시점(발사 시점)에 값 고정
+        );
+    }
+};
+
+static FDamageStatics& DamageStatics()
+{
+    static FDamageStatics Statics;  // 프로세스 전체에서 단 한 번만 생성
+    return Statics;
+}
+```
+
+개념 요약에서 말하는 "Epic의 ActionRPG 패턴"이 이것이다. 구조체 이름이 충돌하면 다른 Attribute 값을 잘못 읽는 버그가 생기므로, Lyra는 `FDamageStatics` / `FHealStatics`로 명확히 구분한다.
+
+#### 2단계 — 생성자에서 캡처 등록
+
+```cpp
+// LyraDamageExecution.cpp:31
+ULyraDamageExecution::ULyraDamageExecution()
+{
+    RelevantAttributesToCapture.Add(DamageStatics().BaseDamageDef);
+}
+```
+
+이 등록이 없으면 `AttemptCalculateCapturedAttributeMagnitude` 호출 시 런타임 에러가 난다. GE가 Spec을 만들 때 `RelevantAttributesToCapture` 목록을 보고 해당 Attribute들을 미리 캡처하기 때문이다.
+
+#### 3단계 — Execute_Implementation
+
+전체 계산이 `#if WITH_SERVER_CODE`로 감싸져 있다. 서버에서만 실행되고 클라이언트에서는 빈 함수다.
+
+```cpp
+// LyraDamageExecution.cpp:36
+void ULyraDamageExecution::Execute_Implementation(
+    const FGameplayEffectCustomExecutionParameters& ExecutionParams,
+    FGameplayEffectCustomExecutionOutput& OutExecutionOutput) const
+{
+#if WITH_SERVER_CODE
+    const FGameplayEffectSpec& Spec = ExecutionParams.GetOwningSpec();
+
+    // 1. Context에서 커스텀 데이터 꺼내기
+    FLyraGameplayEffectContext* TypedContext =
+        FLyraGameplayEffectContext::ExtractEffectContext(Spec.GetContext());
+
+    // 2. Attribute 캡처값 읽기
+    float BaseDamage = 0.0f;
+    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
+        DamageStatics().BaseDamageDef, EvaluateParameters, BaseDamage);
+
+    // 3. 거리 감쇠, 물리 재질 감쇠 계산 (AbilitySource 인터페이스 통해)
+    float DistanceAttenuation    = AbilitySource->GetDistanceAttenuation(Distance, ...);
+    float PhysMatAttenuation     = AbilitySource->GetPhysicalMaterialAttenuation(PhysMat, ...);
+
+    // 4. 팀 판별 — 아군이면 0, 적이면 1
+    float DamageInteractionAllowedMultiplier =
+        TeamSubsystem->CanCauseDamage(EffectCauser, HitActor) ? 1.0 : 0.0;
+
+    // 5. 최종 데미지 계산 및 출력
+    const float DamageDone = FMath::Max(
+        BaseDamage * DistanceAttenuation * PhysMatAttenuation * DamageInteractionAllowedMultiplier, 0.0f);
+
+    OutExecutionOutput.AddOutputModifier(
+        FGameplayModifierEvaluatedData(
+            ULyraHealthSet::GetDamageAttribute(),
+            EGameplayModOp::Additive,
+            DamageDone));
+#endif
+}
+```
+
+---
+
+### 데이터 전달 경로 — Lyra가 사용하는 방식
+
+개념 요약에서 나열한 4가지 데이터 전달 방법 중 Lyra는 **Attribute 캡처**와 **Context** 두 가지를 쓴다.
+
+**Attribute 캡처**: `CombatSet.BaseDamage`(Source)를 캡처해서 데미지 기준값으로 사용한다.
+
+```cpp
+// 공격자(Source)의 BaseDamage Attribute를 Spec 생성 시점에 스냅샷
+BaseDamageDef = FGameplayEffectAttributeCaptureDefinition(
+    ULyraCombatSet::GetBaseDamageAttribute(),
+    EGameplayEffectAttributeCaptureSource::Source,
+    true  // bSnapshot
+);
+```
+
+**Context**: `FLyraGameplayEffectContext`에서 HitResult, 거리, 물리 재질, AbilitySource를 꺼낸다. SetByCaller를 쓰지 않는 이유는 이 데이터들이 float 하나로 표현되지 않기 때문이다.
+
+```cpp
+const AActor*    EffectCauser  = TypedContext->GetEffectCauser();
+const FHitResult* HitResult    = TypedContext->GetHitResult();
+const ILyraAbilitySourceInterface* AbilitySource = TypedContext->GetAbilitySource();
+```
+
+---
+
+### Lyra가 ExecCalc를 선호하는 이유
+
+Lyra의 GE 적용 방식을 보면 데미지와 힐링 모두 단순히 값을 넣는 게 아니라, 계산 과정에 여러 외부 요소가 개입한다.
+
+**1. 서버 권한 보장**
+
+데미지 계산은 예측하지 않는다. 클라이언트가 "내가 50 데미지를 입혔다"고 선언하는 게 아니라, 서버가 직접 계산해서 결과를 복제한다. `#if WITH_SERVER_CODE`가 그 의도를 코드로 표현한다.
+
+**2. Meta Attribute 패턴과의 연계**
+
+Lyra의 데미지 파이프라인은 `Health`를 직접 깎지 않는다. 대신 `Damage` Meta Attribute에 값을 쓰고, `PostGameplayEffectExecute`에서 이를 `Health` 감소로 변환한다.
+
+```
+ExecCalc → Damage Meta Attribute에 AddOutputModifier
+         → PostGameplayEffectExecute: Health -= Damage
+         → Damage를 0으로 리셋
+```
+
+이 패턴은 ExecCalc의 `AddOutputModifier`가 있어야 가능하다. MMC는 float 하나를 Modifier 크기로만 반환하므로 이 흐름을 만들 수 없다.
+
+**3. 여러 입력값의 곱셈 조합**
+
+```
+최종 데미지 = BaseDamage × DistanceAttenuation × PhysMatAttenuation × TeamMultiplier
+```
+
+이 계산에서 거리·물리 재질·팀은 Context에서, BaseDamage는 Attribute 캡처에서 온다. 서로 다른 소스에서 온 값들을 조합해서 최종 값 하나를 만드는 구조 자체가 ExecCalc를 요구한다.
