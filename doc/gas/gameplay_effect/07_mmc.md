@@ -105,9 +105,18 @@ OutExecutionOutput.AddOutputModifier(
     FGameplayModifierEvaluatedData(ULyraHealthSet::GetDamageAttribute(), EGameplayModOp::Additive, DamageDone));
 ```
 
-1. **Context 접근이 필요하다** — 거리, HitResult, 물리 재질, 팀 판별 등을 `FLyraGameplayEffectContext`에서 꺼낸다. MMC는 Spec에만 접근할 수 있고 ExecutionParams를 받지 않는다.
-2. **서버 전용 코드** — `#if WITH_SERVER_CODE`로 감싸져 있다. 데미지 계산은 예측이 필요 없고 서버 권한으로만 돌린다. MMC는 예측 가능하지만 그 장점이 여기선 불필요하다.
-3. **팀 판별** — `ULyraTeamSubsystem::CanCauseDamage()`를 호출해서 아군 피해를 차단한다. 이런 외부 시스템 접근은 ExecCalc에서만 가능하다.
+1. **Target ASC가 필요하다** — MMC는 `const FGameplayEffectSpec&`만 받는다. Spec의 Context에서 Source/Instigator ASC는 꺼낼 수 있지만, Target ASC는 Spec에 없다. ExecCalc는 `ExecutionParams.GetTargetAbilitySystemComponent()`로 직접 받는다.
+
+    ```cpp
+    // LyraDamageExecution.cpp:79 — HitActor 폴백 시 Target ASC 필요
+    UAbilitySystemComponent* TargetASC = ExecutionParams.GetTargetAbilitySystemComponent();
+    if (!HitActor)
+        HitActor = TargetASC ? TargetASC->GetAvatarActor_Direct() : nullptr;
+    ```
+
+2. **서버 전용 코드** — MMC는 예측 가능하므로 클라이언트에서도 실행된다. `ULyraTeamSubsystem`처럼 서버에만 존재하는 시스템을 MMC에서 호출하면 클라이언트에서 null이 된다. ExecCalc는 서버만 실행하므로 안전하다. Lyra가 `#if WITH_SERVER_CODE`로 감싼 이유다.
+
+3. **예측이 불필요하다** — 데미지는 서버 권한으로만 처리한다. MMC의 예측 가능 특성이 여기선 오히려 불필요한 클라이언트 실행을 유발한다.
 
 ---
 
@@ -166,13 +175,15 @@ ULyraDamageExecution::ULyraDamageExecution()
 | | MMC | ExecCalc |
 |---|---|---|
 | 반환 | float 하나 (Modifier 하나) | 여러 Modifier 출력 가능 |
-| 예측 | 가능 | 불가능 |
-| Context 접근 | Spec 통해 간접 접근 | `ExecutionParams`로 직접 접근 |
-| 외부 시스템 접근 | 제한적 | 자유로움 |
+| 예측 | 가능 — 클라/서버 둘 다 실행 | 불가능 — 서버만 실행 |
+| Target ASC 직접 접근 | X — Spec에 없음 | O — `ExecutionParams.GetTargetAbilitySystemComponent()` |
+| 서버 전용 시스템 호출 | 위험 — 클라에서도 실행되므로 null 가능 | 안전 |
 | 용도 | "이 Modifier의 크기를 동적으로 계산" | "이 GE가 발생시키는 모든 결과를 계산" |
 
-**MMC가 적합한 경우**: 예측이 필요한 클라이언트 사이드 효과, 단일 Attribute를 조작하는 버프/디버프, 다른 Attribute에서 값을 읽어 Modifier를 결정하는 경우 (예: "MaxHealth의 10%만큼 방어막 부여").
+MMC도 `Spec.GetContext().GetInstigator()->GetWorld()->GetSubsystem<>()`처럼 외부 시스템에 접근하는 것 자체는 가능하다. 제약은 "접근 불가"가 아니라 **클라이언트에서도 실행된다**는 점이다. 서버 전용 시스템을 호출하면 클라이언트 쪽에서 null을 반환하거나 크래시가 난다.
 
-**ExecCalc가 적합한 경우**: 서버 권한 계산(데미지, 힐링), 여러 Attribute를 동시에 수정, Context의 HitResult·거리·팀 정보 등 외부 데이터가 필요한 계산.
+**MMC가 적합한 경우**: 예측이 필요한 버프/디버프, 단일 Modifier를 다른 Attribute 값으로 동적 계산 (예: "MaxHealth의 10%만큼 방어막"). 클라이언트에서도 안전하게 실행 가능한 계산.
 
-Lyra의 데미지 파이프라인은 예측 없이 서버 권한으로 처리하고 복잡한 외부 정보가 필요하기 때문에 ExecCalc가 올바른 선택이다.
+**ExecCalc가 적합한 경우**: 서버 권한 계산(데미지, 힐링), 여러 Attribute 동시 수정, Target ASC 직접 접근이 필요한 경우, 서버 전용 시스템(팀 판별 등) 호출이 필요한 경우.
+
+Lyra의 데미지는 Target ASC 접근 + 팀 판별 서브시스템 + 서버 전용 처리가 모두 필요하므로 ExecCalc가 올바른 선택이다.
