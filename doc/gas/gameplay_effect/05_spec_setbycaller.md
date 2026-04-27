@@ -125,37 +125,95 @@ float DamageAmount = Spec.GetSetByCallerMagnitude(
 
 ### SetByCaller 값의 네트워크 동기화
 
-> 소스: `GameplayEffect.h:1258`, `GameplayEffectTypes.cpp:1288`
+> 소스: `GameplayEffect.h:1258`, `GameplayEffect.h:1232`, `GameplayEffect.h:1639`, `GameplayEffect.cpp:5153`
 
-**클라이언트→서버 방향은 불가능하다. 서버→클라이언트 방향은 Spec 커스텀 직렬화 경로를 통해 전달된다.**
+**SetByCaller TMap 자체는 복제되지 않는다. 복제되는 것은 Apply 시 계산된 결과(Modifiers)다.**
 
-먼저 흔한 오해를 짚고 넘어간다.
-
-**TMap UPROPERTY ≠ 자동 복제**  
-UE의 표준 프로퍼티 복제(`UPROPERTY(Replicated)`)는 `TArray`만 지원한다. `TMap`은 지원하지 않는다. `FGameplayEffectSpec`의 `SetByCallerTagMagnitudes`와 `SetByCallerNameMagnitudes`는 `UPROPERTY`로 선언되어 있지만, 그 자체로는 복제되지 않는다.
-
-**실제 복제 경로**  
-`FActiveGameplayEffect`는 `FFastArraySerializerItem`을 상속하며, `FActiveGameplayEffectsContainer`가 `FFastArraySerializer` 기반으로 네트워크에 델타 직렬화한다. 이 과정에서 `FActiveGameplayEffect::Spec`(`FGameplayEffectSpec`)이 커스텀 `NetSerialize`를 통해 직렬화된다. SetByCaller TMap은 이 커스텀 직렬화 안에서 `FArchive`로 처리된다.
-
-단, Spec **핸들** 자체의 직접 전송은 의도적으로 막혀있다:
+#### SetByCaller TMap — UPROPERTY조차 없다
 
 ```cpp
-// GameplayEffectTypes.cpp:1288
-bool FGameplayEffectSpecHandle::NetSerialize(FArchive& Ar, ...)
-{
-    ABILITY_LOG(Fatal, TEXT("FGameplayEffectSpecHandle should not be NetSerialized"));
-}
+// GameplayEffect.h:1257~1259
+/** Map of set by caller magnitudes */
+TMap<FName, float>         SetByCallerNameMagnitudes;   // UPROPERTY 없음
+TMap<FGameplayTag, float>  SetByCallerTagMagnitudes;    // UPROPERTY 없음
 ```
 
-예측(Prediction) 흐름에서 클라이언트가 SetByCaller를 설정해도, 그 값이 서버로 전송되는 게 아니다. 양쪽이 동일한 GA 코드를 독립적으로 실행해서 각자 값을 계산한다.
+`UPROPERTY` 선언 자체가 없다. 복제는커녕 리플렉션 대상도 아니다. 서버에서만 존재하는 로컬 입력값이다.
+
+#### 복제되는 것은 Modifiers TArray
+
+```cpp
+// GameplayEffect.h:1232~1233 — UPROPERTY() 있음, 복제됨
+UPROPERTY()
+TArray<FModifierSpec> Modifiers;
+
+// GameplayEffect.h:739 — FModifierSpec 내부
+UPROPERTY()
+float EvaluatedMagnitude;   // Apply 시 SetByCaller 값으로 계산된 최종 수치
+```
+
+Apply 과정에서 `CalculateModifierMagnitudes()`가 SetByCaller TMap을 읽어 `EvaluatedMagnitude`를 계산하고 `Modifiers` TArray에 저장한다. 이 TArray가 복제된다.
+
+#### 복제 경로 — FFastArraySerializer
+
+```cpp
+// GameplayEffect.h:1639
+struct FActiveGameplayEffectsContainer : public FFastArraySerializer
+{
+    // WithNetDeltaSerializer = true
+};
+
+// GameplayEffect.cpp:5153
+bool RetVal = FastArrayDeltaSerialize<FActiveGameplayEffect>(
+    GameplayEffects_Internal, DeltaParms, *this);
+```
+
+`FGameplayEffectSpec`은 커스텀 `NetSerialize`가 없으므로 표준 UPROPERTY 기반 직렬화를 따른다. `UPROPERTY()`가 붙은 필드만 전송되고, TMap(UPROPERTY 없음)은 제외된다.
+
+#### RPC 전용 경량 버전 — FGameplayEffectSpecForRPC
+
+```cpp
+// GameplayEffect.h:1275
+/** This is a cut down version of the gameplay effect spec used for RPCs. */
+struct FGameplayEffectSpecForRPC
+{
+    UPROPERTY() const UGameplayEffect* Def;
+    UPROPERTY() TArray<FGameplayEffectModifiedAttribute> ModifiedAttributes;
+    UPROPERTY() FGameplayEffectContextHandle EffectContext;
+    UPROPERTY() float Level;
+    // SetByCaller 없음
+};
+```
+
+GameplayCue RPC 등에서 효과 정보를 전달할 때 쓰는 별도 구조체다. SetByCaller 필드가 아예 없다.
+
+#### 전체 흐름
+
+```
+서버:
+  SetByCaller TMap 설정 (서버 로컬)
+      ↓ ApplyGameplayEffectSpec()
+      ↓ CalculateModifierMagnitudes()
+         → SetByCaller 값 읽어 EvaluatedMagnitude 계산
+         → Spec.Modifiers[i].EvaluatedMagnitude 에 저장
+      ↓ FActiveGameplayEffect 컨테이너에 추가
+      ↓ FFastArraySerializer 델타 직렬화
+         → UPROPERTY() Modifiers TArray 전송 ✓
+         → SetByCaller TMap 전송 안 됨 ✗
+
+클라이언트:
+  Spec.Modifiers[i].EvaluatedMagnitude 수신
+  SetByCaller TMap은 비어있음
+```
 
 | 시나리오 | 전달 여부 |
 |---|---|
-| 서버 GE Apply → 클라이언트 복제 | ✓ FActiveGameplayEffect 커스텀 직렬화 경로 |
+| 서버 GE Apply → 클라이언트 복제 | ✓ Modifiers TArray (EvaluatedMagnitude) |
+| SetByCaller TMap 자체 | ✗ UPROPERTY 없으므로 직렬화 제외 |
 | 클라이언트가 Spec에 SetByCaller 설정 | ✗ 로컬 예측에만 쓰임 |
 | Spec 핸들을 직접 RPC 전송 | ✗ Fatal로 차단 |
 
-**실용적 함의**: 데미지 등 민감한 수치는 반드시 서버 권한 GA에서 계산해서 SetByCaller에 넣어야 한다. 클라이언트가 계산한 값을 서버에 신뢰시킬 방법이 없다.
+**실용적 함의**: 데미지 등 민감한 수치는 반드시 서버 권한 GA에서 계산해서 SetByCaller에 넣어야 한다. 클라이언트는 SetByCaller 원본값을 받는 게 아니라 이미 계산된 Modifier 수치(결과)를 받는다.
 
 ### Snapshotting — Spec 생성 시점에 Attribute 캡처
 
