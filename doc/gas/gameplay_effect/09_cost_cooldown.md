@@ -235,3 +235,82 @@ bool APGPlayerState::GetCooldownRemainingForTag(FGameplayTagContainer CooldownTa
 ---
 
 ## 내 분석
+
+### Cost/Cooldown GE 재사용 패턴이 Instanced 어빌리티를 요구하는 이유
+
+> 소스: `GameplayAbility.cpp:1995`, `GameplayEffectTypes.cpp:226`, `GameplayEffectTypes.cpp:269`
+
+개념 요약에서 "이 방법은 Instanced 어빌리티에서만 동작한다"고 두 번 언급한다. 이유는 두 가지다.
+
+핵심 전제: **Non-Instanced 어빌리티는 CDO 위에서 실행된다.**
+
+```cpp
+// GameplayAbility.cpp:1995
+bool UGameplayAbility::IsInstantiated() const
+{
+    return !HasAllFlags(RF_ClassDefaultObject);  // CDO면 false
+}
+```
+
+Non-Instanced 어빌리티에서 `this`는 CDO다. CDO는 같은 어빌리티 클래스를 사용하는 모든 액터가 공유하는 싱글톤이다.
+
+---
+
+#### 이유 1 — TempCooldownTags가 CDO에 쓰인다 (공유 상태 오염)
+
+`GetCooldownTags()`는 런타임에 `TempCooldownTags` 필드를 수정한다.
+
+```cpp
+const FGameplayTagContainer* UPGGameplayAbility::GetCooldownTags() const
+{
+    FGameplayTagContainer* MutableTags = const_cast<FGameplayTagContainer*>(&TempCooldownTags);
+    MutableTags->Reset(); // "writes to the TempCooldownTags on the CDO"
+    MutableTags->AppendTags(CooldownTags);
+    return MutableTags;
+}
+```
+
+코드 주석이 직접 말한다. Non-Instanced이면 `this` = CDO이므로, 여러 액터가 동시에 같은 어빌리티를 활성화하면 전부 같은 CDO의 `TempCooldownTags`를 동시에 쓴다 — 경쟁 조건이다.
+
+Instanced이면 액터마다 독립적인 `UGameplayAbility` 인스턴스가 있으므로 `TempCooldownTags`가 격리된다.
+
+---
+
+#### 이유 2 — GetAbilityInstance_NotReplicated()가 복제되지 않는다
+
+MMC에서 어빌리티 데이터를 꺼내는 방식:
+
+```cpp
+const UPGGameplayAbility* Ability = Cast<UPGGameplayAbility>(
+    Spec.GetContext().GetAbilityInstance_NotReplicated());
+```
+
+`FGameplayEffectContext::NetSerialize`를 보면 `AbilityCDO`는 복제되지만 `AbilityInstanceNotReplicated`는 복제되지 않는다.
+
+```cpp
+// GameplayEffectTypes.cpp:286 — NetSerialize
+if (AbilityCDO.IsValid())      RepBits |= 1 << 2;  // 복제됨
+// AbilityInstanceNotReplicated → 7비트 어디에도 없음 → 복제 안 됨
+
+// GameplayEffectTypes.cpp:226 — SetAbilityInstance
+AbilityInstanceNotReplicated = MakeWeakObjectPtr(InGameplayAbility); // 로컬 전용
+AbilityCDO = InGameplayAbility->GetClass()->GetDefaultObject<UGameplayAbility>();
+```
+
+서버가 Cost GE Spec을 생성할 때 `AbilityInstanceNotReplicated`에 `this`(능력 인스턴스)를 저장한다. 이 Spec이 클라이언트에 복제되면 해당 필드는 null이 된다. 클라이언트가 replicated GE를 재평가할 때 `GetAbilityInstance_NotReplicated()` = null → Cast 실패 → MMC 반환값 0.
+
+Non-Instanced이면 `this`가 CDO이고, CDO 포인터는 네트워크로 의미 있게 전달되지 않는다. Instanced이면 Spec에 자기 인스턴스 포인터가 들어가고 클라이언트에서 로컬 예측 경로로도 올바르게 평가된다.
+
+---
+
+#### UE 5.5에서 NonInstanced 정책 자체가 제거됐다
+
+```cpp
+// GameplayAbility.cpp:31
+// "Whether to allow the deprecated EGameplayAbilityInstancingPolicy::NonInstanced
+//  type (removed in UE5.5)"
+FAutoConsoleVariableRef CVarAllowNonInstancedGAs(..., CVarAllowNonInstancedGAsValue, ...);
+```
+
+UE 5.5부터 `EGameplayAbilityInstancingPolicy::NonInstanced`는 deprecated → removed됐다. 결국 "Instanced에서만 동작한다"는 조건은 현재 버전에서 항상 충족된다.
+
