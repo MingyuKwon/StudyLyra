@@ -26,6 +26,26 @@
 
 ---
 
+## 직렬화 제어 방식 — 엔진 자동 vs 사용자 직접
+
+핵심 질문은 하나다: **"이 데이터를 어떻게 비트로 바꿀 것인가"**
+
+```
+엔진에 맡긴다  →  UPROPERTY(Replicated) 붙이면 끝
+                   RepLayout이 타입별로 알아서 리프 필드 단위로 처리
+
+내가 직접 한다 →  USTRUCT에 NetSerialize 구현
+                   어떤 비트를 어떻게 쓸지 전부 수동 제어
+```
+
+**기본 동작은 USTRUCT든 Actor든 동일하다** — RepLayout이 모든 타입을 리프 필드(float, bool, int)까지 전개해 하나씩 직렬화한다. `NetSerialize`를 구현하는 순간만 "이 타입 전체를 내가 하나의 단위로 직접 제어하겠다"는 opt-in이 된다.
+
+Actor는 선택지 자체가 없다. 항상 엔진이 프로퍼티 단위로 처리한다. "내가 직접"은 USTRUCT에서만 가능하다.
+
+실무에서 `NetSerialize`를 구현하는 이유는 거의 하나다 — **압축**. `FVector`를 float 3개(12바이트) 대신 양자화해서 6바이트로 보내는 것처럼, 엔진 기본 처리보다 더 효율적으로 비트를 쓰고 싶을 때.
+
+---
+
 ## USTRUCT vs UObject — 직렬화 방식의 근본 차이
 
 `NetSerialize`는 **값 타입(USTRUCT)** 전용이다.
