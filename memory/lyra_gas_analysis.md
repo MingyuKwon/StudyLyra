@@ -1403,3 +1403,52 @@ Spec.Def->OnApplied(...)
 
 "GE에 로직을 넣지 말라" = `UGameplayEffect` 서브클래싱해서 훅을 오버라이드하지 말라는 의미.
 실제 로직은 `GEComponents` 안의 `UGameplayEffectComponent` 서브클래스에 넣는다.
+
+---
+
+## N. GetLifetimeReplicatedProps 내부 동작 — 매크로 전개
+
+소스: `Engine/Source/Runtime/Engine/Public/Net/UnrealNetwork.h`, `CoreUObject/Public/UObject/CoreNet.h`
+
+### 호출 시점
+
+인스턴스당 매번 호출되지 않는다. `FRepLayout::InitFromObjectClass(UClass*)` 에서 **클래스당 1회**만 호출된다.
+결과로 빌드된 `Cmds[]`는 동일 클래스의 모든 인스턴스가 공유한다.
+
+### DOREPLIFETIME 전개 (UnrealNetwork.h:259)
+
+```cpp
+DOREPLIFETIME(AMyActor, Health)
+  →  GetReplicatedProperty(StaticClass(), c::StaticClass(), GET_MEMBER_NAME_CHECKED(c,v))
+       // CPF_Net 플래그 검사 — UPROPERTY(Replicated) 없으면 Fatal
+  →  RegisterReplicatedLifetimeProperty(FProperty*, OutLifetimeProps, FDoRepLifetimeParams())
+       // OutLifetimeProps.AddUnique( FLifetimeProperty{RepIndex, COND_None, REPNOTIFY_OnChanged} )
+```
+
+### FLifetimeProperty 구조 (CoreNet.h:299)
+
+```cpp
+class FLifetimeProperty {
+    uint16 RepIndex;                               // UHT가 Replicated 프로퍼티마다 자동 부여
+    ELifetimeCondition Condition;                  // COND_None, COND_OwnerOnly 등
+    ELifetimeRepNotifyCondition RepNotifyCondition; // OnChanged / Always
+    bool bIsPushBased;
+};
+```
+
+`RepIndex`는 UHT가 컴파일 시점에 매기는 고유 번호. 패킷에 필드명 대신 이 번호가 들어간다.
+
+### DOREPLIFETIME_CONDITION 전개 (UnrealNetwork.h:277)
+
+`FDoRepLifetimeParams.Condition = cond` 설정 후 `DOREPLIFETIME_WITH_PARAMS` 호출하는 것과 동일.
+RepLayout이 틱마다 해당 Connection이 조건을 만족하는지 확인 후 패킷 포함 여부 결정.
+
+### FDoRepLifetimeParams 전체 옵션 (UnrealNetwork.h:134)
+
+```cpp
+struct FDoRepLifetimeParams {
+    ELifetimeCondition Condition        = COND_None;
+    ELifetimeRepNotifyCondition RepNotifyCondition = REPNOTIFY_OnChanged;
+    bool bIsPushBased                  = false;
+};
+```
