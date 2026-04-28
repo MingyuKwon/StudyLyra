@@ -36,8 +36,29 @@ Cmd.Property->NetSerializeItem(Writer, PackageMap, Data)  // RepLayout.cpp:2924
        └─ 없음 → RepLayout 빌드 시점에 리프 필드로 전개 완료 → 이 경로엔 도달 안 함
 ```
 
-`FProperty::NetSerializeItem`은 엔진 내부 FProperty 서브클래스들이 각자 구현하는 가상함수다.
-USTRUCT에 사용자가 구현하는 `NetSerialize`와 이름이 비슷하지만 완전히 다른 레이어다.
+---
+
+## 직렬화 단위 — 기본 동작과 NetSerialize opt-in
+
+**기본 동작은 USTRUCT든 Actor든 동일하다**: RepLayout이 모든 타입을 리프 필드(float, bool, int)까지 전개해 하나씩 직렬화한다.
+
+USTRUCT에 `NetSerialize`를 구현하는 것은 "이 타입 전체를 내가 하나의 단위로 직렬화하겠다"는 opt-in이다.
+
+| | 직렬화 단위 | 제어권 |
+|---|---|---|
+| Actor / USTRUCT (기본) | 리프 필드 하나씩 | 엔진 자동 처리 |
+| USTRUCT (`NetSerialize` 구현) | 타입 전체를 하나의 덩어리로 | 사용자가 비트 직접 제어 |
+
+`FHitResult` 예시:
+
+```
+NetSerialize 없음 → RepLayout이 Location.X, Location.Y, Normal.X ... 각각을 float 단위로 직렬화
+NetSerialize 있음 → "이 구조체 전체를 내가 압축해서 쓸게" → CppStructOps->NetSerialize() 호출
+```
+
+`FStructProperty::NetSerializeItem`이 디스패처이고, 사용자 `NetSerialize`는 그 안에서 호출되는 콜백이다. 이름이 비슷하지만 완전히 다른 레이어다.
+
+Actor에 `NetSerialize`가 없는 이유는 직렬화 외에도 스폰/GUID 매핑/Role/RPC 같은 부가 처리가 붙어야 해서 "함수 하나"로 커버가 불가능하기 때문이다.
 
 ---
 
@@ -53,95 +74,11 @@ void AMyActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetime
 }
 ```
 
-`DOREPLIFETIME` 매크로가 `OutLifetimeProps`에 `FLifetimeProperty`를 추가한다.
-FRepLayout은 이 목록만 Cmds[]로 빌드한다. 여기 없는 필드는 복제 대상 자체가 아니다.
-
-### 이 함수가 언제 호출되는가
-
-인스턴스 생성마다 호출되지 않는다. `FRepLayout::InitFromObjectClass()`에서 **클래스당 단 1회** 호출된다.
-빌드된 `Cmds[]` 배열은 이후 같은 클래스의 모든 인스턴스가 공유한다.
-
-```
-FRepLayout::InitFromObjectClass(UClass*)
-  ↓
-GetLifetimeReplicatedProps 호출 → OutLifetimeProps 채움
-  ↓
-OutLifetimeProps 목록을 순회 → Cmds[] 배열로 변환 (오프셋, 타입, 조건 포함)
-  ↓
-이후 모든 인스턴스는 동일한 Cmds[]를 재사용
-```
-
-### DOREPLIFETIME 매크로 전개
-
-`DOREPLIFETIME(AMyActor, Health)` 는 두 단계로 전개된다.
-
-```cpp
-// UnrealNetwork.h:259
-#define DOREPLIFETIME(c,v) DOREPLIFETIME_WITH_PARAMS(c,v,FDoRepLifetimeParams())
-
-// UnrealNetwork.h:250-257
-#define DOREPLIFETIME_WITH_PARAMS(c,v,params)                                    \
-{                                                                                 \
-    FProperty* ReplicatedProperty =                                               \
-        GetReplicatedProperty(StaticClass(), c::StaticClass(),                    \
-                              GET_MEMBER_NAME_CHECKED(c,v));   /* 반영 조회 */    \
-    RegisterReplicatedLifetimeProperty(ReplicatedProperty, OutLifetimeProps,      \
-                                       FixupParams<decltype(c::v)>(params));      \
-}
-```
-
-**① `GetReplicatedProperty`** — 리플렉션(UHT 생성 정보)을 통해 `Health`의 `FProperty*`를 찾는다.
-이 시점에 `UPROPERTY(Replicated)` 또는 `UPROPERTY(ReplicatedUsing=...)` 없이 등록하면
-`CPF_Net` 플래그 검사에서 Fatal 로그가 발생한다.
-
-**② `RegisterReplicatedLifetimeProperty`** — `FLifetimeProperty`를 만들어 `OutLifetimeProps.AddUnique()`로 추가한다.
-
-### FLifetimeProperty 구조 (CoreNet.h:299)
-
-```cpp
-class FLifetimeProperty
-{
-    uint16 RepIndex;                               // UHT가 Replicated 프로퍼티마다 자동 부여하는 고유 번호
-    ELifetimeCondition Condition;                  // 기본값: COND_None
-    ELifetimeRepNotifyCondition RepNotifyCondition; // REPNOTIFY_OnChanged(기본) or REPNOTIFY_Always
-    bool bIsPushBased;                             // Push Model 여부
-};
-```
-
-`RepIndex`는 UHT(Unreal Header Tool)가 컴파일 시점에 `Replicated` 프로퍼티마다 자동으로 매긴 번호다.
-이 번호가 `FRepLayout::Cmds[]`의 핸들과 1:1로 대응된다.
-런타임에 "어떤 필드가 바뀌었는지"를 패킷에 기록할 때 이 핸들 번호만 넣으면 되므로
-필드명 문자열을 전송할 필요가 없다.
-
-### DOREPLIFETIME_CONDITION 전개
-
-```cpp
-// UnrealNetwork.h:277-283
-#define DOREPLIFETIME_CONDITION(c,v,cond)          \
-{                                                   \
-    FDoRepLifetimeParams LocalDoRepParams;           \
-    LocalDoRepParams.Condition = cond;              \
-    DOREPLIFETIME_WITH_PARAMS(c,v,LocalDoRepParams); \
-}
-```
-
-`DOREPLIFETIME`과 동일하되 `FDoRepLifetimeParams.Condition` 필드에 조건을 설정한다.
-이 조건이 `FLifetimeProperty.Condition`으로 넘어가고, RepLayout은 틱마다
-해당 Connection이 조건을 만족하는지 확인 후 패킷에 포함 여부를 결정한다.
-
-### FDoRepLifetimeParams — 전달 가능한 전체 옵션
-
-```cpp
-// UnrealNetwork.h:134-151
-struct FDoRepLifetimeParams
-{
-    ELifetimeCondition Condition        = COND_None;
-    ELifetimeRepNotifyCondition RepNotifyCondition = REPNOTIFY_OnChanged;
-    bool bIsPushBased                  = false;   // Push Model: 명시적 dirty 마킹으로 diff 비용 절감
-};
-```
-
-`DOREPLIFETIME_WITH_PARAMS` 로 세 옵션을 한 번에 지정할 수 있다.
+- **호출 시점**: `FRepLayout::InitFromObjectClass()`에서 **클래스당 1회**. 빌드된 `Cmds[]`는 모든 인스턴스가 공유한다.
+- **`DOREPLIFETIME`**: 리플렉션으로 `FProperty*`를 찾아 `FLifetimeProperty{RepIndex, Condition, RepNotifyCondition}`를 `OutLifetimeProps`에 추가한다. `UPROPERTY(Replicated)` 없는 변수를 등록하면 Fatal.
+- **`RepIndex`**: UHT가 컴파일 시점에 Replicated 프로퍼티마다 자동 부여하는 고유 번호. 패킷에 필드명 대신 이 번호만 들어간다.
+- **`DOREPLIFETIME_CONDITION`**: `Condition` 하나만 더 설정하는 것 외에 동일. RepLayout이 틱마다 해당 Connection이 조건을 만족하는지 확인 후 포함 여부를 결정한다.
+- **여기 없는 필드는 Shadow Buffer 비교 대상 자체에서 제외**되므로 절대 복제되지 않는다.
 
 복제 조건 (`ELifetimeCondition`):
 
@@ -153,6 +90,8 @@ struct FDoRepLifetimeParams
 | `COND_SimulatedOnly` | Simulated Proxy만 |
 | `COND_AutonomousOnly` | Autonomous Proxy만 |
 | `COND_InitialOnly` | Relevancy 진입 시 최초 1회만 |
+
+`DOREPLIFETIME_WITH_PARAMS`로 조건 + RepNotify 조건 + Push Model 여부를 한 번에 지정할 수 있다.
 
 ---
 
