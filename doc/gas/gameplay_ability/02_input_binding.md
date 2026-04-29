@@ -135,7 +135,7 @@ GA가 실행 중일 때 입력을 추가로 받아야 하는 경우는 두 가�
 
 `ProcessAbilityInput`에서 이미 활성화된 스펙에 같은 입력이 들어오면 `AbilitySpecInputPressed()`를 호출한다.
 내부적으로 `GenericReplicatedEvent` 시스템을 통해 `WaitInputPress` AbilityTask로 신호가 전달된다.
-→ 상세 동작은 [10 GenericReplicatedEvent](10_generic_replicated_event.md) 참조.
+→ 상세 동작은 [10 GA 인스턴스 신호 채널](10_ability_signal_channel.md) 참조.
 
 ```
 ProcessAbilityInput()
