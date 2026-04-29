@@ -28,7 +28,7 @@ GAS는 다음과 같은 `AbilityTask`를 기본으로 제공한다:
 ### AbilityTask = GameplayTask + GAS
 
 `UAbilityTask`는 범용 비동기 태스크 시스템인 `UGameplayTask`를 GAS에 통합한 클래스다.
-`UGameplayTask` 자체의 구조와 복제 메커니즘은 → [00 GameplayTask](00_gameplay_task.md) 참조.
+`UGameplayTask` 자체의 구조와 복제 메커니즘은 → [00 GameplayTask](gameplay_task/README.md) 참조.
 
 `UAbilityTask`가 `UGameplayTask` 위에 추가하는 것은 세 가지다.
 

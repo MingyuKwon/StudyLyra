@@ -1,71 +1,10 @@
-# GameplayTask
+# GameplayTask 핵심 API
 
-> 소스: `Engine/Plugins/GameplayTasks/Source/GameplayTasks/`
-
-GAS와 무관한 **범용 비동기 태스크 시스템**이다.
-`UGameplayTasksComponent`를 가진 어떤 Actor에서든 사용할 수 있으며, `UAbilityTask`의 베이스 클래스이기도 하다.
+> 소스: `Engine/Source/Runtime/GameplayTasks/Classes/GameplayTask.h`, `Private/GameplayTask.cpp`
 
 ---
 
-## 왜 존재하는가
-
-"특정 조건까지 기다리거나, 시간에 걸쳐 작업을 수행하는" 비동기 태스크 패턴은 GAS만의 문제가 아니다.
-AI 에이전트, 인터랙션 시스템, 퀘스트 시스템 등 게임의 여러 곳에서 동일한 패턴이 필요하다.
-
-언리얼은 이 패턴을 **`GameplayTasks` 플러그인**으로 분리했다.
-GAS(`GameplayAbilities` 플러그인)는 그 위에 GAS 전용 레이어(`UAbilityTask`)만 얹는 구조다.
-
-```
-GameplayTasks 플러그인      비동기 태스크를 어떻게 실행·관리하는가  (범용)
-      ↑
-GameplayAbilities 플러그인  GAS 어빌리티에서 비동기 태스크를 어떻게 쓰는가  (특화)
-```
-
-이 분리 덕분에 두 가지 이점이 생긴다.
-
-**① GAS 없는 시스템도 동일한 패턴 사용**
-BehaviorTree의 `UBTTaskNode_GameplayTaskBase`가 대표적이다.
-AI 에이전트가 "목표 지점까지 이동 완료를 기다린다"는 비동기 태스크를 GAS 없이도 `UGameplayTask` 위에서 표현할 수 있다.
-
-**② GAS는 핵심 문제에만 집중**
-`UAbilityTask`는 "GA 수명 연동, ASC 접근, 예측 시스템 연동"이라는 GAS 고유 문제만 추가하면 된다.
-비동기 실행 인프라는 `UGameplayTask`에 위임한다.
-
----
-
-## 클래스 구조
-
-```
-UObject
-  └─ UGameplayTask                  (GameplayTasks 플러그인)
-        └─ UAbilityTask             (GameplayAbilities 플러그인 — GAS 전용)
-```
-
-`UGameplayTasksComponent`가 태스크를 소유하고 실행·종료를 관리한다.
-`UAbilitySystemComponent`는 `UGameplayTasksComponent`를 상속하므로, ASC는 곧 태스크 컴포넌트이기도 하다.
-
-```
-UActorComponent
-  └─ UGameplayTasksComponent        (태스크 소유·관리)
-        └─ UAbilitySystemComponent  (GAS 핵심 컴포넌트)
-```
-
----
-
-## 태스크 상태 머신
-
-태스크는 항상 아래 상태 중 하나다. (`EGameplayTaskState`, `GameplayTask.h:24`)
-
-```
-Uninitialized → AwaitingActivation → Active ↔ Paused → Finished
-                     (InitTask)      (Activate)           (OnDestroy)
-```
-
----
-
-## 핵심 API 상세
-
-### ReadyForActivation()
+## ReadyForActivation()
 > `GameplayTask.cpp:56`
 
 외부에서 태스크를 "시작시켜달라"고 요청하는 공개 진입점이다.
@@ -98,7 +37,7 @@ void UGameplayTask::ReadyForActivation()
 
 ---
 
-### Activate()
+## Activate()
 > `GameplayTask.cpp:298`, `GameplayTask.h:162`
 
 `PerformActivation()` 내부에서 호출되는 가상 함수다.
@@ -133,7 +72,7 @@ void UGameplayTask::PerformActivation()
 
 ---
 
-### EndTask()
+## EndTask()
 > `GameplayTask.cpp:165`
 
 태스크가 **스스로** 종료할 때 호출한다.
@@ -160,7 +99,7 @@ void UGameplayTask::EndTask()
 
 ---
 
-### OnDestroy(bool bOwnerFinished)
+## OnDestroy(bool bOwnerFinished)
 > `GameplayTask.cpp:206`
 
 `EndTask()`와 `TaskOwnerEnded()` 양쪽에서 수렴하는 **실제 종료 처리 함수**다.
@@ -181,28 +120,28 @@ void UGameplayTask::OnDestroy(bool bInOwnerFinished)
 }
 ```
 
-> **주의**  
-> 오버라이드 시 `Super::OnDestroy()`를 **마지막**에 호출해야 한다.  
+> **주의**
+> 오버라이드 시 `Super::OnDestroy()`를 **마지막**에 호출해야 한다.
 > `MarkAsGarbage()`가 내부 BP 메커니즘을 방해할 수 있기 때문이다. (`GameplayTask.h:294` 주석)
 
 ---
 
-### TickTask(float DeltaTime)
+## TickTask(float DeltaTime)
 > `GameplayTask.h:171`
 
 매 틱 실행이 필요한 태스크를 위한 훅이다.
-기본 구현은 빈 함수(`{}`)이며, 아래 두 가지를 생성자에서 설정해야 활성화된다.
+기본 구현은 빈 함수(`{}`)이며, 생성자에서 아래 플래그를 설정해야 활성화된다.
 
 ```cpp
 // 생성자에서
 bTickingTask = true;   // TasksComponent가 매 틱 TickTask() 호출하도록 등록
 ```
 
-`bTickingTask`는 `uint32` 비트 필드(`GameplayTask.h:342`)로, 생성자에서 기본값 `false`다.
+`bTickingTask`는 `uint32` 비트 필드(`GameplayTask.h:342`)로, 기본값 `false`다.
 
 ---
 
-### 두 플래그: bSimulatedTask vs bIsSimulating
+## 두 플래그: bSimulatedTask vs bIsSimulating
 > `GameplayTask.h:344~348`
 
 이름이 비슷하지만 역할이 다르다.
@@ -251,10 +190,12 @@ void UGameplayTask::InitSimulatedTask(UGameplayTasksComponent& InGameplayTasksCo
 [Server]
 태스크 생성 + bSimulatedTask = true
   → UGameplayTasksComponent::SimulatedTasks[] 에 추가
-      → 배열 복제 → Simulated Proxy 전송
+      → 배열 복제 (COND_SkipOwner) → Simulated Proxy 전송
           → OnRep_SimulatedTasks()
               → Task->InitSimulatedTask(*TasksComponent)
 ```
+
+`COND_SkipOwner`를 사용하므로 owning client에는 복제되지 않는다. (owning client는 직접 실행하기 때문)
 
 ### 개발자가 챙겨야 하는 것
 
@@ -286,13 +227,3 @@ class UMyTask : public UGameplayTask
 
 엔진이 자동으로 해주는 것: `SimulatedTasks` 배열 복제, 인스턴스 생성, `InitSimulatedTask()` 호출.
 개발자가 챙겨야 하는 것: `bSimulatedTask = true`, `UPROPERTY(Replicated)` 파라미터 선언, `InitSimulatedTask()` 구현.
-
----
-
-## GAS 밖에서의 사용
-
-`UGameplayTask`는 GAS 없이도 사용할 수 있다.
-언리얼 AI 시스템의 `UBTTaskNode_GameplayTaskBase`가 대표적인 예로, BehaviorTree Task가 내부적으로 GameplayTask를 활용한다.
-
-GAS를 쓰는 프로젝트에서는 거의 항상 `UAbilityTask`를 사용하게 된다.
-`UGameplayTask`를 직접 사용하는 경우는 GAS 없이 순수 `UGameplayTasksComponent` 위에서 태스크를 돌릴 때다.
