@@ -1452,3 +1452,36 @@ struct FDoRepLifetimeParams {
     bool bIsPushBased                  = false;
 };
 ```
+
+---
+
+## 34. UGameplayTask 핵심 내부 구조
+
+> 소스: `C:/Program Files/Epic Games/UE_5.7/Engine/Source/Runtime/GameplayTasks/`  
+> 상세 문서: `doc/gas/ability_task/00_gameplay_task.md`
+
+### 상태 머신 (EGameplayTaskState)
+`Uninitialized → AwaitingActivation → Active ↔ Paused → Finished`
+
+### ReadyForActivation() 분기 (GameplayTask.cpp:56)
+- `RequiresPriorityOrResourceManagement() == false` → `PerformActivation()` 즉시 호출
+- 우선순위/리소스 필요 → `TasksComponent->AddTaskReadyForActivation()` 큐 등록
+- TasksComponent 없음 → `EndTask()` 즉시 종료
+
+### PerformActivation() 흐름 (GameplayTask.cpp:275)
+`TaskState = Active` → `Activate()` 호출 → `IsFinished() == false`이면 `TasksComponent->OnGameplayTaskActivated()`
+
+### 종료 경로 두 가지
+- `EndTask()` → `OnDestroy(false)` : 태스크 스스로 종료
+- `TaskOwnerEnded()` → `bOwnerFinished = true` + `OnDestroy(true)` : 소유자(GA) 종료로 인한 정리
+
+### OnDestroy() (GameplayTask.cpp:206)
+`TaskState = Finished` → `TasksComponent->OnGameplayTaskDeactivated()` → `MarkAsGarbage()`  
+오버라이드 시 `Super::OnDestroy()`를 **마지막**에 호출해야 함 (`MarkAsGarbage` 간섭 방지)
+
+### bSimulatedTask vs bIsSimulating (GameplayTask.h:344~348)
+- `bSimulatedTask`: 설정값. `true`이면 `IsSupportedForNetworking() = true` → 복제 허용
+- `bIsSimulating`: 런타임 상태. `InitSimulatedTask()` 내부에서 `true`로 세팅됨
+
+### Activate() 베이스 구현
+VLOG 출력만 하고 아무것도 하지 않는다. 개발자가 오버라이드해서 실제 로직 구현.
