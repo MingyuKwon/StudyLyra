@@ -4,34 +4,53 @@
 
 ---
 
-## 기본 원칙: GameplayTask는 복제되지 않는다
+## 기본 원칙: 각 머신이 코드를 직접 실행한다
 
-**태스크 코드 자체는 복제 대상이 아니다.**
+태스크 코드는 복제되지 않는다. 네트워크를 통해 "이 태스크를 실행해"라는 명령이 오는 것이 아니라, **각 머신이 자기 로컬에서 태스크를 직접 생성하고 실행**한다.
 
-GA가 활성화되면 서버와 owning client에서 각자 직접 태스크를 생성하고 실행한다.
-Simulated proxy는 GA 자체가 실행되지 않으므로 태스크도 실행되지 않는다.
+```
+서버         GA 활성화 → NewAbilityTask<T>() → Activate() — 권위 있는 실행
+Owning Client  GA 활성화 → NewAbilityTask<T>() → Activate() — 예측 실행 (LocalPredicted)
+Simulated Proxy  GA가 실행되지 않음 → 기본적으로 태스크도 없음
+```
 
-| 주체 | 태스크 실행 경로 |
-|---|---|
-| Server | `GA::ActivateAbility()` → `NewAbilityTask<T>()` → `Activate()` 직접 실행 |
-| Owning Client | NetExecutionPolicy에 따라 동일하게 직접 실행 |
-| Simulated Proxy | GA가 실행되지 않음 → 태스크도 없음 |
+Simulated proxy에 GA가 실행되지 않는 이유는 **권위(authority)** 때문이다.
+Simulated proxy는 "남의 캐릭터"를 보고 있는 머신이다. 게임 스테이트를 직접 변경할 권한이 없고, PlayerController도 없다.
+모든 판단은 서버가 하고, simulated proxy는 그 결과를 받아서 보여줄 뿐이다.
+
+---
+
+## "Simulated proxy에서도 태스크를 돌리고 싶다면?"
+
+가능하다. 그것이 `bSimulatedTask`다. 단, 역할이 다르다.
+
+| 주체 | 실행 종류 | 게임 스테이트 변경 가능 여부 |
+|---|---|---|
+| Server | 권위 있는 실행 (`Activate()`) | 가능 |
+| Owning Client | 예측 실행 (`Activate()`) | 가능 (서버와 조율) |
+| Simulated Proxy | **로컬 시뮬레이션** (`InitSimulatedTask()`) | 불가 — 비주얼 전용 |
+
+Simulated proxy가 받는 것은 "태스크를 실행하라"는 명령이 아니라 **파라미터 데이터**다.
+그 파라미터로 "서버와 같아 보이는 효과"를 자기 로컬에서 재현한다.
+
+예: 넉백 태스크
+- 서버: `WorldDirection=FVector(1,0,0), Duration=0.5` 로 RootMotionSource 적용 → 위치 권위 있게 변경
+- Owning Client: 동일한 파라미터로 Activate() → 본인 화면에서 즉시 반응
+- Simulated Proxy: 복제된 `WorldDirection`, `Duration`을 받아 `InitSimulatedTask()` → 로컬에서 동일한 RootMotionSource 적용 → 다른 플레이어 화면에서 끊기지 않고 보임
+
+서버가 종료를 결정하면 `SimulatedTasks[]`에서 제거되어 복제되고, simulated proxy 쪽은 `PreDestroyFromReplication()`으로 정리된다. Simulated proxy가 `EndTask()`를 직접 호출하지 않는 이유도 이것이다 — 종료 권한도 서버에 있다.
 
 ---
 
 ## 복제가 필요한 두 가지 상황
 
-### 상황 A — simulated proxy에 태스크 효과를 보여줘야 할 때
+### 상황 A — simulated proxy에도 태스크 효과가 필요할 때
 
-"다른 플레이어에게 내 캐릭터가 넉백되는 것을 보여준다."
-→ 서버에서 실행 중인 태스크를 simulated proxy에도 복제해서, 그쪽에서도 동일한 물리 효과를 적용한다.
-→ **`bSimulatedTask = true` 패턴**
+`bSimulatedTask = true` 패턴. 파라미터를 복제해서 simulated proxy가 로컬 시뮬레이션을 돌린다.
 
 ### 상황 B — 서버와 클라이언트의 실행 타이밍을 맞춰야 할 때
 
-"클라이언트에서 애니메이션이 끝날 때까지 서버가 기다린다."
-→ 복제된 데이터를 쓰는 게 아니라, RPC 신호로 양쪽 실행 흐름을 동기화한다.
-→ **`AbilityTask_NetworkSyncPoint` 패턴**
+`AbilityTask_NetworkSyncPoint` 패턴. 파라미터 복제가 아니라 RPC 신호로 양쪽 실행 흐름을 동기화한다.
 
 ---
 
