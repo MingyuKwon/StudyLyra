@@ -33,6 +33,96 @@ namespace EAbilityGenericReplicatedEvent
 }
 ```
 
+슬롯이 많은 이유는 **하나의 GA가 여러 이벤트를 동시에 기다릴 수 있기 때문**이다.
+`FAbilityReplicatedDataCache` 안에 `GenericEvents[MAX]`로 고정 배열이 선언돼 있어, 사용하지 않는 슬롯도 항상 메모리에 존재한다. 동적 할당이 없으므로 슬롯 수가 많아도 오버헤드는 없다.
+
+### 슬롯별 용도
+
+#### InputPressed / InputReleased — 버튼 재입력 감지
+
+같은 버튼을 누르거나 뗄 때를 GA 실행 도중 감지한다.
+
+```
+// 차지 후 발사 — Q 누름으로 활성화, Q 뗌으로 발사
+GA::ActivateAbility()
+  → WaitInputRelease 시작 (InputReleased 슬롯 구독)
+  → 뗄 때까지 차지 애니메이션 재생
+
+Q 뗌 → InputReleased 발동 → 발사 처리
+```
+
+```
+// 2단계 어빌리티 — Q 다시 눌러 2단계 발동
+GA::ActivateAbility()
+  → 1단계 시작
+  → WaitInputPress 시작 (InputPressed 슬롯 구독)
+
+Q 다시 누름 → InputPressed 발동 → 2단계 발동
+```
+
+#### GenericConfirm / GenericCancel — 타겟 확인/취소
+
+타겟 선택 UI에서 확인 또는 취소를 받을 때 쓴다.
+`WaitTargetData`와 함께 쓰이는 경우가 가장 많다.
+
+```
+// R로 스킬 활성화 → 타겟 선택 → 좌클릭 확인 or ESC 취소
+GA::ActivateAbility()
+  → WaitTargetData + WaitConfirm 시작 (GenericConfirm 슬롯 구독)
+  → 타겟 선택 UI 표시
+
+좌클릭 → LocalInputConfirm() → GenericConfirm 발동 → 스킬 시전
+ESC    → LocalInputCancel()  → GenericCancel 발동  → 취소
+```
+
+`LocalInputConfirm()` / `LocalInputCancel()`은 `ProcessAbilityInput`과 별개로 ASC에서 직접 호출된다.
+
+#### GenericSignalFromClient / GenericSignalFromServer — WaitNetSync
+
+클라↔서버 실행 타이밍을 맞출 때 쓴다.
+`WaitNetSync` AbilityTask가 이 두 슬롯을 내부적으로 사용한다.
+
+```
+// 서버만 기다리는 경우 (OnlyServerWait)
+[Client] WaitNetSync → ServerSetReplicatedEvent(GenericSignalFromClient) RPC 전송 후 즉시 진행
+[Server] WaitNetSync → GenericSignalFromClient 신호를 받을 때까지 대기 → 이후 진행
+
+// 클라만 기다리는 경우 (OnlyClientWait)
+[Server] WaitNetSync → ClientSetReplicatedEvent(GenericSignalFromServer) RPC 전송 후 즉시 진행
+[Client] WaitNetSync → GenericSignalFromServer 신호를 받을 때까지 대기 → 이후 진행
+```
+
+#### GameCustom1~6 — 게임 전용 확장
+
+엔진이 정의한 슬롯(Confirm/Cancel/InputPressed/Released/Signal)으로 해결되지 않는 경우에 쓴다.
+주로 다단계 어빌리티에서 단계 간 동기화 신호로 활용한다.
+
+```
+// 3단계 콤보 어빌리티 — 각 단계를 커스텀 이벤트로 동기화
+GA::ActivateAbility()
+  → 1단계 애니메이션 재생
+  → WaitCustomEvent(GameCustom1) 대기     ← 애니 노티파이 → 2단계 준비 신호
+
+2단계 시작:
+  → InvokeReplicatedEvent(GameCustom1, Handle, PredKey)
+  → 2단계 애니메이션 재생
+  → WaitCustomEvent(GameCustom2) 대기
+
+3단계 시작: ...
+```
+
+실제로 같은 GA 인스턴스에서 여러 슬롯을 동시에 쓰는 예시:
+
+```
+GA::ActivateAbility()
+  → WaitInputRelease (InputReleased 슬롯)  ← "중간에 취소하면 즉시 종료"
+  → WaitConfirm      (GenericConfirm 슬롯) ← "다른 버튼으로 즉시 발동"
+  → WaitNetSync      (GenericSignalFromServer 슬롯) ← "서버 준비 대기"
+  // 셋 중 먼저 오는 이벤트에 반응
+```
+
+슬롯이 12개인 덕분에 이런 복합 대기가 동일한 GA 인스턴스 안에서 겹치지 않고 동작한다.
+
 ---
 
 ## 저장소 — AbilityTargetDataMap
