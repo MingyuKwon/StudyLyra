@@ -119,3 +119,126 @@ void UGSAbilitySystemComponent::AbilityLocalInputPressed(int32 InputID)
 ---
 
 ## 내 분석
+
+### GASDoc 방식은 Lyra에서 쓰이지 않는다
+
+GASDoc의 `enum`+`BindAbilityActivationToInputComponent()` 패턴은 **UE4 레거시 입력 시스템** 기반이다.
+Lyra는 **Enhanced Input System**으로 완전히 대체했으며, 입력 식별자도 정수 enum 대신 `GameplayTag`를 쓴다.
+
+| | GASDoc 방식 | Lyra 방식 |
+|---|---|---|
+| 입력 시스템 | Legacy InputAction (UE4) | Enhanced Input System (UE5) |
+| 입력 식별자 | `uint8` enum (InputID) | `FGameplayTag` |
+| ASC 바인딩 함수 | `BindAbilityActivationToInputComponent()` | 커스텀 `BindAbilityActions()` |
+| Spec 매칭 | `Spec.InputID == InputID` | `Spec.DynamicSpecSourceTags.HasTagExact(InputTag)` |
+| 입력 처리 방식 | 즉시 `TryActivateAbility()` | 프레임 큐 → `ProcessAbilityInput()` |
+| 활성화 정책 | press = 무조건 활성화 | `OnInputTriggered` / `WhileInputActive` 분리 |
+
+---
+
+### Lyra 입력 바인딩 흐름
+
+```
+ULyraPawnData::InputConfig (ULyraInputConfig)
+  — InputAction → GameplayTag 매핑 테이블
+
+ULyraHeroComponent::InitializePlayerInput()
+  → LyraIC->BindAbilityActions(InputConfig, ..., &Input_AbilityInputTagPressed, &Input_AbilityInputTagReleased)
+       — EnhancedInput: InputAction Triggered → Input_AbilityInputTagPressed(Tag)
+       — EnhancedInput: InputAction Completed → Input_AbilityInputTagReleased(Tag)
+
+Input_AbilityInputTagPressed(FGameplayTag InputTag)
+  → LyraASC->AbilityInputTagPressed(InputTag)
+       — ActivatableAbilities 순회
+       — DynamicSpecSourceTags에 InputTag가 있는 Spec의 핸들을 큐에 추가
+
+매 틱 LyraASC->ProcessAbilityInput()
+  — InputHeldSpecHandles: WhileInputActive 정책 어빌리티 활성화
+  — InputPressedSpecHandles: OnInputTriggered 정책 어빌리티 활성화 or InputPressed 이벤트 전달
+  — InputReleasedSpecHandles: InputReleased 이벤트 전달
+```
+
+#### AbilityInputTagPressed / Released — 큐에 쌓을 뿐
+
+```cpp
+// LyraAbilitySystemComponent.cpp:186
+void ULyraAbilitySystemComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
+{
+    for (const FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+    {
+        if (AbilitySpec.Ability && AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
+        {
+            InputPressedSpecHandles.AddUnique(AbilitySpec.Handle);
+            InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);
+        }
+    }
+}
+```
+
+입력이 들어오면 즉시 활성화하지 않고 핸들을 큐에 넣는다.
+실제 `TryActivateAbility()`는 같은 프레임 말에 `ProcessAbilityInput()`이 일괄 처리한다.
+
+#### ProcessAbilityInput — 프레임 말 일괄 처리
+
+```cpp
+// LyraAbilitySystemComponent.cpp:216
+void ULyraAbilitySystemComponent::ProcessAbilityInput(float DeltaTime, bool bGamePaused)
+{
+    // TAG_Gameplay_AbilityInputBlocked 태그가 있으면 모든 입력 무시
+    if (HasMatchingGameplayTag(TAG_Gameplay_AbilityInputBlocked)) { ClearAbilityInput(); return; }
+
+    // 1. WhileInputActive 정책: 입력 홀드 중 + 비활성 상태면 활성화
+    for (const FGameplayAbilitySpecHandle& SpecHandle : InputHeldSpecHandles)
+    {
+        if (LyraAbilityCDO->GetActivationPolicy() == ELyraAbilityActivationPolicy::WhileInputActive)
+            AbilitiesToActivate.AddUnique(SpecHandle);
+    }
+
+    // 2. OnInputTriggered 정책: 이번 프레임에 Press된 것 처리
+    for (const FGameplayAbilitySpecHandle& SpecHandle : InputPressedSpecHandles)
+    {
+        AbilitySpec->InputPressed = true;
+
+        if (AbilitySpec->IsActive())
+            AbilitySpecInputPressed(*AbilitySpec);        // 이미 실행 중 → 입력 이벤트만 전달
+        else if (ActivationPolicy == OnInputTriggered)
+            AbilitiesToActivate.AddUnique(SpecHandle);   // 비활성 → 활성화 큐에 추가
+    }
+
+    // 3. 수집된 어빌리티 한꺼번에 활성화
+    for (const FGameplayAbilitySpecHandle& Handle : AbilitiesToActivate)
+        TryActivateAbility(Handle);
+
+    // 4. Release 처리
+    for (const FGameplayAbilitySpecHandle& SpecHandle : InputReleasedSpecHandles) { ... }
+
+    // 5. 큐 비우기
+    InputPressedSpecHandles.Reset();
+    InputReleasedSpecHandles.Reset();
+}
+```
+
+**프레임 말 일괄 처리를 하는 이유**: 같은 프레임에 Hold와 Press가 둘 다 들어왔을 때, Hold가 어빌리티를 먼저 활성화하고 Press가 또 InputPressed 이벤트를 보내는 중복을 방지하기 위해서다. 수집을 먼저 하고 한 번에 처리한다.
+
+#### 활성화 정책 — ELyraAbilityActivationPolicy
+
+```cpp
+UENUM(BlueprintType)
+enum class ELyraAbilityActivationPolicy : uint8
+{
+    OnInputTriggered,  // 버튼 누를 때 한 번 활성화
+    WhileInputActive,  // 버튼 누르는 동안 계속 활성화 유지
+    OnSpawn,           // 부여 즉시 활성화 (입력 무관)
+};
+```
+
+GASDoc 방식은 press 이벤트가 오면 무조건 `TryActivateAbility()`를 호출했다.
+Lyra는 어빌리티마다 정책을 달리 설정할 수 있어, 예컨대 달리기(Hold)와 점프(Press)를 동일한 처리 파이프라인에서 구분해서 다룬다.
+
+---
+
+### 입력 태그가 Spec에 들어가는 경위
+
+`DynamicSpecSourceTags`에 InputTag가 들어가야 매칭이 된다.
+어빌리티를 부여할 때 `FGameplayAbilitySpec`을 만들면서 `DynamicSpecSourceTags.AddTag(InputTag)`를 호출해주어야 한다.
+`ULyraAbilitySet::GiveToAbilitySystem()`에서 이 작업을 처리한다.
