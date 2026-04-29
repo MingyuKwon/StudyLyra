@@ -44,7 +44,11 @@
       "Bash(powershell -Command \"Get-ChildItem 'C:/Program Files/Epic Games/UE_5.7/Engine/Source/Runtime/GameplayAbilities/Public/Abilities/Tasks/' | Select-Object -ExpandProperty Name\")",
       "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Program Files\\\\Epic Games\\\\UE_5.7\\\\Engine\\\\Source\\\\Runtime\\\\GameplayAbilities\\\\Public\\\\Abilities\\\\Tasks' | Select-Object Name\")",
       "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Program Files\\\\Epic Games\\\\UE_5.7\\\\Engine\\\\Source\\\\Runtime\\\\GameplayAbilities' -Recurse -Filter 'AbilityTask_Apply*.h' | Select-Object FullName\")",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(git *)",
+      "Bash(python *)",
+      "Read(//c/Nexon/Study/**)",
+      "Read(//c/UE_5.7/**)"
     ]
   },
   "hooks": {
