@@ -39,7 +39,25 @@
       "Bash(python _fill_content.py)",
       "Bash(python3 *)",
       "Edit",
-      "Write"
+      "Write",
+      "Bash(powershell -Command \"Get-ChildItem 'C:/Program Files/Epic Games/UE_5.7/Engine/Source/Runtime/GameplayAbilities/Public/Abilities/Tasks/' -Filter 'AbilityTask_Apply*' | Select-Object -ExpandProperty Name\")",
+      "Bash(powershell -Command \"Get-ChildItem 'C:/Program Files/Epic Games/UE_5.7/Engine/Source/Runtime/GameplayAbilities/Public/Abilities/Tasks/' | Select-Object -ExpandProperty Name\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Program Files\\\\Epic Games\\\\UE_5.7\\\\Engine\\\\Source\\\\Runtime\\\\GameplayAbilities\\\\Public\\\\Abilities\\\\Tasks' | Select-Object Name\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Program Files\\\\Epic Games\\\\UE_5.7\\\\Engine\\\\Source\\\\Runtime\\\\GameplayAbilities' -Recurse -Filter 'AbilityTask_Apply*.h' | Select-Object FullName\")",
+      "Bash(powershell *)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "Check git status in the current repository by running 'git status --porcelain'. If there are NO uncommitted changes, do nothing and stop immediately. If there ARE uncommitted changes: (1) run 'git diff HEAD' and 'git status' to understand what changed, (2) run 'git add -A' to stage all changes, (3) create a concise Korean commit message following the pattern 'type: 내용' (e.g. 'docs: GA 분석 추가', 'fix: 오타 수정', 'chore: 캐시 업데이트'), (4) run git commit with that message. Only act if there are actual uncommitted changes.",
+            "timeout": 60
+          }
+        ]
+      }
     ]
   }
 }
