@@ -65,3 +65,44 @@ UAbilitySystemComponent::ServerSetInputPressed()
 ---
 
 ## 내 분석
+
+### 왜 GA는 owning client에게만 복제하는가
+
+#### 각 주체가 실제로 필요한 정보
+
+GA가 복제되는 단위는 `FGameplayAbilitySpec`이다. 서버가 보유한 이 스펙 배열(`ActivatableAbilities`)은 `COND_OwnerOnly`로 owning client에게만 복제된다.
+
+왜 simulated proxy에는 복제하지 않는가. 각 주체가 실제로 필요한 정보를 따져보면 답이 나온다.
+
+| 주체 | 필요한 정보 | 공급 수단 |
+|---|---|---|
+| Server | 어떤 어빌리티를 갖고 있는가, 발동 가능한가, 쿨다운/코스트 상태 | `ActivatableAbilities` 직접 보유 |
+| Owning Client | 내 어빌리티 목록, 쿨다운/코스트 UI, 입력 바인딩, 예측 실행 | `ActivatableAbilities` 복제 (COND_OwnerOnly) |
+| Simulated Proxy | 저 캐릭터가 지금 어떻게 보이는가 | GameplayCue, ASC 몽타주 복제, bSimulatedTask |
+
+Owning client는 **자기 캐릭터의 플레이어**다.
+어떤 어빌리티가 있는지, 쿨다운이 얼마나 남았는지, 지금 활성화할 수 있는지를 알아야 UI를 그리고 입력을 처리할 수 있다.
+
+Simulated proxy는 **남의 캐릭터를 보는 관찰자**다.
+저 캐릭터가 어떤 어빌리티를 갖고 있는지, 쿨다운 상태가 어떤지 알 필요가 없다.
+"지금 저 캐릭터가 넉백되고 있다", "저 캐릭터에서 화염 이펙트가 나온다" — 이것만 알면 된다.
+
+#### 대역폭 효율
+
+`FGameplayAbilitySpec`에는 어빌리티 클래스, 레벨, 입력 ID, 핸들, 활성화 카운트, 인스턴스 목록 등 상당한 양의 데이터가 들어있다.
+
+64인 멀티플레이어 게임을 예로 들면, 모든 플레이어의 스펙 배열을 전체 복제하면 각 클라이언트가 63명분의 어빌리티 스펙을 받아야 한다. Simulated proxy에는 쓸모없는 데이터다.
+
+`COND_OwnerOnly`로 제한함으로써 이 비용을 owning client 1명에게만 부과한다.
+
+#### Simulated proxy에게 필요한 정보는 별도 채널로
+
+GA 스펙을 주지 않는 대신, simulated proxy가 실제로 필요한 것들은 각자의 전용 채널을 통해 전달된다.
+
+```
+애니메이션  → ASC::RepAnimMontageInfo (COND_None — 모든 클라에게)
+이펙트/사운드 → GameplayCue (COND_None — 모든 클라에게)
+이동 효과   → bSimulatedTask (COND_SkipOwner — simulated proxy에게)
+```
+
+결국 "GA 스펙을 owning client에게만 복제한다"는 것은 제약이 아니라 **"각 주체에게 필요한 것만 보낸다"는 설계 원칙**이다.
