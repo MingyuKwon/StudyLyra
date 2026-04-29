@@ -13,3 +13,4 @@
 | [07 Spec & 데이터](07_spec_data.md) | 4.6.10~11 | GASpec, 데이터 전달 방법 |
 | [08 Cost & Cooldown](08_cost_cooldown.md) | 4.6.12 | CommitAbility, Cost/Cooldown 처리 |
 | [09 고급 기능](09_advanced.md) | 4.6.13~16 | 레벨업, AbilitySet, Batching, Security |
+| [10 GenericReplicatedEvent](10_generic_replicated_event.md) | — | GA 인스턴스 신호 채널, WaitInputPress/Confirm/Cancel 내부 동작 |
