@@ -38,19 +38,129 @@ namespace EAbilityGenericReplicatedEvent
 
 ## 저장소 — AbilityTargetDataMap
 
-이벤트 상태는 ASC의 `AbilityTargetDataMap`에 저장된다.
+이벤트 상태는 ASC의 `AbilityTargetDataMap` (`FGameplayAbilityReplicatedDataContainer`) 에 저장된다.
+
+### 실제 타입은 TMap이 아니다
+
+이름에 "Map"이 붙어 있지만 내부 구현은 **`TArray` 두 개**로 된 커스텀 컨테이너다.
+
+```cpp
+// GameplayAbilityTypes.h:604
+struct FGameplayAbilityReplicatedDataContainer
+{
+    typedef TPair<
+        FGameplayAbilitySpecHandleAndPredictionKey,
+        TSharedRef<FAbilityReplicatedDataCache>
+    > FKeyDataPair;
+
+    TArray<FKeyDataPair>                            InUseData;  // 현재 사용 중인 엔트리
+    TArray<TSharedRef<FAbilityReplicatedDataCache>> FreeData;   // 반납된 재활용 풀
+};
+```
+
+`TMap` 대신 `TArray`를 쓰는 이유가 헤더 주석에 명시돼 있다:
+
+> "Return shared ptrs so that callsites are not vulnerable to the underlying map shifting around.  
+> E.g invoking a replicated event **ends the ability** or activates a new one and causes memory to move, invalidating the pointer."
+
+`InvokeReplicatedEvent`가 `Delegate.Broadcast()`를 호출하면 그 콜백 안에서 GA가 종료될 수 있다. GA 종료가 `Remove()`를 부르고, `TMap`이었다면 rehash로 메모리가 이동해 **Broadcast 도중 잡고 있던 포인터가 댕글링**된다. `TSharedRef`로 접근하면 내부 배열이 이동해도 참조는 안전하다.
+
+### 키 — `FGameplayAbilitySpecHandleAndPredictionKey`
+
+```cpp
+// GameplayAbilityTypes.h:504
+struct FGameplayAbilitySpecHandleAndPredictionKey
+{
+    FGameplayAbilitySpecHandle AbilityHandle;
+    int32 PredictionKeyAtCreation;   // FPredictionKey::Current 값만 저장
+
+    friend uint32 GetTypeHash(...) {
+        return GetTypeHash(AbilityHandle) ^ PredictionKeyAtCreation;
+    }
+};
+```
+
+PredictionKey가 키에 포함된 이유 — **같은 GA Spec이 연속으로 여러 번 활성화될 수 있기 때문**이다. LocalPredicted GA를 빠르게 연타하면 각 활성화마다 고유한 PredictionKey가 붙는다. 이를 키에 포함시켜야 서로 다른 활성화의 이벤트 상태가 충돌하지 않는다.
+
+### 값 — `FAbilityReplicatedDataCache`
+
+GenericEvents 외에도 TargetData 관련 상태까지 담긴다. 이름이 "TargetDataMap"인 이유가 여기 있다 — 원래 `WaitTargetData` AbilityTask용으로 설계됐고, 나중에 GenericEvents가 합류했다.
+
+```cpp
+// GameplayAbilityTypes.h:539
+struct FAbilityReplicatedDataCache
+{
+    // WaitTargetData AbilityTask가 사용
+    FGameplayAbilityTargetDataHandle TargetData;
+    FGameplayTag                     ApplicationTag;
+    bool                             bTargetConfirmed;
+    bool                             bTargetCancelled;
+    FAbilityTargetDataSetDelegate    TargetSetDelegate;
+    FSimpleMulticastDelegate         TargetCancelledDelegate;
+
+    // WaitInputPress / WaitConfirm / WaitCancel 등이 사용
+    FAbilityReplicatedData GenericEvents[EAbilityGenericReplicatedEvent::MAX];
+    //   └─ bTriggered:    bool
+    //      VectorPayload: FVector_NetQuantize100
+    //      Delegate:      FSimpleMulticastDelegate
+
+    FPredictionKey PredictionKey;
+};
+```
+
+### FindOrAdd — 조회 + 재활용
+
+```cpp
+// GameplayAbilityTypes.cpp:413
+TSharedRef<FAbilityReplicatedDataCache> FindOrAdd(Key)
+{
+    // 1. InUseData 선형 탐색 (O(n) — 동시 활성 GA 수가 적어서 실용적)
+    for (Pair : InUseData)
+        if (Pair.Key == Key) return Pair.Value;
+
+    // 2. FreeData 풀에서 재활용 — IsUnique()인 것만 (다른 참조자 없을 때)
+    for (FreeRef : FreeData 역순)
+        if (FreeRef.IsUnique())
+        {
+            FreeRef->ResetAll();   // 내용 초기화 + 델리게이트 바인딩 해제
+            FreeData에서 제거;
+            break;
+        }
+
+    // 3. 풀도 비었으면 신규 할당
+    if (!SharedPtr) SharedPtr = new FAbilityReplicatedDataCache();
+
+    InUseData.Emplace(Key, SharedPtr);
+    return SharedPtr;
+}
+```
+
+### Remove — GA 종료 시 재활용 풀로 반납
+
+```cpp
+// GameplayAbilityTypes.cpp:455
+void Remove(Key)
+{
+    // InUseData에서 찾아 FreeData로 이동 (delete 하지 않음)
+    FreeData.Add(InUseData[i].Value);
+    InUseData.RemoveAtSwap(i);
+}
+```
+
+GA가 `EndAbility()`로 종료될 때 `ClearAbilityReplicatedDataCache()`가 이 `Remove`를 호출한다. 객체는 삭제되지 않고 풀에 남아 다음 GA 활성화 때 재사용된다.
+
+### 전체 구조
 
 ```
-AbilityTargetDataMap
-  key:   FGameplayAbilitySpecHandle + FPredictionKey   ← GA 인스턴스 단위
-  value: FAbilityReplicatedDataCache
-           └─ GenericEvents[MAX]                        ← 이벤트 타입별 슬롯
-                  └─ bTriggered:     bool
-                     VectorPayload:  FVector_NetQuantize100
-                     Delegate:       FSimpleMulticastDelegate
+ASC.AbilityTargetDataMap
+│
+├─ InUseData: [ (Handle#1 + PredKey=42) → TSharedRef<Cache> ]
+│                                                └─ GenericEvents[InputPressed].Delegate  ← WaitInputPress 구독 중
+│             [ (Handle#2 + PredKey=43) → TSharedRef<Cache> ]
+│                                                └─ TargetData, bTargetConfirmed, ...     ← WaitTargetData 대기 중
+│
+└─ FreeData:  [ TSharedRef<Cache(ResetAll 완료)> ]  ← 재활용 대기
 ```
-
-키가 `(Handle + PredictionKey)` 조합이라 **같은 GA 클래스의 서로 다른 인스턴스** 이벤트가 섞이지 않는다.
 
 ---
 
