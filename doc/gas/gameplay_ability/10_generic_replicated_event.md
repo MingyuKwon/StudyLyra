@@ -188,17 +188,71 @@ bool UAbilitySystemComponent::InvokeReplicatedEvent(EventType, Handle, PredKey, 
 
 ---
 
-## RPC 동기화
+## 누가 InvokeReplicatedEvent를 호출하는가
 
-로컬 발동만으로는 반대편에 이벤트가 전달되지 않는다. 별도 RPC 호출이 필요하다.
+### 경로 1 — ASC 입력 처리 경로 (InputPressed / InputReleased만 해당)
+
+```
+AbilitySpecInputPressed()   ← ProcessAbilityInput에서 호출
+  → InvokeReplicatedEvent(InputPressed, Handle, PredKey)
+
+AbilitySpecInputReleased()
+  → InvokeReplicatedEvent(InputReleased, Handle, PredKey)
+```
+
+InputPressed / InputReleased는 ASC가 입력 처리 중 **직접** 발동한다. 나머지 이벤트는 모두 다르다.
+
+### 경로 2 — RPC 수신 (나머지 이벤트)
+
+로컬 발동만으로는 반대편에 이벤트가 전달되지 않는다. AbilityTask가 RPC를 보내면 반대편에서 수신 후 `InvokeReplicatedEvent`를 호출한다.
 
 ```
 클라 → 서버:  ServerSetReplicatedEvent()  → 서버에서 InvokeReplicatedEvent()
 서버 → 클라:  ClientSetReplicatedEvent()  → 클라에서 InvokeReplicatedEvent()
 ```
 
-LocalPredicted GA라면 클라가 먼저 로컬에서 `InvokeReplicatedEvent()`를 호출하고,
-이어서 `ServerSetReplicatedEvent()` RPC로 서버에도 같은 이벤트를 발동시킨다.
+### GenericConfirm / GenericCancel — 로컬 경로가 따로 있다
+
+Confirm / Cancel은 구조가 다르다. `WaitConfirmCancel::Activate()`를 보면:
+
+```cpp
+if (IsLocallyControlled())
+{
+    // 로컬 클라: GenericReplicatedEvent가 아닌 별도 델리게이트에 등록
+    ASC->GenericLocalConfirmCallbacks.AddDynamic(this, &OnLocalConfirmCallback);
+    ASC->GenericLocalCancelCallbacks.AddDynamic(this, &OnLocalCancelCallback);
+}
+else
+{
+    // 서버(원격 클라 처리용): AbilityReplicatedEventDelegate에 등록
+    CallOrAddReplicatedDelegate(GenericConfirm, OnConfirmCallback);
+}
+```
+
+**로컬 클라이언트**에서 확인 버튼을 누르면:
+```
+LocalInputConfirm()
+  → GenericLocalConfirmCallbacks.Broadcast()   ← GenericReplicatedEvent 아님
+      → OnLocalConfirmCallback()
+          ├─ ServerSetReplicatedEvent(GenericConfirm) RPC  ──→ 서버
+          └─ OnConfirmCallback() 로컬 즉시 처리
+```
+
+**서버**에서는 RPC를 받아 `InvokeReplicatedEvent(GenericConfirm)` → `OnConfirmCallback()` 순으로 처리한다.
+
+로컬 클라이언트는 `InvokeReplicatedEvent`를 거치지 않고 `GenericLocalConfirmCallbacks`를 직접 브로드캐스트한다. `GenericReplicatedEvent` 슬롯은 **서버 수신 경로**에서만 쓰인다.
+
+### 이벤트별 발동 주체 정리
+
+| 이벤트 | 로컬 발동 | RPC 전송 주체 |
+|---|---|---|
+| `InputPressed` | `AbilitySpecInputPressed()` (ASC 내부) | `WaitInputPress::OnPressCallback()` |
+| `InputReleased` | `AbilitySpecInputReleased()` (ASC 내부) | `WaitInputRelease::OnReleaseCallback()` |
+| `GenericConfirm` | 없음 — 클라는 `GenericLocalConfirmCallbacks` 경유 | `WaitConfirmCancel::OnLocalConfirmCallback()`, `WaitTargetData` |
+| `GenericCancel` | 없음 — 클라는 `GenericLocalCancelCallbacks` 경유 | `WaitConfirmCancel`, `WaitCancel`, `WaitTargetData` |
+| `GenericSignalFromClient` | 없음 | `WaitNetSync::Activate()` (클라 측) |
+| `GenericSignalFromServer` | 없음 | `WaitNetSync::Activate()` (서버 측) |
+| `GameCustom1~6` | 게임 코드가 직접 `InvokeReplicatedEvent()` | 게임 코드가 직접 RPC 호출 |
 
 ---
 
@@ -276,7 +330,38 @@ GA_A의 Handle + PredKey를 알고 직접 `InvokeReplicatedEvent`를 호출하�
 | 크로스 GA 신호 | 불가 | 가능 |
 | 동시 수신자 | 그 GA 인스턴스 하나 | 해당 Tag를 기다리는 모든 태스크 |
 | 슬롯 수 | 6개 고정 | GameplayTag 무제한 |
+| **복제** | **내장 RPC 동기화 있음** | **없음 — 로컬 전용** |
 | 주 용도 | 같은 GA의 클라↔서버 동기화 | GA 간 / 입력 → GA 신호 전달 |
+
+### WaitGameplayEvent는 복제되지 않는다
+
+`HandleGameplayEvent`는 완전히 **로컬 호출**이다. 서버에서 호출하면 서버에서만, 클라에서 호출하면 클라에서만 발동한다. `WaitGameplayEvent`에도 복제 메커니즘이 없다 — `GenericGameplayEventCallbacks`는 로컬 델리게이트 맵이다.
+
+```cpp
+// AbilityTask_WaitGameplayEvent::Activate()
+// ASC의 로컬 델리게이트에 등록할 뿐 — RPC 없음
+ASC->GenericGameplayEventCallbacks.FindOrAdd(Tag)
+    .AddUObject(this, &GameplayEventCallback);
+```
+
+따라서 "B 입력으로 GA_A에 신호 보내기" 패턴을 올바르게 구현하려면 개발자가 직접 양쪽에서 발동해야 한다.
+
+**실용 패턴**:
+
+```
+// 방법 1 — GA_B를 서버 권한으로 실행
+B 입력 → GA_B 활성화 (서버에서 실행)
+  GA_B::ActivateAbility()
+    → ASC->HandleGameplayEvent(Tag_B, ...)   ← 서버에서 발동
+    → EndAbility()
+// GA_A의 WaitGameplayEvent가 서버에서 Tag_B를 수신
+
+// 방법 2 — LocalPredicted GA 안에서 직접 발동
+// GA_A가 LocalPredicted이면 클라·서버 양쪽에서 실행 중
+// B 입력 핸들러에서 양쪽에 각각 HandleGameplayEvent 호출이 필요
+```
+
+`GenericReplicatedEvent`와의 핵심 차이는 여기서 나온다 — `GenericReplicatedEvent`는 `ServerSetReplicatedEvent` / `ClientSetReplicatedEvent` RPC가 내장돼 있어 자동으로 양방향 동기화되지만, `WaitGameplayEvent`는 그런 메커니즘이 없다.
 
 ---
 
@@ -291,4 +376,4 @@ GA_A의 Handle + PredKey를 알고 직접 `InvokeReplicatedEvent`를 호출하�
 | `WaitNetSync` (BothWait) | `GenericSignalFromClient` + `GenericSignalFromServer` |
 | 커스텀 태스크 | `GameCustom1` ~ `GameCustom6` |
 
-`WaitConfirm` / `WaitCancel`은 `ProcessAbilityInput`이 아니라 ASC의 `LocalInputConfirm()` / `LocalInputCancel()`이 각각 `InvokeReplicatedEvent`를 발동시킨다.
+`WaitConfirm` / `WaitCancel`은 `ProcessAbilityInput`이 아니라 ASC의 `LocalInputConfirm()` / `LocalInputCancel()`이 트리거한다. 단, 로컬 클라에서는 `InvokeReplicatedEvent`를 거치지 않고 `GenericLocalConfirmCallbacks` 델리게이트를 직접 브로드캐스트하며, 서버 수신 경로에서만 `InvokeReplicatedEvent`가 발동된다.
