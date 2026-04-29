@@ -49,3 +49,102 @@ Ability->GetActorInfo()                 // FGameplayAbilityActorInfo 전체
 **③ GAS 예측 시스템 연동**
 `UAbilityTask`는 GAS의 `PredictionKey` 시스템에 참여할 수 있다.
 `UGameplayTask`에는 예측 개념 자체가 없다.
+
+---
+
+### GameplayTask vs AbilityTask 비교
+
+| | `UGameplayTask` | `UAbilityTask` |
+|---|---|---|
+| 위치 | `GameplayTasks` 플러그인 | `GameplayAbilities` 플러그인 |
+| 생성 | `NewTask<T>(TaskOwner)` | `NewAbilityTask<T>(Ability)` |
+| 소유자 타입 | `IGameplayTaskOwnerInterface` | `UGameplayAbility` |
+| 수명 | 독립적 (명시적 종료 필요) | GA 수명에 종속 — GA 종료 시 자동 파괴 |
+| ASC 접근 | 불가 | `Ability->GetAbilitySystemComponent()` |
+| AvatarActor 접근 | 불가 | `Ability->GetAvatarActorFromActorInfo()` |
+| 예측 시스템 | 없음 | `PredictionKey` 참여 가능 |
+| 동시 실행 제한 | 없음 | 전체 1000개 하드코딩 제한 |
+| GAS 없이 사용 | 가능 | 불가 (GA 필수) |
+
+---
+
+### 코드로 보는 차이
+
+#### 생성 방식
+
+```cpp
+// GameplayTask — TaskOwner 인터페이스를 구현한 누구든 소유 가능
+UMyTask* Task = UMyTask::NewTask<UMyTask>(TaskOwner, Priority);
+Task->ReadyForActivation();
+
+// AbilityTask — 반드시 UGameplayAbility가 소유자
+UMyAbilityTask* Task = UMyAbilityTask::NewAbilityTask<UMyAbilityTask>(this /*GA*/);
+Task->ReadyForActivation();
+```
+
+`NewAbilityTask<T>()` 내부에서 GA로부터 ASC를 찾아 `TasksComponent`에 연결한다.
+연결 대상이 항상 ASC이므로 GAS 컨텍스트 전체를 바로 쓸 수 있다.
+
+#### GA 수명 연동
+
+```cpp
+// UAbilityTask::OnDestroy() 내부
+void UAbilityTask::OnDestroy(bool bInOwnerFinished)
+{
+    // GA가 델리게이트 브로드캐스트를 막고 있으면 알리지 않음
+    // → GA 종료 후 남은 콜백이 GA를 접근하는 것을 방지
+    if (Ability)
+    {
+        Ability->TaskEnded(this);
+    }
+    Super::OnDestroy(bInOwnerFinished);
+}
+```
+
+`EndAbility()`가 호출되면 GA가 소유한 모든 AbilityTask에 `TaskOwnerEnded()`를 보내 전부 정리한다.
+
+#### 델리게이트 브로드캐스트 가드
+
+```cpp
+// AbilityTask에만 있는 패턴
+void UMyAbilityTask::OnSomethingHappened()
+{
+    if (ShouldBroadcastAbilityTaskDelegates())  // GA가 살아있을 때만 true
+    {
+        OnCompleted.Broadcast(...);
+    }
+    EndTask();
+}
+```
+
+`ShouldBroadcastAbilityTaskDelegates()`는 GA가 이미 종료됐으면 `false`를 반환한다.
+델리게이트 브로드캐스트 전에 이 체크를 넣지 않으면 종료된 GA를 향한 콜백이 실행될 수 있다.
+Lyra의 `AbilityTask_GrantNearbyInteraction`은 완료 델리게이트가 없는 지속형 태스크라 이 패턴이 필요 없지만, 일반적인 태스크에서는 필수다.
+
+#### AvatarActor 대기
+
+```cpp
+// AbilityTask에만 있는 유틸리티
+void UMyAbilityTask::Activate()
+{
+    SetWaitingOnAvatar();  // AvatarActor가 아직 준비되지 않았으면 대기 상태로 전환
+    // ...
+}
+```
+
+Lyra의 두 Interaction 태스크가 모두 `Activate()` 첫 줄에 이 호출을 넣는다.
+서버에서 GA가 먼저 활성화됐을 때 AvatarActor가 아직 없는 엣지케이스를 방어한다.
+
+---
+
+### 언제 무엇을 쓰는가
+
+| 상황 | 선택 |
+|---|---|
+| GA 안에서 비동기 작업 | `UAbilityTask` |
+| AI BehaviorTree에서 비동기 작업 | `UGameplayTask` (GAS 없이) |
+| GA 수명과 무관하게 독립 실행 | `UGameplayTask` |
+| ASC/AvatarActor/PredictionKey 접근 필요 | `UAbilityTask` |
+
+GAS 프로젝트에서 `UGameplayTask`를 직접 쓰는 경우는 거의 없다.
+GA 안이라면 항상 `UAbilityTask`를 쓰는 게 맞다.
