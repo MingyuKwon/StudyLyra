@@ -73,6 +73,108 @@ Simulated proxy가 받는 것은 "태스크를 실행하라"는 명령이 아니
 
 `COND_SkipOwner`: owning client는 이미 직접 태스크를 실행하고 있으므로 복제 불필요.
 
+---
+
+### InitSimulatedTask 호출 시점 — 코드 추적
+
+#### 서버 측 (태스크 활성화 시점)
+
+태스크가 `PerformActivation()`을 통해 Active 상태가 되면 `OnGameplayTaskActivated()`가 호출된다.
+
+```cpp
+// GameplayTasksComponent.cpp:80
+void UGameplayTasksComponent::OnGameplayTaskActivated(UGameplayTask& Task)
+{
+    KnownTasks.Add(&Task);
+
+    if (Task.IsTickingTask())
+    {
+        TickingTasks.Add(&Task);
+    }
+
+    if (Task.IsSimulatedTask())          // bSimulatedTask == true 인 경우
+    {
+        AddSimulatedTask(&Task);         // ← 여기서 SimulatedTasks 배열에 등록
+    }
+}
+```
+
+```cpp
+// GameplayTasksComponent.cpp:786
+bool UGameplayTasksComponent::AddSimulatedTask(UGameplayTask* NewTask)
+{
+    SimulatedTasks.Add(NewTask);
+    SetSimulatedTasksNetDirty();         // ← MARK_PROPERTY_DIRTY: 다음 net update에서 복제 예약
+    AddReplicatedSubObject(NewTask, COND_SkipOwner);  // 태스크 객체 자체도 서브오브젝트로 등록
+    return true;
+}
+```
+
+`SetSimulatedTasksNetDirty()`는 Push Model 복제 마킹이다. 실제 전송은 다음 net update 틱에서 일어난다.
+
+#### 클라이언트 측 (복제 수신 시점)
+
+`SimulatedTasks` 배열이 simulated proxy에 도착하면 `OnRep_SimulatedTasks()`가 자동 호출된다.
+
+```cpp
+// GameplayTasksComponent.cpp:205
+void UGameplayTasksComponent::OnRep_SimulatedTasks()
+{
+    for (UGameplayTask* SimulatedTask : GetSimulatedTasks())
+    {
+        if (SimulatedTask)
+        {
+            // 핵심 조건: bTickingTask == true 인 태스크만 InitSimulatedTask 호출
+            if (SimulatedTask->IsTickingTask() && TickingTasks.Contains(SimulatedTask) == false)
+            {
+                SimulatedTask->InitSimulatedTask(*this);  // ← 실제 호출 지점
+
+                TickingTasks.Add(SimulatedTask);
+                UpdateShouldTick();
+            }
+        }
+    }
+
+    // 다음 OnRep에서 추가/제거 감지용 스냅샷 갱신
+    PreviousOnRepSimulatedTasks.Empty();
+    PreviousOnRepSimulatedTasks.Append(SimulatedTasks);
+}
+```
+
+#### 중요: bTickingTask가 없으면 InitSimulatedTask가 호출되지 않는다
+
+`OnRep_SimulatedTasks`의 조건은 `IsTickingTask()`다.
+`bSimulatedTask = true`만 설정하고 `bTickingTask = false`이면 태스크 객체는 복제되지만 `InitSimulatedTask()`는 호출되지 않는다.
+
+`UAbilityTask_ApplyRootMotion_Base`가 두 플래그를 모두 켜는 이유가 이것이다.
+
+```cpp
+// AbilityTask_ApplyRootMotion_Base.cpp:14
+UAbilityTask_ApplyRootMotion_Base::UAbilityTask_ApplyRootMotion_Base(...)
+{
+    bTickingTask   = true;   // ← OnRep_SimulatedTasks의 IsTickingTask() 조건을 충족
+    bSimulatedTask = true;   // ← SimulatedTasks 배열 등록
+}
+```
+
+#### 전체 호출 체인 요약
+
+```
+[Server] PerformActivation()
+  → OnGameplayTaskActivated()
+      → AddSimulatedTask()
+          → SimulatedTasks.Add(task)
+          → SetSimulatedTasksNetDirty()   ← 복제 예약
+
+[Net Update Tick] SimulatedTasks 배열 → simulated proxy 전송
+
+[Simulated Proxy] OnRep_SimulatedTasks()
+  → IsTickingTask() && not in TickingTasks?
+      → YES: InitSimulatedTask(*this)    ← bIsSimulating = true + 시뮬레이션 시작
+             TickingTasks.Add(task)
+      → NO:  태스크 객체만 복제, InitSimulatedTask 호출 없음
+```
+
 ### 두 플래그 구분
 
 ```cpp
