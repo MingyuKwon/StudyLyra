@@ -149,3 +149,193 @@ GA → ApplyGameplayEffect → FGameplayEffectSpec (Context 포함)
 | GE / Exec / Cue 접근 | ❌ 불가 | ✅ Context 통해 접근 |
 
 TargetData 자체는 결국 RPC로 전송되지만, GAS 파이프라인의 나머지 단계(GE Apply, ExecCalc, GameplayCue, AttributeSet 콜백)가 이 구조체를 **기본으로 기대**하기 때문에, 우회하면 그 연결을 전부 수동으로 재구현해야 한다.
+
+---
+
+### Lyra 실제 구현 — 원거리 무기 사격 흐름
+
+원거리 무기(`ULyraGameplayAbility_RangedWeapon`)가 TargetData를 주고받는 전 과정이다.
+
+#### 1단계 — TargetData 서브클래스 정의
+
+`AbilitySystem/LyraGameplayAbilityTargetData_SingleTargetHit.h`
+
+```cpp
+USTRUCT()
+struct FLyraGameplayAbilityTargetData_SingleTargetHit
+    : public FGameplayAbilityTargetData_SingleTargetHit  // 엔진 기본 타입 확장
+{
+    GENERATED_BODY()
+
+    // 같은 탄창에서 발사된 여러 총알을 묶는 ID (산탄총 등)
+    UPROPERTY()
+    int32 CartridgeID = -1;
+
+    // TargetData → EffectContext로 데이터를 복사하는 오버라이드
+    virtual void AddTargetDataToContext(FGameplayEffectContextHandle& Context,
+                                        bool bIncludeActorArray) const override;
+
+    bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess);
+
+    virtual UScriptStruct* GetScriptStruct() const override
+    {
+        return FLyraGameplayAbilityTargetData_SingleTargetHit::StaticStruct();
+    }
+};
+
+// 핸들 직렬화에 필수
+template<>
+struct TStructOpsTypeTraits<FLyraGameplayAbilityTargetData_SingleTargetHit>
+    : public TStructOpsTypeTraitsBase2<FLyraGameplayAbilityTargetData_SingleTargetHit>
+{
+    enum { WithNetSerializer = true };
+};
+```
+
+**포인트**: 엔진 제공 `FGameplayAbilityTargetData_SingleTargetHit`(HitResult 포함)를 상속해서 `CartridgeID`만 추가했다.
+
+#### 2단계 — EffectContext에 데이터 주입
+
+`LyraGameplayAbilityTargetData_SingleTargetHit.cpp`
+
+```cpp
+void FLyraGameplayAbilityTargetData_SingleTargetHit::AddTargetDataToContext(
+    FGameplayEffectContextHandle& Context, bool bIncludeActorArray) const
+{
+    // 부모 호출 — HitResult, Actor 배열 등 기본 데이터 복사
+    FGameplayAbilityTargetData_SingleTargetHit::AddTargetDataToContext(Context, bIncludeActorArray);
+
+    // Lyra 전용 Context 타입으로 꺼낸 뒤 CartridgeID 주입
+    if (FLyraGameplayEffectContext* TypedContext =
+            FLyraGameplayEffectContext::ExtractEffectContext(Context))
+    {
+        TypedContext->CartridgeID = CartridgeID;
+    }
+}
+```
+
+GE가 Apply될 때 이 함수가 호출되어, CartridgeID가 EffectContext 안으로 들어간다.  
+이후 ExecCalc / GameplayCue / AttributeSet 콜백에서 `FLyraGameplayEffectContext::ExtractEffectContext()`로 꺼낼 수 있다.
+
+#### 3단계 — 로컬 레이캐스트 후 TargetData 패킹
+
+`Weapons/LyraGameplayAbility_RangedWeapon.cpp` — `StartRangedWeaponTargeting()`
+
+```cpp
+void ULyraGameplayAbility_RangedWeapon::StartRangedWeaponTargeting()
+{
+    // 로컬(클라이언트)에서 레이캐스트 실행
+    TArray<FHitResult> FoundHits;
+    PerformLocalTargeting(/*out*/ FoundHits);
+
+    // HitResult 배열을 TargetDataHandle로 패킹
+    FGameplayAbilityTargetDataHandle TargetData;
+    TargetData.UniqueId = WeaponStateComponent->GetUnconfirmedServerSideHitMarkerCount();
+
+    const int32 CartridgeID = FMath::Rand();  // 같은 발사 묶음 식별자
+
+    for (const FHitResult& FoundHit : FoundHits)
+    {
+        FLyraGameplayAbilityTargetData_SingleTargetHit* NewTargetData =
+            new FLyraGameplayAbilityTargetData_SingleTargetHit();
+        NewTargetData->HitResult = FoundHit;
+        NewTargetData->CartridgeID = CartridgeID;  // 산탄총이면 전부 같은 ID
+
+        TargetData.Add(NewTargetData);  // 핸들이 메모리 소유권 가져감
+    }
+
+    // 콜백으로 바로 넘김 (Task 없이 수동 처리)
+    OnTargetDataReadyCallback(TargetData, FGameplayTag());
+}
+```
+
+#### 4단계 — 서버 전송 및 GE 적용
+
+`OnTargetDataReadyCallback()` — 클라이언트와 서버 양쪽에서 실행된다.
+
+```cpp
+void ULyraGameplayAbility_RangedWeapon::OnTargetDataReadyCallback(
+    const FGameplayAbilityTargetDataHandle& InData, FGameplayTag ApplicationTag)
+{
+    FScopedPredictionWindow ScopedPrediction(MyAbilityComponent);
+
+    FGameplayAbilityTargetDataHandle LocalTargetDataHandle(
+        MoveTemp(const_cast<FGameplayAbilityTargetDataHandle&>(InData)));
+
+    // 클라이언트(로컬 컨트롤러, 비-Authority)면 서버로 RPC 전송
+    const bool bShouldNotifyServer =
+        CurrentActorInfo->IsLocallyControlled() && !CurrentActorInfo->IsNetAuthority();
+
+    if (bShouldNotifyServer)
+    {
+        MyAbilityComponent->CallServerSetReplicatedTargetData(
+            CurrentSpecHandle,
+            CurrentActivationInfo.GetActivationPredictionKey(),  // PredictionKey와 묶음
+            LocalTargetDataHandle,
+            ApplicationTag,
+            MyAbilityComponent->ScopedPredictionKey);
+    }
+
+    // 탄약 소모 및 GE 적용 (Blueprint에서 OnRangedWeaponTargetDataReady 구현)
+    if (CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
+    {
+        OnRangedWeaponTargetDataReady(LocalTargetDataHandle);  // Blueprint 이벤트
+    }
+
+    // 처리 완료 후 ASC 내부 캐시 정리
+    MyAbilityComponent->ConsumeClientReplicatedTargetData(
+        CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
+}
+```
+
+#### 5단계 — ActivateAbility에서 콜백 등록 / EndAbility에서 정리
+
+```cpp
+void ULyraGameplayAbility_RangedWeapon::ActivateAbility(...)
+{
+    // TargetData가 도착하면 OnTargetDataReadyCallback 호출되도록 구독
+    OnTargetDataReadyCallbackDelegateHandle =
+        MyAbilityComponent->AbilityTargetDataSetDelegate(
+            CurrentSpecHandle,
+            CurrentActivationInfo.GetActivationPredictionKey()
+        ).AddUObject(this, &ThisClass::OnTargetDataReadyCallback);
+    // ...
+}
+
+void ULyraGameplayAbility_RangedWeapon::EndAbility(...)
+{
+    // 구독 해제 + 서버 캐시 정리
+    MyAbilityComponent->AbilityTargetDataSetDelegate(
+        CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey()
+    ).Remove(OnTargetDataReadyCallbackDelegateHandle);
+
+    MyAbilityComponent->ConsumeClientReplicatedTargetData(
+        CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
+    // ...
+}
+```
+
+#### 전체 흐름 요약
+
+```
+[클라이언트]
+ActivateAbility()
+  → AbilityTargetDataSetDelegate 구독
+  → StartRangedWeaponTargeting()
+      → PerformLocalTargeting() — 레이캐스트
+      → FLyraGameplayAbilityTargetData_SingleTargetHit 생성 (HitResult + CartridgeID)
+      → TargetDataHandle.Add(...)
+      → OnTargetDataReadyCallback() 직접 호출
+          → CallServerSetReplicatedTargetData() — 서버 RPC (PredictionKey 포함)
+          → OnRangedWeaponTargetDataReady() — Blueprint에서 GE Apply
+
+[서버]
+ServerSetReplicatedTargetData() 수신
+  → AbilityTargetDataSetDelegate.Broadcast()
+      → OnTargetDataReadyCallback()
+          → GE Apply 시 AddTargetDataToContext() 호출
+              → CartridgeID → FLyraGameplayEffectContext 주입
+          → ExecCalc / GameplayCue / AttributeSet 콜백에서 Context로 꺼내 사용
+```
+
+**핵심**: `WaitTargetData` Task를 쓰지 않고 직접 `AbilityTargetDataSetDelegate`를 구독하는 방식이다. Task 없이 수동으로 처리하는 패턴으로, TargetData 전송 타이밍을 GA가 직접 제어한다.

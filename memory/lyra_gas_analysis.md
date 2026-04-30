@@ -1559,3 +1559,50 @@ AbilitySpec->IsActive() == true
                   → (IsPredictingClient) ServerSetReplicatedEvent()
                   → EndTask()
 ```
+
+---
+
+## 20. TargetData 실제 사용 — LyraGameplayAbility_RangedWeapon
+
+**출처**:
+`Source/LyraGame/AbilitySystem/LyraGameplayAbilityTargetData_SingleTargetHit.h/cpp`
+`Source/LyraGame/Weapons/LyraGameplayAbility_RangedWeapon.cpp`
+`Source/LyraGame/AbilitySystem/LyraGameplayEffectContext.h`
+
+### TargetData 서브클래스
+
+`FLyraGameplayAbilityTargetData_SingleTargetHit` : `FGameplayAbilityTargetData_SingleTargetHit` 상속
+- 추가 필드: `int32 CartridgeID` — 같은 탄창(산탄총 등) 총알들을 묶는 ID
+- `NetSerialize`: 부모 호출 후 `Ar << CartridgeID`
+- `AddTargetDataToContext` 오버라이드: CartridgeID를 `FLyraGameplayEffectContext`에 주입
+
+### EffectContext 연결
+
+`FLyraGameplayEffectContext` : `FGameplayEffectContext` 상속
+- 추가 필드: `int32 CartridgeID = -1`
+- `AddTargetDataToContext()`에서 `ExtractEffectContext(Context)->CartridgeID = CartridgeID` 로 복사됨
+- 이후 ExecCalc/GameplayCue/AttributeSet 콜백에서 `ExtractEffectContext()`로 꺼내 사용 가능
+
+### 전체 흐름 (Task 없이 수동 처리 방식)
+
+```
+ActivateAbility()
+  → AbilityTargetDataSetDelegate 구독 (OnTargetDataReadyCallback)
+  → StartRangedWeaponTargeting()
+      → PerformLocalTargeting() — 클라이언트 레이캐스트
+      → FLyraGameplayAbilityTargetData_SingleTargetHit 생성 + HitResult/CartridgeID 채움
+      → Handle.Add(NewTargetData)
+      → OnTargetDataReadyCallback() 직접 호출
+
+OnTargetDataReadyCallback()
+  → (클라이언트) CallServerSetReplicatedTargetData() RPC — PredictionKey 포함
+  → (서버) AbilityTargetDataSetDelegate.Broadcast() → 동일 콜백 재진입
+  → CommitAbility() → OnRangedWeaponTargetDataReady() Blueprint이벤트 (GE Apply)
+  → ConsumeClientReplicatedTargetData() — ASC 내부 캐시 정리
+
+EndAbility()
+  → Delegate.Remove(Handle)
+  → ConsumeClientReplicatedTargetData()
+```
+
+**특이점**: `WaitTargetData` AbilityTask를 쓰지 않고, `AbilityTargetDataSetDelegate`를 GA가 직접 구독하는 수동 방식이다. TargetData 전송 타이밍을 GA가 직접 제어한다.
