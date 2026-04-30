@@ -169,21 +169,32 @@ GE 적용
 
 ## 6. 데미지 실행 흐름 (LyraDamageExecution)
 
+**출처**: `Source/LyraGame/AbilitySystem/Executions/LyraDamageExecution.cpp`
+
 ```
 [공격자 ASC: CombatSet::BaseDamage]
   └─ FDamageStatics: GetBaseDamageAttribute() Capture (Source, bSnapshot=true)
 
 Execute_Implementation():
-  AttemptCalculateCapturedAttributeMagnitude → BaseDamage 읽기
+  TypedContext = FLyraGameplayEffectContext::ExtractEffectContext(Spec.GetContext())
+  HitActorResult = TypedContext->GetHitResult()   ← TargetData에서 흘러온 FHitResult
+  HitActor       = CurHitResult.HitObjectHandle.FetchActor()
+  ImpactLocation = CurHitResult.ImpactPoint
+  (HitResult 없으면 TargetASC->GetAvatarActor() 위치로 폴백)
+
   CanCauseDamage(EffectCauser, HitActor) → DamageInteractionAllowedMultiplier (팀킬 방지)
-  AbilitySource->GetDistanceAttenuation() → DistanceAttenuation
-  AbilitySource->GetPhysicalMaterialAttenuation() → PhysicalMaterialAttenuation
+  Distance = Dist(TypedContext->GetOrigin(), ImpactLocation)
+  AbilitySource->GetDistanceAttenuation(Distance) → DistanceAttenuation
+  TypedContext->GetPhysicalMaterial()              ← HitResult 내부 PhysicalMaterial
+  AbilitySource->GetPhysicalMaterialAttenuation(PhysMat) → PhysicalMaterialAttenuation
   DamageDone = BaseDamage * DistanceAttenuation * PhysicalMaterialAttenuation * DamageInteractionAllowedMultiplier
   AddOutputModifier(GetDamageAttribute(), Additive, DamageDone)
   → [피격자 ASC: HealthSet::Damage(Meta)]
 ```
 `#if WITH_SERVER_CODE` 가드로 서버 전용.
 힐(`LyraHealExecution`)은 동일 패턴, `BaseHeal → Healing(Meta)`.
+
+**TargetData 연결**: HitResult(피격 위치·재질)가 TargetData → Context → ExecCalc 순서로 흘러야 거리 감쇠와 재질 감쇠가 동작한다. TargetData 없이 GE를 직접 적용하면 두 감쇠 모두 폴백값(거리 WORLD_MAX, 재질 없음)으로 처리된다.
 
 ---
 

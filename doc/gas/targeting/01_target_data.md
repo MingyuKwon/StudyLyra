@@ -378,3 +378,67 @@ Lyra가 `CartridgeID`를 위해 `FLyraGameplayEffectContext`를 만든 것이 �
 #### 둘은 1:1 쌍이 아니다
 
 Context는 TargetData가 주입하는 **대상**일 뿐이다. 여러 TargetData 타입이 같은 커스텀 Context에 주입할 수도 있고, 커스텀 TargetData가 기본 Context를 그대로 쓸 수도 있다. 커스텀 Context 한 개를 공유하면서 다양한 TargetData 타입이 각자의 `AddTargetDataToContext()`를 통해 같은 Context에 데이터를 채워 넣는 구조가 일반적이다.
+
+---
+
+### ExecCalc에서 TargetData 유래 데이터를 실제로 쓰는 사례 — LyraDamageExecution
+
+`LyraDamageExecution::Execute_Implementation()`은 Context에서 HitResult를 꺼내 세 가지 계산에 사용한다. TargetData를 들고 오지 않으면 이 계산들이 전부 폴백값으로 떨어진다.
+
+```cpp
+FLyraGameplayEffectContext* TypedContext =
+    FLyraGameplayEffectContext::ExtractEffectContext(Spec.GetContext());
+
+const FHitResult* HitActorResult = TypedContext->GetHitResult();  // TargetData에서 흘러온 것
+```
+
+#### 용도 1 — 피격 대상·위치 특정
+
+```cpp
+HitActor       = CurHitResult.HitObjectHandle.FetchActor();
+ImpactLocation = CurHitResult.ImpactPoint;
+```
+
+HitResult가 없으면 `TargetASC->GetAvatarActor()` 위치로 폴백한다.
+
+#### 용도 2 — 거리 감쇠
+
+```cpp
+Distance = FVector::Dist(TypedContext->GetOrigin(), ImpactLocation);
+DistanceAttenuation = AbilitySource->GetDistanceAttenuation(Distance, SourceTags, TargetTags);
+```
+
+발사 기원점 ~ 피격 지점 거리를 계산해 원거리일수록 데미지를 줄인다.
+
+#### 용도 3 — 재질별 감쇠 (헤드샷 등)
+
+```cpp
+const UPhysicalMaterial* PhysMat = TypedContext->GetPhysicalMaterial(); // HitResult 내부
+PhysicalMaterialAttenuation = AbilitySource->GetPhysicalMaterialAttenuation(PhysMat, ...);
+```
+
+HitResult에 담긴 PhysicalMaterial로 머리·몸통·방어구 등 표면별 데미지 배율을 적용한다.
+
+#### 최종 데미지 공식
+
+```
+DamageDone = BaseDamage
+           × DistanceAttenuation          // 거리 감쇠
+           × PhysicalMaterialAttenuation  // 재질 감쇠 (헤드샷 등)
+           × DamageInteractionAllowedMultiplier  // 팀킬 방지 (0 or 1)
+```
+
+#### 흐름 요약
+
+```
+[클라이언트 레이캐스트]
+  FHitResult (ImpactPoint, PhysicalMaterial, HitActor)
+    ↓ TargetData에 담김
+    ↓ AddTargetDataToContext()
+  FLyraGameplayEffectContext.HitResult
+    ↓ GE Apply → LyraDamageExecution
+      → ImpactLocation  → 거리 계산 → DistanceAttenuation
+      → PhysicalMaterial → 재질 판별 → PhysicalMaterialAttenuation
+      → HitActor         → 팀킬 체크 → AllowedMultiplier
+      → BaseDamage × 세 값 = 최종 데미지
+```
