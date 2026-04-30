@@ -339,3 +339,42 @@ ServerSetReplicatedTargetData() 수신
 ```
 
 **핵심**: `WaitTargetData` Task를 쓰지 않고 직접 `AbilityTargetDataSetDelegate`를 구독하는 방식이다. Task 없이 수동으로 처리하는 패턴으로, TargetData 전송 타이밍을 GA가 직접 제어한다.
+
+---
+
+### TargetData와 Context의 관계
+
+#### TargetData는 Context로 이전된다
+
+TargetData는 주로 두 가지 목적으로 사용된다.
+
+1. **GA 코드에서 직접 읽기** — GE Apply 이전에 GA가 Handle을 직접 순회해 게임 로직 처리
+2. **Context로 이전** — `ApplyGameplayEffect` 직전에 `AddTargetDataToContext()`가 호출되어 데이터가 Context에 복사됨
+
+GE 파이프라인에 진입하는 순간부터는 TargetData Handle은 소비되고, **Context만이 ExecCalc / MMC / GameplayCue / AttributeSet 콜백까지 따라다닌다**.
+
+```
+TargetData (클라↔서버 전송, GA 로직)
+    ↓ AddTargetDataToContext()
+FGameplayEffectContext (GE 파이프라인 전체를 따라다니는 운반체)
+    ↓
+ExecCalc / MMC / GameplayCue / AttributeSet 콜백
+```
+
+#### 커스텀 Context가 필요한 경우
+
+`FGameplayEffectContext`는 이미 `HitResult`와 `Actors` 배열을 지원한다. TargetData가 이 필드만 주입하면 커스텀 Context 없이 동작한다.
+
+**커스텀 Context가 필요한 기준은 딱 하나**: 기본 Context에 없는 새 필드를 GE 파이프라인 안까지 흘려야 할 때다.
+
+| 상황 | 커스텀 TargetData | 커스텀 Context |
+|---|---|---|
+| HitResult + Actor만 필요 | 불필요 | 불필요 |
+| 새 필드를 GA 코드에서만 쓸 때 | 필요 | **불필요** |
+| 새 필드를 ExecCalc/Cue까지 흘릴 때 | 필요 | **필요** |
+
+Lyra가 `CartridgeID`를 위해 `FLyraGameplayEffectContext`를 만든 것이 세 번째 케이스다.
+
+#### 둘은 1:1 쌍이 아니다
+
+Context는 TargetData가 주입하는 **대상**일 뿐이다. 여러 TargetData 타입이 같은 커스텀 Context에 주입할 수도 있고, 커스텀 TargetData가 기본 Context를 그대로 쓸 수도 있다. 커스텀 Context 한 개를 공유하면서 다양한 TargetData 타입이 각자의 `AddTargetDataToContext()`를 통해 같은 Context에 데이터를 채워 넣는 구조가 일반적이다.
