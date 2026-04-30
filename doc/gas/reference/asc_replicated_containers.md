@@ -47,7 +47,7 @@ FGameplayAbilityReplicatedDataContainer AbilityTargetDataMap; // TargetData + Ge
 | `ReplicatedLooseTags` | Loose GameplayTag | `UPROPERTY(Replicated)` | 서버→클라 |
 | `MinimalReplicationTags` | GE 유래 태그 (Minimal) | `UPROPERTY(Replicated)` | 서버→클라 |
 | `ReplicatedPredictionKeyMap` | Prediction Key 상태 | `UPROPERTY(Replicated)` | 서버→클라 |
-| **`AbilityTargetDataMap`** | **TargetData + GenericEvents** | **RPC** | **클라→서버** |
+| **`AbilityTargetDataMap`** | **TargetData + GenericEvents** | **RPC** | **양방향** |
 
 > **참고**  
 > Attribute 값 자체는 이 표에 없다.
@@ -58,9 +58,12 @@ FGameplayAbilityReplicatedDataContainer AbilityTargetDataMap; // TargetData + Ge
 
 ## AbilityTargetDataMap만 RPC를 쓰는 이유
 
-나머지 6개는 **서버가 권위를 갖고 클라에 뿌리는** 데이터다.
-`AbilityTargetDataMap`은 반대 방향이다. 클라이언트가 로컬에서 레이캐스트·타게팅을 먼저 수행하고, 그 결과를 서버에 올려 검증받는다.
-이 방향성 때문에 표준 프로퍼티 복제가 아닌 RPC를 사용한다.
+나머지 6개는 **서버가 권위를 갖고 클라에 뿌리는** 단방향 데이터다.
+`AbilityTargetDataMap`은 다르다. 안에 담긴 두 종류의 데이터가 방향이 서로 다르다.
+
+### TargetData — 클라→서버 단방향
+
+클라이언트가 로컬에서 레이캐스트·타게팅을 먼저 수행하고, 그 결과를 서버에 올려 검증받는다.
 
 ```
 [클라이언트]
@@ -68,11 +71,29 @@ FGameplayAbilityReplicatedDataContainer AbilityTargetDataMap; // TargetData + Ge
   CallServerSetReplicatedTargetData() ──RPC──▶ [서버]
                                                 AbilityTargetDataMap에 저장
                                                 AbilityTargetDataSetDelegate.Broadcast()
-                                                → GE Apply (ExecCalc, GameplayCue, ...)
+                                                → GE Apply
 ```
 
+### GenericReplicatedEvent — 양방향
+
+신호 슬롯마다 방향이 다르다. 서버→클라 방향도 존재한다.
+
+```
+클라→서버:  ServerSetReplicatedEvent() RPC → 서버에서 InvokeReplicatedEvent()
+서버→클라:  ClientSetReplicatedEvent() RPC → 클라에서 InvokeReplicatedEvent()
+```
+
+| 슬롯 | 방향 |
+|---|---|
+| `InputPressed` / `InputReleased` | 클라→서버 |
+| `GenericConfirm` / `GenericCancel` | 클라→서버 |
+| `GenericSignalFromClient` | 클라→서버 |
+| `GenericSignalFromServer` | **서버→클라** |
+| `GameCustom1~6` | 게임 코드가 결정 |
+
+표준 복제 시스템(`UPROPERTY(Replicated)`)은 항상 서버→클라 단방향이라 이 양방향 패턴을 표현할 수 없다. 그래서 RPC를 직접 쓴다.
+
 `AbilityTargetDataMap`의 내부 구조는 GA 인스턴스 단위(`Handle + PredictionKey`)로 키를 나누며,
-TargetData 외에 `GenericEvents`(InputPressed, Confirm, Cancel 등 신호 슬롯)도 함께 관리한다.
 이름이 "TargetDataMap"인 이유는 원래 `WaitTargetData`용으로 설계됐다가 나중에 GenericEvents가 합류했기 때문이다.
 
 ---
@@ -83,5 +104,6 @@ TargetData 외에 `GenericEvents`(InputPressed, Confirm, Cancel 등 신호 슬�
 "GAS에서 동기화되는 정보"를 찾을 때 나머지 6개는 헤더에서 `Replicated` 키워드로 바로 찾을 수 있지만,
 TargetData는 RPC 경로를 타기 때문에 헤더만 보면 복제 여부가 보이지 않는다.
 
-6개 표준 복제 컨테이너는 모두 서버 권위 데이터다.
-클라이언트가 먼저 계산하고 서버에 올리는 유일한 경로가 `AbilityTargetDataMap` ← RPC다.
+6개 표준 복제 컨테이너는 모두 서버→클라 단방향이다.
+`AbilityTargetDataMap`만 RPC를 쓰는데, 그 안의 TargetData는 클라→서버, GenericEvent는 양방향으로 방향이 서로 다르다.
+`UPROPERTY(Replicated)`는 서버→클라만 표현할 수 있어서, 클라→서버나 양방향이 필요한 이 데이터는 RPC를 직접 써야 한다.
