@@ -114,3 +114,38 @@ FName GetCoolNameFromTargetData(const FGameplayAbilityTargetDataHandle& Handle, 
 ---
 
 ## 내 분석
+
+### TargetData가 필요한 이유 — 직접 RPC/Replicate로 대체하지 못하는 이유
+
+TargetData가 RPC를 *대체*하는 게 아니라, **RPC를 쓰면서도 GAS 파이프라인 전체에 데이터를 흘려보내야 하는 문제**를 해결하는 구조다.
+
+#### 이유 1 — EffectContext에 끼워져야 한다
+
+GE를 Apply할 때 `FGameplayEffectContextHandle`이 함께 전달되며, ExecCalc / MMC / GameplayCue / AttributeSet의 `PostGameplayEffectExecute`가 전부 이 Context에서 데이터를 꺼낸다.
+
+```
+GA → ApplyGameplayEffect → FGameplayEffectSpec (Context 포함)
+                                ↓
+               ExecCalc / MMC / GameplayCue / AttributeSet 콜백
+```
+
+직접 RPC로 쏜 데이터는 Context 안에 없으므로, 히트 결과·발사 위치 같은 정보를 Execution이나 GameplayCue에서 꺼낼 방법이 없다.
+
+#### 이유 2 — Prediction Key와 묶여야 한다
+
+클라이언트가 어빌리티를 예측(predict)하면 PredictionKey가 발급된다. TargetData는 이 Key와 함께 `ServerSetReplicatedTargetData` RPC로 전송되고, 서버가 Key를 기준으로 확정/롤백을 처리한다. 직접 RPC를 만들면 이 타이밍 조율(어빌리티 활성 여부, 롤백 윈도우, 중복 방지 등)을 전부 수동으로 구현해야 한다.
+
+#### 이유 3 — AbilityTask가 RPC를 대신 써준다
+
+`WaitTargetData` AbilityTask를 쓰면 내부에서 `ServerSetReplicatedTargetData` RPC를 자동으로 호출한다. 개발자는 RPC 코드를 직접 작성할 필요 없이 **TargetData 구조체만 정의**하면 된다.
+
+#### 비교 요약
+
+| | 직접 RPC | TargetData |
+|---|---|---|
+| EffectContext 연동 | ❌ 수동 연결 | ✅ 자동 |
+| Prediction 지원 | ❌ 수동 구현 | ✅ PredictionKey 내장 |
+| RPC 코드 작성 | 직접 써야 함 | Task가 대신 씀 |
+| GE / Exec / Cue 접근 | ❌ 불가 | ✅ Context 통해 접근 |
+
+TargetData 자체는 결국 RPC로 전송되지만, GAS 파이프라인의 나머지 단계(GE Apply, ExecCalc, GameplayCue, AttributeSet 콜백)가 이 구조체를 **기본으로 기대**하기 때문에, 우회하면 그 연결을 전부 수동으로 재구현해야 한다.

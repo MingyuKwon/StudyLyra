@@ -1485,3 +1485,77 @@ struct FDoRepLifetimeParams {
 
 ### Activate() 베이스 구현
 VLOG 출력만 하고 아무것도 하지 않는다. 개발자가 오버라이드해서 실제 로직 구현.
+
+---
+
+## 19. EAbilityGenericReplicatedEvent — GA 인스턴스 신호 채널
+
+**출처**:  
+`Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/Abilities/GameplayAbilityTargetTypes.h:662`  
+`Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp:3880`  
+`Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/Abilities/Tasks/AbilityTask_WaitInputPress.cpp`
+
+### 정의
+
+활성화된 GA 인스턴스에 묶인 신호 슬롯. 이름의 "Replicated"는 클라↔서버 RPC로 동기화되기 때문.
+
+```cpp
+namespace EAbilityGenericReplicatedEvent
+{
+    enum Type : int
+    {
+        GenericConfirm,           // WaitConfirm
+        GenericCancel,            // WaitCancel
+        InputPressed,             // WaitInputPress
+        InputReleased,            // WaitInputRelease
+        GenericSignalFromClient,  // 범용 클라→서버
+        GenericSignalFromServer,  // 범용 서버→클라
+        GameCustom1 ~ GameCustom6 // 게임 전용 확장
+    };
+}
+```
+
+### 저장소
+
+ASC의 `AbilityTargetDataMap`:
+- key: `FGameplayAbilitySpecHandle + FPredictionKey` (GA 인스턴스 단위 분리)
+- value: `FAbilityReplicatedDataCache` → `GenericEvents[MAX]` 슬롯 배열
+  - 각 슬롯: `bTriggered`, `VectorPayload`, `Delegate(FSimpleMulticastDelegate)`
+
+### InvokeReplicatedEvent (로컬 발동)
+
+1. `GenericEvents[Type].bTriggered = true` 저장
+2. Delegate가 바인딩 돼 있으면 즉시 Broadcast
+3. 아무도 구독 안 하면 `bTriggered=true`만 저장 → 나중에 `CallReplicatedEventDelegateIfSet()`으로 사후 처리 가능 (타이밍 레이스 방지)
+
+### RPC 동기화
+
+- 클라→서버: `ServerSetReplicatedEvent()` → 서버에서 `InvokeReplicatedEvent()` 호출
+- 서버→클라: `ClientSetReplicatedEvent()` → 클라에서 `InvokeReplicatedEvent()` 호출
+
+### WaitInputPress 구독 방법
+
+```cpp
+// Activate()
+DelegateHandle = ASC->AbilityReplicatedEventDelegate(
+    EAbilityGenericReplicatedEvent::InputPressed,
+    GetAbilitySpecHandle(), GetActivationPredictionKey()
+).AddUObject(this, &ThisClass::OnPressCallback);
+
+// 이미 발동됐을 경우 사후 처리
+if (IsForRemoteClient())
+    ASC->CallReplicatedEventDelegateIfSet(InputPressed, handle, predKey);
+```
+
+### 호출 체인 (ProcessAbilityInput → WaitInputPress)
+
+```
+AbilitySpec->IsActive() == true
+  → AbilitySpecInputPressed()
+      → InvokeReplicatedEvent(InputPressed, handle, predKey)
+          → GenericEvents[InputPressed].Delegate.Broadcast()
+              → WaitInputPress::OnPressCallback()
+                  → OnPress.Broadcast(ElapsedTime)
+                  → (IsPredictingClient) ServerSetReplicatedEvent()
+                  → EndTask()
+```
