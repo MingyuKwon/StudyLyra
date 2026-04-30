@@ -40,3 +40,4 @@
 | [QoL 제안](reference/quality_of_life.md) | 8 | GEContainers, Blueprint AsyncTask |
 | [트러블슈팅](reference/troubleshooting.md) | 9 | 흔한 에러 해결 |
 | [Dave Ratti Q&A](reference/dave_ratti_qa.md) | 11 | Epic 개발자 Q&A |
+| [ASC 복제 컨테이너](reference/asc_replicated_containers.md) | — | GAS 동기화 데이터 보관소 전체 정리 |

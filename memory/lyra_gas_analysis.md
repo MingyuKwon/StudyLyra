@@ -169,21 +169,32 @@ GE 적용
 
 ## 6. 데미지 실행 흐름 (LyraDamageExecution)
 
+**출처**: `Source/LyraGame/AbilitySystem/Executions/LyraDamageExecution.cpp`
+
 ```
 [공격자 ASC: CombatSet::BaseDamage]
   └─ FDamageStatics: GetBaseDamageAttribute() Capture (Source, bSnapshot=true)
 
 Execute_Implementation():
-  AttemptCalculateCapturedAttributeMagnitude → BaseDamage 읽기
+  TypedContext = FLyraGameplayEffectContext::ExtractEffectContext(Spec.GetContext())
+  HitActorResult = TypedContext->GetHitResult()   ← TargetData에서 흘러온 FHitResult
+  HitActor       = CurHitResult.HitObjectHandle.FetchActor()
+  ImpactLocation = CurHitResult.ImpactPoint
+  (HitResult 없으면 TargetASC->GetAvatarActor() 위치로 폴백)
+
   CanCauseDamage(EffectCauser, HitActor) → DamageInteractionAllowedMultiplier (팀킬 방지)
-  AbilitySource->GetDistanceAttenuation() → DistanceAttenuation
-  AbilitySource->GetPhysicalMaterialAttenuation() → PhysicalMaterialAttenuation
+  Distance = Dist(TypedContext->GetOrigin(), ImpactLocation)
+  AbilitySource->GetDistanceAttenuation(Distance) → DistanceAttenuation
+  TypedContext->GetPhysicalMaterial()              ← HitResult 내부 PhysicalMaterial
+  AbilitySource->GetPhysicalMaterialAttenuation(PhysMat) → PhysicalMaterialAttenuation
   DamageDone = BaseDamage * DistanceAttenuation * PhysicalMaterialAttenuation * DamageInteractionAllowedMultiplier
   AddOutputModifier(GetDamageAttribute(), Additive, DamageDone)
   → [피격자 ASC: HealthSet::Damage(Meta)]
 ```
 `#if WITH_SERVER_CODE` 가드로 서버 전용.
 힐(`LyraHealExecution`)은 동일 패턴, `BaseHeal → Healing(Meta)`.
+
+**TargetData 연결**: HitResult(피격 위치·재질)가 TargetData → Context → ExecCalc 순서로 흘러야 거리 감쇠와 재질 감쇠가 동작한다. TargetData 없이 GE를 직접 적용하면 두 감쇠 모두 폴백값(거리 WORLD_MAX, 재질 없음)으로 처리된다.
 
 ---
 
@@ -1485,3 +1496,124 @@ struct FDoRepLifetimeParams {
 
 ### Activate() 베이스 구현
 VLOG 출력만 하고 아무것도 하지 않는다. 개발자가 오버라이드해서 실제 로직 구현.
+
+---
+
+## 19. EAbilityGenericReplicatedEvent — GA 인스턴스 신호 채널
+
+**출처**:  
+`Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/Abilities/GameplayAbilityTargetTypes.h:662`  
+`Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp:3880`  
+`Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/Abilities/Tasks/AbilityTask_WaitInputPress.cpp`
+
+### 정의
+
+활성화된 GA 인스턴스에 묶인 신호 슬롯. 이름의 "Replicated"는 클라↔서버 RPC로 동기화되기 때문.
+
+```cpp
+namespace EAbilityGenericReplicatedEvent
+{
+    enum Type : int
+    {
+        GenericConfirm,           // WaitConfirm
+        GenericCancel,            // WaitCancel
+        InputPressed,             // WaitInputPress
+        InputReleased,            // WaitInputRelease
+        GenericSignalFromClient,  // 범용 클라→서버
+        GenericSignalFromServer,  // 범용 서버→클라
+        GameCustom1 ~ GameCustom6 // 게임 전용 확장
+    };
+}
+```
+
+### 저장소
+
+ASC의 `AbilityTargetDataMap`:
+- key: `FGameplayAbilitySpecHandle + FPredictionKey` (GA 인스턴스 단위 분리)
+- value: `FAbilityReplicatedDataCache` → `GenericEvents[MAX]` 슬롯 배열
+  - 각 슬롯: `bTriggered`, `VectorPayload`, `Delegate(FSimpleMulticastDelegate)`
+
+### InvokeReplicatedEvent (로컬 발동)
+
+1. `GenericEvents[Type].bTriggered = true` 저장
+2. Delegate가 바인딩 돼 있으면 즉시 Broadcast
+3. 아무도 구독 안 하면 `bTriggered=true`만 저장 → 나중에 `CallReplicatedEventDelegateIfSet()`으로 사후 처리 가능 (타이밍 레이스 방지)
+
+### RPC 동기화
+
+- 클라→서버: `ServerSetReplicatedEvent()` → 서버에서 `InvokeReplicatedEvent()` 호출
+- 서버→클라: `ClientSetReplicatedEvent()` → 클라에서 `InvokeReplicatedEvent()` 호출
+
+### WaitInputPress 구독 방법
+
+```cpp
+// Activate()
+DelegateHandle = ASC->AbilityReplicatedEventDelegate(
+    EAbilityGenericReplicatedEvent::InputPressed,
+    GetAbilitySpecHandle(), GetActivationPredictionKey()
+).AddUObject(this, &ThisClass::OnPressCallback);
+
+// 이미 발동됐을 경우 사후 처리
+if (IsForRemoteClient())
+    ASC->CallReplicatedEventDelegateIfSet(InputPressed, handle, predKey);
+```
+
+### 호출 체인 (ProcessAbilityInput → WaitInputPress)
+
+```
+AbilitySpec->IsActive() == true
+  → AbilitySpecInputPressed()
+      → InvokeReplicatedEvent(InputPressed, handle, predKey)
+          → GenericEvents[InputPressed].Delegate.Broadcast()
+              → WaitInputPress::OnPressCallback()
+                  → OnPress.Broadcast(ElapsedTime)
+                  → (IsPredictingClient) ServerSetReplicatedEvent()
+                  → EndTask()
+```
+
+---
+
+## 20. TargetData 실제 사용 — LyraGameplayAbility_RangedWeapon
+
+**출처**:
+`Source/LyraGame/AbilitySystem/LyraGameplayAbilityTargetData_SingleTargetHit.h/cpp`
+`Source/LyraGame/Weapons/LyraGameplayAbility_RangedWeapon.cpp`
+`Source/LyraGame/AbilitySystem/LyraGameplayEffectContext.h`
+
+### TargetData 서브클래스
+
+`FLyraGameplayAbilityTargetData_SingleTargetHit` : `FGameplayAbilityTargetData_SingleTargetHit` 상속
+- 추가 필드: `int32 CartridgeID` — 같은 탄창(산탄총 등) 총알들을 묶는 ID
+- `NetSerialize`: 부모 호출 후 `Ar << CartridgeID`
+- `AddTargetDataToContext` 오버라이드: CartridgeID를 `FLyraGameplayEffectContext`에 주입
+
+### EffectContext 연결
+
+`FLyraGameplayEffectContext` : `FGameplayEffectContext` 상속
+- 추가 필드: `int32 CartridgeID = -1`
+- `AddTargetDataToContext()`에서 `ExtractEffectContext(Context)->CartridgeID = CartridgeID` 로 복사됨
+- 이후 ExecCalc/GameplayCue/AttributeSet 콜백에서 `ExtractEffectContext()`로 꺼내 사용 가능
+
+### 전체 흐름 (Task 없이 수동 처리 방식)
+
+```
+ActivateAbility()
+  → AbilityTargetDataSetDelegate 구독 (OnTargetDataReadyCallback)
+  → StartRangedWeaponTargeting()
+      → PerformLocalTargeting() — 클라이언트 레이캐스트
+      → FLyraGameplayAbilityTargetData_SingleTargetHit 생성 + HitResult/CartridgeID 채움
+      → Handle.Add(NewTargetData)
+      → OnTargetDataReadyCallback() 직접 호출
+
+OnTargetDataReadyCallback()
+  → (클라이언트) CallServerSetReplicatedTargetData() RPC — PredictionKey 포함
+  → (서버) AbilityTargetDataSetDelegate.Broadcast() → 동일 콜백 재진입
+  → CommitAbility() → OnRangedWeaponTargetDataReady() Blueprint이벤트 (GE Apply)
+  → ConsumeClientReplicatedTargetData() — ASC 내부 캐시 정리
+
+EndAbility()
+  → Delegate.Remove(Handle)
+  → ConsumeClientReplicatedTargetData()
+```
+
+**특이점**: `WaitTargetData` AbilityTask를 쓰지 않고, `AbilityTargetDataSetDelegate`를 GA가 직접 구독하는 수동 방식이다. TargetData 전송 타이밍을 GA가 직접 제어한다.

@@ -114,3 +114,331 @@ FName GetCoolNameFromTargetData(const FGameplayAbilityTargetDataHandle& Handle, 
 ---
 
 ## 내 분석
+
+### TargetData가 필요한 이유 — 직접 RPC/Replicate로 대체하지 못하는 이유
+
+TargetData가 RPC를 *대체*하는 게 아니라, **RPC를 쓰면서도 GAS 파이프라인 전체에 데이터를 흘려보내야 하는 문제**를 해결하는 구조다.
+
+#### 이유 1 — EffectContext에 끼워져야 한다
+
+GE를 Apply할 때 `FGameplayEffectContextHandle`이 함께 전달되며, ExecCalc / MMC / GameplayCue / AttributeSet의 `PostGameplayEffectExecute`가 전부 이 Context에서 데이터를 꺼낸다.
+
+```
+GA → ApplyGameplayEffect → FGameplayEffectSpec (Context 포함)
+                                ↓
+               ExecCalc / MMC / GameplayCue / AttributeSet 콜백
+```
+
+직접 RPC로 쏜 데이터는 Context 안에 없으므로, 히트 결과·발사 위치 같은 정보를 Execution이나 GameplayCue에서 꺼낼 방법이 없다.
+
+#### 이유 2 — Prediction Key와 묶여야 한다
+
+클라이언트가 어빌리티를 예측(predict)하면 PredictionKey가 발급된다. TargetData는 이 Key와 함께 `ServerSetReplicatedTargetData` RPC로 전송되고, 서버가 Key를 기준으로 확정/롤백을 처리한다. 직접 RPC를 만들면 이 타이밍 조율(어빌리티 활성 여부, 롤백 윈도우, 중복 방지 등)을 전부 수동으로 구현해야 한다.
+
+#### 이유 3 — AbilityTask가 RPC를 대신 써준다
+
+`WaitTargetData` AbilityTask를 쓰면 내부에서 `ServerSetReplicatedTargetData` RPC를 자동으로 호출한다. 개발자는 RPC 코드를 직접 작성할 필요 없이 **TargetData 구조체만 정의**하면 된다.
+
+#### 비교 요약
+
+| | 직접 RPC | TargetData |
+|---|---|---|
+| EffectContext 연동 | ❌ 수동 연결 | ✅ 자동 |
+| Prediction 지원 | ❌ 수동 구현 | ✅ PredictionKey 내장 |
+| RPC 코드 작성 | 직접 써야 함 | Task가 대신 씀 |
+| GE / Exec / Cue 접근 | ❌ 불가 | ✅ Context 통해 접근 |
+
+TargetData 자체는 결국 RPC로 전송되지만, GAS 파이프라인의 나머지 단계(GE Apply, ExecCalc, GameplayCue, AttributeSet 콜백)가 이 구조체를 **기본으로 기대**하기 때문에, 우회하면 그 연결을 전부 수동으로 재구현해야 한다.
+
+---
+
+### Lyra 실제 구현 — 원거리 무기 사격 흐름
+
+원거리 무기(`ULyraGameplayAbility_RangedWeapon`)가 TargetData를 주고받는 전 과정이다.
+
+#### 1단계 — TargetData 서브클래스 정의
+
+`AbilitySystem/LyraGameplayAbilityTargetData_SingleTargetHit.h`
+
+```cpp
+USTRUCT()
+struct FLyraGameplayAbilityTargetData_SingleTargetHit
+    : public FGameplayAbilityTargetData_SingleTargetHit  // 엔진 기본 타입 확장
+{
+    GENERATED_BODY()
+
+    // 같은 탄창에서 발사된 여러 총알을 묶는 ID (산탄총 등)
+    UPROPERTY()
+    int32 CartridgeID = -1;
+
+    // TargetData → EffectContext로 데이터를 복사하는 오버라이드
+    virtual void AddTargetDataToContext(FGameplayEffectContextHandle& Context,
+                                        bool bIncludeActorArray) const override;
+
+    bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess);
+
+    virtual UScriptStruct* GetScriptStruct() const override
+    {
+        return FLyraGameplayAbilityTargetData_SingleTargetHit::StaticStruct();
+    }
+};
+
+// 핸들 직렬화에 필수
+template<>
+struct TStructOpsTypeTraits<FLyraGameplayAbilityTargetData_SingleTargetHit>
+    : public TStructOpsTypeTraitsBase2<FLyraGameplayAbilityTargetData_SingleTargetHit>
+{
+    enum { WithNetSerializer = true };
+};
+```
+
+**포인트**: 엔진 제공 `FGameplayAbilityTargetData_SingleTargetHit`(HitResult 포함)를 상속해서 `CartridgeID`만 추가했다.
+
+#### 2단계 — EffectContext에 데이터 주입
+
+`LyraGameplayAbilityTargetData_SingleTargetHit.cpp`
+
+```cpp
+void FLyraGameplayAbilityTargetData_SingleTargetHit::AddTargetDataToContext(
+    FGameplayEffectContextHandle& Context, bool bIncludeActorArray) const
+{
+    // 부모 호출 — HitResult, Actor 배열 등 기본 데이터 복사
+    FGameplayAbilityTargetData_SingleTargetHit::AddTargetDataToContext(Context, bIncludeActorArray);
+
+    // Lyra 전용 Context 타입으로 꺼낸 뒤 CartridgeID 주입
+    if (FLyraGameplayEffectContext* TypedContext =
+            FLyraGameplayEffectContext::ExtractEffectContext(Context))
+    {
+        TypedContext->CartridgeID = CartridgeID;
+    }
+}
+```
+
+GE가 Apply될 때 이 함수가 호출되어, CartridgeID가 EffectContext 안으로 들어간다.  
+이후 ExecCalc / GameplayCue / AttributeSet 콜백에서 `FLyraGameplayEffectContext::ExtractEffectContext()`로 꺼낼 수 있다.
+
+#### 3단계 — 로컬 레이캐스트 후 TargetData 패킹
+
+`Weapons/LyraGameplayAbility_RangedWeapon.cpp` — `StartRangedWeaponTargeting()`
+
+```cpp
+void ULyraGameplayAbility_RangedWeapon::StartRangedWeaponTargeting()
+{
+    // 로컬(클라이언트)에서 레이캐스트 실행
+    TArray<FHitResult> FoundHits;
+    PerformLocalTargeting(/*out*/ FoundHits);
+
+    // HitResult 배열을 TargetDataHandle로 패킹
+    FGameplayAbilityTargetDataHandle TargetData;
+    TargetData.UniqueId = WeaponStateComponent->GetUnconfirmedServerSideHitMarkerCount();
+
+    const int32 CartridgeID = FMath::Rand();  // 같은 발사 묶음 식별자
+
+    for (const FHitResult& FoundHit : FoundHits)
+    {
+        FLyraGameplayAbilityTargetData_SingleTargetHit* NewTargetData =
+            new FLyraGameplayAbilityTargetData_SingleTargetHit();
+        NewTargetData->HitResult = FoundHit;
+        NewTargetData->CartridgeID = CartridgeID;  // 산탄총이면 전부 같은 ID
+
+        TargetData.Add(NewTargetData);  // 핸들이 메모리 소유권 가져감
+    }
+
+    // 콜백으로 바로 넘김 (Task 없이 수동 처리)
+    OnTargetDataReadyCallback(TargetData, FGameplayTag());
+}
+```
+
+#### 4단계 — 서버 전송 및 GE 적용
+
+`OnTargetDataReadyCallback()` — 클라이언트와 서버 양쪽에서 실행된다.
+
+```cpp
+void ULyraGameplayAbility_RangedWeapon::OnTargetDataReadyCallback(
+    const FGameplayAbilityTargetDataHandle& InData, FGameplayTag ApplicationTag)
+{
+    FScopedPredictionWindow ScopedPrediction(MyAbilityComponent);
+
+    FGameplayAbilityTargetDataHandle LocalTargetDataHandle(
+        MoveTemp(const_cast<FGameplayAbilityTargetDataHandle&>(InData)));
+
+    // 클라이언트(로컬 컨트롤러, 비-Authority)면 서버로 RPC 전송
+    const bool bShouldNotifyServer =
+        CurrentActorInfo->IsLocallyControlled() && !CurrentActorInfo->IsNetAuthority();
+
+    if (bShouldNotifyServer)
+    {
+        MyAbilityComponent->CallServerSetReplicatedTargetData(
+            CurrentSpecHandle,
+            CurrentActivationInfo.GetActivationPredictionKey(),  // PredictionKey와 묶음
+            LocalTargetDataHandle,
+            ApplicationTag,
+            MyAbilityComponent->ScopedPredictionKey);
+    }
+
+    // 탄약 소모 및 GE 적용 (Blueprint에서 OnRangedWeaponTargetDataReady 구현)
+    if (CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
+    {
+        OnRangedWeaponTargetDataReady(LocalTargetDataHandle);  // Blueprint 이벤트
+    }
+
+    // 처리 완료 후 ASC 내부 캐시 정리
+    MyAbilityComponent->ConsumeClientReplicatedTargetData(
+        CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
+}
+```
+
+#### 5단계 — ActivateAbility에서 콜백 등록 / EndAbility에서 정리
+
+```cpp
+void ULyraGameplayAbility_RangedWeapon::ActivateAbility(...)
+{
+    // TargetData가 도착하면 OnTargetDataReadyCallback 호출되도록 구독
+    OnTargetDataReadyCallbackDelegateHandle =
+        MyAbilityComponent->AbilityTargetDataSetDelegate(
+            CurrentSpecHandle,
+            CurrentActivationInfo.GetActivationPredictionKey()
+        ).AddUObject(this, &ThisClass::OnTargetDataReadyCallback);
+    // ...
+}
+
+void ULyraGameplayAbility_RangedWeapon::EndAbility(...)
+{
+    // 구독 해제 + 서버 캐시 정리
+    MyAbilityComponent->AbilityTargetDataSetDelegate(
+        CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey()
+    ).Remove(OnTargetDataReadyCallbackDelegateHandle);
+
+    MyAbilityComponent->ConsumeClientReplicatedTargetData(
+        CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
+    // ...
+}
+```
+
+#### 전체 흐름 요약
+
+```
+[클라이언트]
+ActivateAbility()
+  → AbilityTargetDataSetDelegate 구독
+  → StartRangedWeaponTargeting()
+      → PerformLocalTargeting() — 레이캐스트
+      → FLyraGameplayAbilityTargetData_SingleTargetHit 생성 (HitResult + CartridgeID)
+      → TargetDataHandle.Add(...)
+      → OnTargetDataReadyCallback() 직접 호출
+          → CallServerSetReplicatedTargetData() — 서버 RPC (PredictionKey 포함)
+          → OnRangedWeaponTargetDataReady() — Blueprint에서 GE Apply
+
+[서버]
+ServerSetReplicatedTargetData() 수신
+  → AbilityTargetDataSetDelegate.Broadcast()
+      → OnTargetDataReadyCallback()
+          → GE Apply 시 AddTargetDataToContext() 호출
+              → CartridgeID → FLyraGameplayEffectContext 주입
+          → ExecCalc / GameplayCue / AttributeSet 콜백에서 Context로 꺼내 사용
+```
+
+**핵심**: `WaitTargetData` Task를 쓰지 않고 직접 `AbilityTargetDataSetDelegate`를 구독하는 방식이다. Task 없이 수동으로 처리하는 패턴으로, TargetData 전송 타이밍을 GA가 직접 제어한다.
+
+---
+
+### TargetData와 Context의 관계
+
+#### TargetData는 Context로 이전된다
+
+TargetData는 주로 두 가지 목적으로 사용된다.
+
+1. **GA 코드에서 직접 읽기** — GE Apply 이전에 GA가 Handle을 직접 순회해 게임 로직 처리
+2. **Context로 이전** — `ApplyGameplayEffect` 직전에 `AddTargetDataToContext()`가 호출되어 데이터가 Context에 복사됨
+
+GE 파이프라인에 진입하는 순간부터는 TargetData Handle은 소비되고, **Context만이 ExecCalc / MMC / GameplayCue / AttributeSet 콜백까지 따라다닌다**.
+
+```
+TargetData (클라↔서버 전송, GA 로직)
+    ↓ AddTargetDataToContext()
+FGameplayEffectContext (GE 파이프라인 전체를 따라다니는 운반체)
+    ↓
+ExecCalc / MMC / GameplayCue / AttributeSet 콜백
+```
+
+#### 커스텀 Context가 필요한 경우
+
+`FGameplayEffectContext`는 이미 `HitResult`와 `Actors` 배열을 지원한다. TargetData가 이 필드만 주입하면 커스텀 Context 없이 동작한다.
+
+**커스텀 Context가 필요한 기준은 딱 하나**: 기본 Context에 없는 새 필드를 GE 파이프라인 안까지 흘려야 할 때다.
+
+| 상황 | 커스텀 TargetData | 커스텀 Context |
+|---|---|---|
+| HitResult + Actor만 필요 | 불필요 | 불필요 |
+| 새 필드를 GA 코드에서만 쓸 때 | 필요 | **불필요** |
+| 새 필드를 ExecCalc/Cue까지 흘릴 때 | 필요 | **필요** |
+
+Lyra가 `CartridgeID`를 위해 `FLyraGameplayEffectContext`를 만든 것이 세 번째 케이스다.
+
+#### 둘은 1:1 쌍이 아니다
+
+Context는 TargetData가 주입하는 **대상**일 뿐이다. 여러 TargetData 타입이 같은 커스텀 Context에 주입할 수도 있고, 커스텀 TargetData가 기본 Context를 그대로 쓸 수도 있다. 커스텀 Context 한 개를 공유하면서 다양한 TargetData 타입이 각자의 `AddTargetDataToContext()`를 통해 같은 Context에 데이터를 채워 넣는 구조가 일반적이다.
+
+---
+
+### ExecCalc에서 TargetData 유래 데이터를 실제로 쓰는 사례 — LyraDamageExecution
+
+`LyraDamageExecution::Execute_Implementation()`은 Context에서 HitResult를 꺼내 세 가지 계산에 사용한다. TargetData를 들고 오지 않으면 이 계산들이 전부 폴백값으로 떨어진다.
+
+```cpp
+FLyraGameplayEffectContext* TypedContext =
+    FLyraGameplayEffectContext::ExtractEffectContext(Spec.GetContext());
+
+const FHitResult* HitActorResult = TypedContext->GetHitResult();  // TargetData에서 흘러온 것
+```
+
+#### 용도 1 — 피격 대상·위치 특정
+
+```cpp
+HitActor       = CurHitResult.HitObjectHandle.FetchActor();
+ImpactLocation = CurHitResult.ImpactPoint;
+```
+
+HitResult가 없으면 `TargetASC->GetAvatarActor()` 위치로 폴백한다.
+
+#### 용도 2 — 거리 감쇠
+
+```cpp
+Distance = FVector::Dist(TypedContext->GetOrigin(), ImpactLocation);
+DistanceAttenuation = AbilitySource->GetDistanceAttenuation(Distance, SourceTags, TargetTags);
+```
+
+발사 기원점 ~ 피격 지점 거리를 계산해 원거리일수록 데미지를 줄인다.
+
+#### 용도 3 — 재질별 감쇠 (헤드샷 등)
+
+```cpp
+const UPhysicalMaterial* PhysMat = TypedContext->GetPhysicalMaterial(); // HitResult 내부
+PhysicalMaterialAttenuation = AbilitySource->GetPhysicalMaterialAttenuation(PhysMat, ...);
+```
+
+HitResult에 담긴 PhysicalMaterial로 머리·몸통·방어구 등 표면별 데미지 배율을 적용한다.
+
+#### 최종 데미지 공식
+
+```
+DamageDone = BaseDamage
+           × DistanceAttenuation          // 거리 감쇠
+           × PhysicalMaterialAttenuation  // 재질 감쇠 (헤드샷 등)
+           × DamageInteractionAllowedMultiplier  // 팀킬 방지 (0 or 1)
+```
+
+#### 흐름 요약
+
+```
+[클라이언트 레이캐스트]
+  FHitResult (ImpactPoint, PhysicalMaterial, HitActor)
+    ↓ TargetData에 담김
+    ↓ AddTargetDataToContext()
+  FLyraGameplayEffectContext.HitResult
+    ↓ GE Apply → LyraDamageExecution
+      → ImpactLocation  → 거리 계산 → DistanceAttenuation
+      → PhysicalMaterial → 재질 판별 → PhysicalMaterialAttenuation
+      → HitActor         → 팀킬 체크 → AllowedMultiplier
+      → BaseDamage × 세 값 = 최종 데미지
+```
