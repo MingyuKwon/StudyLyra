@@ -28,3 +28,94 @@ UE 4.24에서 5.2 사이에서는 `TargetData`를 사용하기 위해 반드시 
 ---
 
 ## 내 분석
+
+### 왜 필요한가 — 세 가지 역할
+
+**출처**: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/AbilitySystemGlobals.h`  
+**출처**: `Source/LyraGame/AbilitySystem/LyraAbilitySystemGlobals.cpp`
+
+#### 1. 프로젝트 전용 타입 주입 (가장 중요)
+
+GAS 내부는 `FGameplayEffectContext`, `FGameplayAbilityActorInfo` 같은 구조체를 전부 가상함수(`AllocXxx`)를 통해 `new`로 할당한다. 프로젝트 전용 서브클래스로 교체하려면 이 팩토리 함수들을 오버라이드할 창구가 필요한데, 그게 `AbilitySystemGlobals`다.
+
+```cpp
+// 오버라이드 대상 가상함수들
+virtual FGameplayEffectContext* AllocGameplayEffectContext() const;
+virtual FGameplayAbilityActorInfo* AllocAbilityActorInfo() const;
+virtual UGameplayCueManager* GetGameplayCueManager();
+virtual void GlobalPreGameplayEffectSpecApply(FGameplayEffectSpec&, UAbilitySystemComponent*);
+```
+
+Lyra가 실제로 사용하는 방식:
+
+```cpp
+// LyraAbilitySystemGlobals.cpp — 딱 하나만 오버라이드
+FGameplayEffectContext* ULyraAbilitySystemGlobals::AllocGameplayEffectContext() const
+{
+    return new FLyraGameplayEffectContext();
+    // GAS 내부에서 EffectContext를 new할 때마다 Lyra 전용 타입이 반환됨
+}
+```
+
+`FLyraGameplayEffectContext`는 `CartridgeID`(어떤 탄약 데이터로 히트했는지) 등 Lyra 전용 데이터를 담으며, ExecCalc / TargetData 콜백에서 캐스트해 꺼낸다.
+
+#### 2. GAS 공유 리소스 허브
+
+```cpp
+GetGameplayCueManager()       // GameplayCue 싱글톤
+GetGlobalCurveTable()         // ScalableFloat에 쓰는 전역 CurveTable
+GetGameplayTagResponseTable() // 태그 반응 테이블
+TargetDataStructCache         // TargetData 네트워크 직렬화 캐시
+EffectContextStructCache      // EffectContext 네트워크 직렬화 캐시
+```
+
+#### 3. 전역 실패 태그
+
+```cpp
+ActivateFailCooldownTag     // GA 쿨다운 실패
+ActivateFailCostTag         // GA 비용 실패
+ActivateFailTagsBlockedTag  // 태그 차단 실패
+ActivateFailTagsMissingTag  // 필수 태그 누락
+ActivateFailNetworkingTag   // 네트워크 설정 오류
+```
+
+---
+
+### 접근 방법
+
+```cpp
+// 어디서나 이 한 줄로 접근
+UAbilitySystemGlobals& Globals = UAbilitySystemGlobals::Get();
+```
+
+내부 구현:
+
+```cpp
+static UAbilitySystemGlobals& Get()
+{
+    return *IGameplayAbilitiesModule::Get().GetAbilitySystemGlobals();
+}
+```
+
+`IGameplayAbilitiesModule` 모듈 싱글톤 → 거기서 Globals 인스턴스 반환. 게임 전체에서 하나의 인스턴스를 공유한다.
+
+---
+
+### 서브클래싱 등록 방법
+
+**UE 5.4 이하** — `DefaultGame.ini`:
+```ini
+[/Script/GameplayAbilities.AbilitySystemGlobals]
+AbilitySystemGlobalsClassName="/Script/LyraGame.LyraAbilitySystemGlobals"
+```
+
+**UE 5.5+** — Project Settings → Gameplay Abilities Settings UI에서 설정.  
+(5.5에서 config 변수 대부분이 `UGameplayAbilitiesDeveloperSettings`로 이동됨)
+
+---
+
+### InitGlobalData() 주의사항
+
+- **UE 5.2 이하**: `TargetData` 사용 시 `UAbilitySystemGlobals::Get().InitGlobalData()`를 수동 호출해야 함. 미호출 시 `ScriptStructCache` 오류로 클라이언트 연결 끊김.
+- **UE 5.3+**: 자동 호출되므로 신경 쓸 필요 없음.
+- 내부적으로 `InitTargetDataScriptStructCache()`를 호출해 TargetData 복제에 필요한 구조체 캐시를 초기화한다.

@@ -1714,3 +1714,43 @@ FPredictionKeyDelegates::AddDependency(Key#2, Key#1);
 GA 종료 후 `ServerSetReplicatedEvent` 도착 시 → 델리게이트 해제 상태 → Broadcast 무시, 사이드 이펙트 없음
 
 **핵심**: 연쇄 롤백은 서버 통신 없이 클라이언트 `FPredictionKeyDelegates` 맵에서 순수하게 처리됨.
+
+## 37. AbilitySystemGlobals — 역할, 접근, 서브클래싱
+
+**출처**:
+- `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/AbilitySystemGlobals.h`
+- `Source/LyraGame/AbilitySystem/LyraAbilitySystemGlobals.h/.cpp`
+
+### 세 가지 역할
+
+1. **프로젝트 전용 타입 주입** — 가장 중요한 역할
+   - GAS 내부가 `FGameplayEffectContext`, `FGameplayAbilityActorInfo` 등을 `AllocXxx()` 가상함수로 new함
+   - 서브클래스에서 오버라이드 → 프로젝트 전용 타입으로 교체
+
+2. **공유 리소스 허브** — `GetGameplayCueManager()`, `GetGlobalCurveTable()`, `GetGameplayTagResponseTable()`, `TargetDataStructCache`, `EffectContextStructCache`
+
+3. **전역 실패 태그** — `ActivateFailCooldownTag`, `ActivateFailCostTag`, `ActivateFailTagsBlockedTag` 등
+
+### 접근
+
+```cpp
+UAbilitySystemGlobals& Globals = UAbilitySystemGlobals::Get();
+// 내부: IGameplayAbilitiesModule::Get().GetAbilitySystemGlobals()
+// 게임 전체 싱글톤
+```
+
+### Lyra 서브클래싱
+
+`ULyraAbilitySystemGlobals : UAbilitySystemGlobals`
+- `AllocGameplayEffectContext()` 하나만 오버라이드 → `new FLyraGameplayEffectContext()` 반환
+- `FLyraGameplayEffectContext`는 CartridgeID 등 Lyra 전용 데이터 보유
+
+### 등록 방법
+
+- UE 5.4 이하: `DefaultGame.ini`의 `AbilitySystemGlobalsClassName`
+- UE 5.5+: Project Settings → Gameplay Abilities Settings UI
+
+### InitGlobalData()
+
+- UE 5.2 이하: `TargetData` 사용 시 수동 호출 필수 (미호출 시 ScriptStructCache 오류)
+- UE 5.3+: 자동 호출
