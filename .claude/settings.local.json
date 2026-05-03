@@ -50,7 +50,8 @@
       "Read(//c/Nexon/Study/**)",
       "Read(//c/UE_5.7/**)",
       "Bash(echo \"\")",
-      "Bash(cat)"
+      "Bash(cat)",
+      "Bash(xargs cat *)"
     ]
   },
   "hooks": {
