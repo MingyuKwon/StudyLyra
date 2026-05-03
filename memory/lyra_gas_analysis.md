@@ -1675,3 +1675,42 @@ void UAbilityTask_WaitInputPress::OnPressCallback() {
 - 입력 태스크(WaitInputPress 등) 콜백 이후 → 내장 Sync Point 있음, 추가 불필요
 - WaitDelay 콜백 이후 GE 적용 → `WaitNetSync(OnlyServerWait)` 삽입 필요
 - 예측 GE 두 번 재생(redo 문제) → GE Apply 직전 `WaitNetSync(OnlyServerWait)` 삽입
+
+## 36. PredictionKey 생명주기 & 롤백 메커니즘
+
+**출처**:
+- `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/GameplayPrediction.cpp`
+- `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp`
+- `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/GameplayPrediction.h`
+
+### Key 두 종류
+
+| 구분 | Activation Prediction Key | Scoped Prediction Key |
+|---|---|---|
+| 생성 | `InternalTryActivateAbility()` | 각 콜백 `FScopedPredictionWindow` |
+| 유효 범위 | `ActivateAbility()` 콜스택 | 콜백 동기 실행 범위 |
+| 취득 | `GetActivationPredictionKey()` | `ASC->ScopedPredictionKey` |
+
+### Dependent Key 체인
+
+`FScopedPredictionWindow(ASC, true)` 클라이언트 생성 시 `GenerateDependentPredictionKey()` 호출:
+```cpp
+KeyType Previous = Current;   // Key#1 기억
+Base = Current;                // Base = Key#1
+GenerateNewPredictionKey();    // Current = Key#2
+FPredictionKeyDelegates::AddDependency(Key#2, Key#1);
+// → "Key#1 Reject 시 Key#2도 Reject" 등록 (클라이언트 내부에만 존재)
+```
+
+### GA 거부 시 롤백
+
+1. 서버 → `ClientActivateAbilityFailed(Key#1)` RPC
+2. `BroadcastRejectedDelegate(Key#1)` → Key#1 GE 롤백
+3. `AddDependency`가 등록한 `Reject(Key#2)` 연쇄 호출 → Key#2 GE 롤백
+4. Key#3, #4... 전부 같은 방식으로 연쇄
+5. `EndAbility()` → 모든 AbilityTask 정리
+
+### 뒤늦은 Input RPC
+GA 종료 후 `ServerSetReplicatedEvent` 도착 시 → 델리게이트 해제 상태 → Broadcast 무시, 사이드 이펙트 없음
+
+**핵심**: 연쇄 롤백은 서버 통신 없이 클라이언트 `FPredictionKeyDelegates` 맵에서 순수하게 처리됨.

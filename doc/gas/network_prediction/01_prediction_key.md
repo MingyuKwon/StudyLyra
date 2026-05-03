@@ -77,3 +77,132 @@ Prediction Key는 `Activation`을 시작으로 `GameplayAbility` 내의 원자�
 ---
 
 ## 내 분석
+
+### PredictionKey 두 종류와 생성 시점
+
+**출처**: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/GameplayPrediction.cpp`  
+**출처**: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp`
+
+GA 예측 실행에서 Key는 두 종류가 쓰인다.
+
+| 구분 | Activation Prediction Key | Scoped Prediction Key |
+|---|---|---|
+| 생성 위치 | `InternalTryActivateAbility()` | 각 콜백 진입 시 `FScopedPredictionWindow` |
+| 유효 범위 | `ActivateAbility()` 콜스택 안 | 해당 콜백의 동기 실행 범위 안 |
+| 주요 용도 | GA 인스턴스 식별자 + 초기 GE 태깅 | 콜백 이후 GE 태깅 |
+| 취득 방법 | `GetActivationPredictionKey()` | `ASC->ScopedPredictionKey` |
+
+```cpp
+// InternalTryActivateAbility — GA 활성화 시 Activation Key 생성
+FScopedPredictionWindow ScopedPredictionWindow(this, true); // Key#1 생성
+ActivationInfo.SetPredicting(ScopedPredictionKey);          // Key#1을 Activation Key로 저장
+CallServerTryActivateAbility(Handle, InputPressed, ScopedPredictionKey); // 서버 RPC
+```
+
+---
+
+### Dependent Key 체인 — 롤백의 핵심
+
+`FScopedPredictionWindow(ASC, bCanGenerateNewKey=true)` 를 클라이언트에서 생성하면 내부적으로:
+
+```cpp
+InAbilitySystemComponent->ScopedPredictionKey.GenerateDependentPredictionKey();
+```
+
+`GenerateDependentPredictionKey()` 구현:
+
+```cpp
+void FPredictionKey::GenerateDependentPredictionKey()
+{
+    KeyType Previous = Current;      // Key#1 기억
+    if (Base == 0) Base = Current;   // Base = Key#1
+
+    GenerateNewPredictionKey();      // Current = Key#2 (완전히 새 ID)
+
+    // ★ 핵심: "Key#1이 Reject되면 Key#2도 Reject" 종속 관계 등록
+    FPredictionKeyDelegates::AddDependency(Current/*Key#2*/, Previous/*Key#1*/);
+}
+```
+
+`AddDependency` 내부:
+
+```cpp
+void AddDependency(KeyType ThisKey/*Key#2*/, KeyType DependsOn/*Key#1*/)
+{
+    // Key#1 Rejected → Key#2도 Reject (연쇄 롤백)
+    NewRejectedDelegate(DependsOn).BindStatic(&Reject, ThisKey);
+
+    // Key#2 CaughtUp(서버 확인) → Key#1도 CaughtUp (역방향 확인)
+    NewCaughtUpDelegate(ThisKey).BindStatic(&CatchUpTo, DependsOn);
+}
+```
+
+> **이 종속 관계는 클라이언트에만 존재한다.** 서버는 Key 체인을 모른다.
+
+---
+
+### GA 거부 시 전체 롤백 흐름
+
+시나리오: GA 예측 활성화 후 `WaitInputPress` 콜백까지 실행, 이후 서버가 GA를 거부.
+
+```
+서버                                 클라이언트
+──────────────────────────────────────────────────────
+ServerTryActivateAbility(Key#1)
+  검사 실패
+  ClientActivateAbilityFailed(Key#1) ──────────────→ ClientActivateAbilityFailed_Impl(Key#1)
+                                                        │
+                                                        ├─ BroadcastRejectedDelegate(Key#1)
+                                                        │    ├─ Key#1 GE들 롤백
+                                                        │    │   (RemoveActiveGameplayEffect)
+                                                        │    └─ AddDependency가 등록한
+                                                        │        Reject(Key#2) 호출
+                                                        │         └─ Key#2 GE들 롤백
+                                                        │             (WaitInput 콜백 적용분)
+                                                        │
+                                                        └─ EndAbility()
+                                                             └─ WaitInputPress.EndTask()
+```
+
+`ClientActivateAbilityFailed_Implementation` 코드:
+```cpp
+void UAbilitySystemComponent::ClientActivateAbilityFailed_Implementation(
+    FGameplayAbilitySpecHandle Handle, int16 PredictionKey)
+{
+    if (PredictionKey > 0)
+        FPredictionKeyDelegates::BroadcastRejectedDelegate(PredictionKey); // ← Key#1 거부 발동
+
+    FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(Handle);
+    // ... GA 인스턴스 찾아서 EndAbility 호출
+}
+```
+
+---
+
+### 뒤늦게 도착한 Input RPC 처리
+
+서버가 GA를 거부한 뒤 `ServerSetReplicatedEvent(InputPressed, Key#1, Key#2)` RPC가 도착한 경우:
+
+```cpp
+// ServerSetReplicatedEvent_Implementation
+FScopedPredictionWindow ScopedPrediction(this, CurrentPredictionKey); // Key#2 세팅
+InvokeReplicatedEvent(EventType, AbilityHandle, Key#1, Key#2);
+// → (Handle, Key#1) 슬롯의 Delegate를 Broadcast()
+```
+
+GA가 이미 종료되어 `WaitInputPress`의 `OnPressCallback` 델리게이트가 해제된 상태이므로, `Delegate.IsBound() == false` → Broadcast 무시. 이벤트 데이터는 `AbilityTargetDataMap`에 캐시되지만 아무도 소비하지 않아 사이드 이펙트 없음.
+
+---
+
+### 핵심 정리
+
+| 단계 | 내부 동작 |
+|---|---|
+| 서버 GA 거부 | `ClientActivateAbilityFailed(Key#1)` RPC |
+| Key#1 Reject | Key#1 GE 제거 + `AddDependency` 연쇄 발동 |
+| Key#2 Reject | Key#2 GE 제거 (WaitInput 콜백 이후 적용분 포함) |
+| GA 종료 | `EndAbility()` → 모든 AbilityTask 정리 |
+| 뒤늦은 Input RPC | 델리게이트 없음 → 무시, 사이드 이펙트 없음 |
+| Key#3, #4... | 같은 방식으로 전부 연쇄 Reject |
+
+**연쇄 롤백은 서버 통신 없이 클라이언트 내부 `FPredictionKeyDelegates` 맵에서 순수하게 처리된다.**
