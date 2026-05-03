@@ -48,7 +48,9 @@
       "Bash(git *)",
       "Bash(python *)",
       "Read(//c/Nexon/Study/**)",
-      "Read(//c/UE_5.7/**)"
+      "Read(//c/UE_5.7/**)",
+      "Bash(echo \"\")",
+      "Bash(cat)"
     ]
   },
   "hooks": {
