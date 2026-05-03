@@ -1617,3 +1617,61 @@ EndAbility()
 ```
 
 **특이점**: `WaitTargetData` AbilityTask를 쓰지 않고, `AbilityTargetDataSetDelegate`를 GA가 직접 구독하는 수동 방식이다. TargetData 전송 타이밍을 GA가 직접 제어한다.
+
+
+## 35. WaitNetSync — UAbilityTask_NetworkSyncPoint 구현
+
+**출처**:
+- `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/Abilities/Tasks/AbilityTask_NetworkSyncPoint.h`
+- `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/Abilities/Tasks/AbilityTask_NetworkSyncPoint.cpp`
+- `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/Abilities/Tasks/AbilityTask_WaitInputPress.cpp`
+
+### 핵심 요약
+
+- GASDoc의 "WaitNetSync"는 `UAbilityTask_NetworkSyncPoint` 클래스이며, 정적 팩토리 `WaitNetSync()` 함수로 생성
+- Lyra 소스에는 WaitNetSync 직접 사용 코드 없음 (GASDoc의 Sprint GA 예시는 별도 샘플 프로젝트)
+
+### SyncType
+
+```cpp
+enum class EAbilityTaskNetSyncType : uint8
+{
+    BothWait,        // 클라-서버 둘 다 대기
+    OnlyServerWait,  // 서버만 대기 (클라는 신호 보내고 즉시 계속) ← Scoped Prediction 용도
+    OnlyClientWait   // 클라만 대기
+};
+```
+
+### Activate() 핵심 로직
+
+```cpp
+FScopedPredictionWindow ScopedPrediction(ASC, IsPredictingClient()); // 새 Key 발급
+
+if (IsPredictingClient()) {
+    if (SyncType != OnlyServerWait)   ReplicatedEventToListenFor = GenericSignalFromServer;
+    if (SyncType != OnlyClientWait)   ASC->ServerSetReplicatedEvent(GenericSignalFromClient, ..., ASC->ScopedPredictionKey);
+} else if (IsForRemoteClient()) {
+    if (SyncType != OnlyClientWait)   ReplicatedEventToListenFor = GenericSignalFromClient;
+    if (SyncType != OnlyServerWait)   ASC->ClientSetReplicatedEvent(GenericSignalFromServer, ...);
+}
+// 리스닝 대상 없으면 SyncFinished() 즉시 호출
+```
+
+OnlyServerWait 시: 클라는 RPC 보내고 SyncFinished() 즉시 → 서버는 GenericSignalFromClient 수신 후 재개
+
+### 입력 태스크 내장 Sync Point (WaitInputPress.cpp)
+
+```cpp
+void UAbilityTask_WaitInputPress::OnPressCallback() {
+    FScopedPredictionWindow ScopedPrediction(ASC, IsPredictingClient()); // ← 내장 Key 발급
+    if (IsPredictingClient())
+        ASC->ServerSetReplicatedEvent(InputPressed, ..., ASC->ScopedPredictionKey);
+    // WaitNetSync와 동일한 패턴을 콜백 내부에서 직접 수행
+}
+```
+
+### 적용 판단 기준
+
+- 입력 태스크(WaitInputPress 등) 콜백 이후 → 내장 Sync Point 있음, 추가 불필요
+- WaitDelay 콜백 이후 GE 적용 → `WaitNetSync(OnlyServerWait)` 삽입 필요
+- 예측 GE 두 번 재생(redo 문제) → GE Apply 직전 `WaitNetSync(OnlyServerWait)` 삽입
