@@ -1754,3 +1754,20 @@ UAbilitySystemGlobals& Globals = UAbilitySystemGlobals::Get();
 
 - UE 5.2 이하: `TargetData` 사용 시 수동 호출 필수 (미호출 시 ScriptStructCache 오류)
 - UE 5.3+: 자동 호출
+
+## 38. GA Tags — Source / Owner / Target 구분
+
+**출처**: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp:1786`
+
+```cpp
+const FGameplayTagContainer* SourceTags = TriggerEventData ? &TriggerEventData->InstigatorTags : nullptr;
+const FGameplayTagContainer* TargetTags = TriggerEventData ? &TriggerEventData->TargetTags : nullptr;
+```
+
+| 용어 | 실제 데이터 |
+|---|---|
+| Owner | `ASC->GetOwnedGameplayTags()` — GA 소유 캐릭터 자신의 태그 |
+| Source | `FGameplayEventData::InstigatorTags` — 이벤트 발신자 태그 |
+| Target | `FGameplayEventData::TargetTags` — 이벤트 대상 태그 |
+
+**핵심**: Source/Target은 이벤트 트리거 시에만 `nullptr`이 아님. 직접 `TryActivateAbility`로 발동하면 둘 다 `nullptr` → Source/Target Required/Blocked Tags 검사 자체가 생략됨.
