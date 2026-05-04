@@ -1755,9 +1755,12 @@ UAbilitySystemGlobals& Globals = UAbilitySystemGlobals::Get();
 - UE 5.2 이하: `TargetData` 사용 시 수동 호출 필수 (미호출 시 ScriptStructCache 오류)
 - UE 5.3+: 자동 호출
 
-## 38. GA Tags — Source / Owner / Target 구분
+## 38. GA Tags — Source / Owner / Target 구분 & 두 실행 경로
 
 **출처**: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp:1786`
+**상세 문서**: `doc/gas/gameplay_ability/06_tags.md`
+
+### Source / Owner / Target 구분
 
 ```cpp
 const FGameplayTagContainer* SourceTags = TriggerEventData ? &TriggerEventData->InstigatorTags : nullptr;
@@ -1770,4 +1773,16 @@ const FGameplayTagContainer* TargetTags = TriggerEventData ? &TriggerEventData->
 | Source | `FGameplayEventData::InstigatorTags` — 이벤트 발신자 태그 |
 | Target | `FGameplayEventData::TargetTags` — 이벤트 대상 태그 |
 
-**핵심**: Source/Target은 이벤트 트리거 시에만 `nullptr`이 아님. 직접 `TryActivateAbility`로 발동하면 둘 다 `nullptr` → Source/Target Required/Blocked Tags 검사 자체가 생략됨.
+### 두 실행 경로
+
+**경로 1 — 직접 활성화** (`TryActivateAbilityByClass/Tag/Handle`):
+- `InternalTryActivateAbility(..., nullptr, nullptr)` — TriggerEventData = nullptr
+- Source/Target = nullptr → Required/Blocked 검사 생략
+- 발동 주체가 자기 자신뿐인 경우 (점프, 대쉬, 기본 공격)
+
+**경로 2 — 이벤트 트리거** (`SendGameplayEventToActor`):
+- GA `Triggers[]` 배열에 GameplayTag + `TriggerSource = GameplayEvent` 등록 필요
+- `SendGameplayEventToActor → HandleGameplayEvent → TriggerAbilityFromGameplayEvent → InternalTryActivateAbility(..., &TriggerEventData)`
+- `FGameplayEventData`에 Instigator/Target/TargetData 포함
+- Source/Target Required/Blocked Tags 검사 활성화
+- 외부 컨텍스트(발신자+대상)가 있는 경우 (처형기, 콤보 연계, 무기 히트 반응)
