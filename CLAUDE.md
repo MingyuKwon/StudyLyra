@@ -33,12 +33,39 @@ Plugins/GameFeatures/            ← ShooterCore 등 게임 기능 플러그인
 
 ## 행동 지침
 
-- 코드를 분석할 때는 **클래스 계층, 패턴, 설계 의도**를 중심으로 설명한다.
+**Tradeoff:** 빠른 작업보다 신중함을 우선한다. 단순한 작업은 판단에 따라 유연하게 적용한다.
+
+### 1. 코딩 전 사고 (Think Before Coding)
+
+- 방향이 애매하거나 선택지가 여러 개이면 바로 진행하지 말고 선택지를 보여준다.
 - 파일을 읽기 전에 먼저 수정을 제안하지 않는다.
+- 코드를 분석할 때는 **클래스 계층, 패턴, 설계 의도**를 중심으로 설명한다.
+- 여러 해석이 가능하면 조용히 하나를 고르지 말고 제시한다.
+- 불확실하면 멈추고 질문한다.
+
+### 2. 단순함 우선 (Simplicity First)
+
+- 요청한 것 외의 기능을 추가하지 않는다.
+- 단일 사용 코드에 추상화를 도입하지 않는다.
+- 200줄로 쓸 수 있는 걸 50줄로 쓸 수 있다면 다시 쓴다.
+
+### 3. 최소한의 변경 (Surgical Changes)
+
+- 코드 수정 작업이 발생하면 범위를 최소화하고, 요청한 것만 변경한다.
+- 인접 코드·포맷을 "개선"하지 않는다.
+- 기존 스타일을 따른다.
+- 관련 없는 dead code는 삭제하지 말고 언급만 한다.
+
+### 4. 목표 중심 실행 (Goal-Driven Execution)
+
+- 작업이 완료되면 항상 git commit까지 한다.
+- 다단계 작업에는 계획을 먼저 제시한다.
+- 성공 기준을 명확히 정의한 뒤 실행한다.
+
+### 프로젝트 규칙
+
 - 설명은 **한국어**로 한다.
 - GAS 개념 설명 시 언리얼 공식 용어(ASC, GA, GE, AttributeSet, GameplayCue, GameplayTag 등)를 그대로 사용한다.
-- 코드 수정 작업이 발생하면 범위를 최소화하고, 요청한 것만 변경한다.
-- 작업이 완료되면 항상 git commit까지 한다.
 - 새 문서를 작성할 때는 `doc/_template.md`를 참고해 형식을 맞춘다.
 
 ---
@@ -93,70 +120,3 @@ gas/05_attribute_set.md  (610줄, 5개 독립 주제)
 - 전체 GAS 구조 분석: `README.md` 하단 "GAS 학습 분석" 섹션
 - 세션 간 지속 메모리: `C:\Users\kmgmg2391601\.claude\projects\D--LyraStarterGame\memory\`
 
----
-
-# CLAUDE.md
-
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-## 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-## 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-## 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
----
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
