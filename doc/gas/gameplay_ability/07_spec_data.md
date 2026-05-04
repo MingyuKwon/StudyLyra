@@ -30,3 +30,135 @@
 ---
 
 ## 내 분석
+
+**출처**: `AbilitySystem/LyraGameplayAbilityTargetData_SingleTargetHit.h/cpp`, `Weapons/LyraGameplayAbility_RangedWeapon.cpp`
+
+---
+
+### TargetData로 GA에 데이터 전달하기 — 3가지 패턴
+
+#### 패턴 1 — 이벤트 트리거 시 TargetData 함께 전달
+
+GA를 이벤트로 트리거할 때 `FGameplayEventData.TargetData`에 담아 같이 보낸다.
+
+```cpp
+// 발신 측
+FGameplayEventData EventData;
+FGameplayAbilityTargetDataHandle Handle;
+Handle.Add(new FGameplayAbilityTargetData_SingleHit(HitResult));
+EventData.TargetData = Handle;
+
+UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(Actor, Tag, EventData);
+```
+
+```cpp
+// GA 수신 측
+void UMyAbility::ActivateAbilityFromEvent(
+    const FGameplayAbilitySpecHandle Handle,
+    const FGameplayAbilityActorInfo* ActorInfo,
+    const FGameplayAbilityActivationInfo ActivationInfo,
+    const FGameplayEventData* TriggerEventData)
+{
+    FGameplayAbilityTargetDataHandle TargetData = TriggerEventData->TargetData;
+    // TargetData 사용
+}
+```
+
+이벤트로 GA를 트리거하면 `TriggerEventData`가 채워진 채로 `ActivateAbility`가 호출된다. 단, 이 방법을 쓰면 **입력 바인딩으로 직접 발동이 불가능**하다 (`TryActivateAbility`로는 TriggerEventData가 nullptr).
+
+---
+
+#### 패턴 2 — WaitTargetData AbilityTask
+
+GA 활성화 이후 별도 단계에서 타겟팅을 수집하는 방식.
+
+```cpp
+void UMyAbility::ActivateAbility(...)
+{
+    UAbilityTask_WaitTargetData* Task = UAbilityTask_WaitTargetData::WaitTargetData(
+        this,
+        NAME_None,
+        EGameplayTargetingConfirmation::Instant,  // 즉시 확정
+        AGameplayAbilityTargetActor_SingleLineTrace::StaticClass());
+
+    Task->ValidData.AddDynamic(this, &UMyAbility::OnTargetDataReady);
+    Task->ReadyForActivation();
+}
+
+void UMyAbility::OnTargetDataReady(const FGameplayAbilityTargetDataHandle& Data)
+{
+    // TargetData 사용 (서버에서 이미 동기화된 상태)
+}
+```
+
+내부적으로 `AGameplayAbilityTargetActor`를 스폰하고, 타겟 확정 시 클라→서버 RPC를 자동으로 처리한다.
+
+---
+
+#### 패턴 3 — Lyra 수동 방식 (가장 세밀한 제어)
+
+`WaitTargetData` Task 없이 GA가 `AbilityTargetDataSetDelegate`를 직접 구독한다. Lyra 원거리 무기 GA(`LyraGameplayAbility_RangedWeapon`)가 이 방식.
+
+```
+ActivateAbility()
+  └─ AbilityTargetDataSetDelegate 구독 (OnTargetDataReadyCallback)
+  └─ PerformLocalTargeting() — 클라이언트 레이캐스트
+  └─ FLyraGameplayAbilityTargetData_SingleTargetHit 생성
+       (HitResult + CartridgeID 채움)
+  └─ OnTargetDataReadyCallback() 직접 호출
+
+OnTargetDataReadyCallback()
+  ├─ [클라이언트] CallServerSetReplicatedTargetData() RPC 전송 (PredictionKey 포함)
+  ├─ [서버] Delegate.Broadcast() → 동일 콜백 재진입
+  └─ CommitAbility() → GE Apply → ConsumeClientReplicatedTargetData()
+```
+
+TargetData 전송 타이밍을 GA가 직접 제어해야 할 때 사용한다.
+
+---
+
+### TargetData의 방향 — 클라 → 서버가 기본, 서버 → 클라도 가능
+
+#### 기본 방향: 클라이언트 → 서버
+
+```
+클라이언트                            서버
+   │ 레이캐스트 → TargetData 생성       │
+   │ 로컬에 예측 적용                   │
+   │──ServerSetReplicatedTargetData()──▶│
+   │                                   │ 검증 → GE 적용
+```
+
+이것이 기본인 이유:
+- 타겟팅 정보(어디를 겨냥했는가)는 **클라이언트의 뷰포트**에서 결정된다.
+- `AbilityTargetDataMap` 키에 `PredictionKey`(클라 발급)가 포함되어 있어, 설계 자체가 클라→서버 중심이다.
+- 서버는 받은 TargetData를 검증 후 권위 있는 GE를 적용한다.
+
+#### 서버 → 클라이언트도 가능 (비일반적)
+
+`AGameplayAbilityTargetActor`를 **서버에서만 실행**하도록 구성하면 서버가 타겟을 결정하고 클라에 결과를 전달한다.
+
+```
+클라이언트                            서버
+   │                                   │ 서버 측 TargetActor 실행
+   │                                   │ TargetData 생성
+   │◀──ClientSetReplicatedTargetData()─│
+   │ 수신 후 시각적 처리               │
+```
+
+이 방향이 쓰이는 경우:
+- AI가 타겟팅을 결정하고 클라가 시각 효과만 재생할 때
+- 서버 권위가 필요한 AOE 타겟팅
+
+단, 이 경우 클라이언트 예측이 불가능하다 (`PredictionKey` 미사용). **Lyra는 이 방향을 사용하지 않는다.**
+
+---
+
+### 정리
+
+| | 클라 → 서버 | 서버 → 클라 |
+|---|---|---|
+| **주 사용처** | 플레이어 직접 조준/타겟팅 | AI 또는 서버 권위 타겟팅 |
+| **예측** | 가능 (PredictionKey 사용) | 불가능 |
+| **RPC** | `ServerSetReplicatedTargetData` | `ClientSetReplicatedTargetData` |
+| **Lyra 사용** | O (원거리 무기) | X |
