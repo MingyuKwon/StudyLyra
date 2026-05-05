@@ -51,7 +51,9 @@
       "Read(//c/UE_5.7/**)",
       "Bash(echo \"\")",
       "Bash(cat)",
-      "Bash(xargs cat *)"
+      "Bash(xargs cat *)",
+      "Bash(Get-ChildItem *)",
+      "Bash(grep -E \"\\\\.\\(h|cpp\\)$\")"
     ]
   },
   "hooks": {
