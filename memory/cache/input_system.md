@@ -107,6 +107,21 @@ BindAction 오버로드 구조:
 
 ---
 
+### AbilitySpecInputPressed / AbilitySpecInputReleased
+
+> 출처: `LyraAbilitySystemComponent.cpp:150`, 엔진 `AbilitySystemComponent_Abilities.cpp:2879`  
+> 상세 문서: `doc/LyraImpl/input/README.md`
+
+**GA가 이미 활성 중일 때만** 호출된다. GA 발동(TryActivateAbility)과 다른 경로.
+
+- 엔진 Super: `Spec.InputPressed` 플래그 세팅 + `GA->InputPressed/Released()` 호출
+- Lyra 오버라이드: `InvokeReplicatedEvent(InputPressed/Released)` 추가
+  - `bReplicateInputDirectly` 미사용, 대신 ReplicatedEvent로 WaitInputPress/Release Task에 전달
+
+ProcessAbilityInput에서의 분기:
+- GA 비활성 + OnInputTriggered → TryActivateAbility()
+- GA 활성 중 → AbilitySpecInputPressed() → WaitInputPress Task 깨움
+
 ### AbilityInputBlocked
 `TAG_Gameplay_AbilityInputBlocked` 태그가 ASC에 있으면 `ProcessAbilityInput` 진입 시 전체 무시 + `ClearAbilityInput()`.
 
