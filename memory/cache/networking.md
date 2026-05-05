@@ -107,7 +107,7 @@ struct FDoRepLifetimeParams {
 
 ---
 
-## 36. PredictionKey 생명주기 & 롤백 메커니즘
+## 36. PredictionKey 구조 & 생명주기 & 롤백 메커니즘
 
 **출처**:
 - `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/GameplayPrediction.cpp`
@@ -145,3 +145,34 @@ FPredictionKeyDelegates::AddDependency(Key#2, Key#1);
 GA 종료 후 `ServerSetReplicatedEvent` 도착 시 → 델리게이트 해제 상태 → Broadcast 무시, 사이드 이펙트 없음
 
 **핵심**: 연쇄 롤백은 서버 통신 없이 클라이언트 `FPredictionKeyDelegates` 맵에서 순수하게 처리됨.
+
+### FPredictionKey 구조체 필드
+
+출처: `GameplayPrediction.h`
+
+```cpp
+struct FPredictionKey {
+    int16 Current = 0;           // 고유 ID. 0이면 무효
+    int16 Base = 0;              // 부모 키 (의존성 체인용, NotReplicated)
+    bool bIsServerInitiated = false;
+    FObjectKey PredictiveConnectionObjectKey; // 서버 전용 — 어느 Net Connection이 보냈는지
+};
+```
+
+### NetSerialize 특수 동작
+
+FPredictionKey는 **발급한 클라이언트에게만** 실제 값으로 직렬화된다.  
+`PredictiveConnectionObjectKey`로 서버가 "이 키를 보낸 Connection"을 기억.  
+다른 클라이언트는 항상 Key=0(무효)을 받는다.
+
+### 수명 — 두 가지 종료
+
+- **거부(Reject)**: `ClientActivateAbilityFailed` RPC → 즉시 GE 롤백
+- **확인(CatchUp)**: `ReplicatedPredictionKeyMap` FastArray 복제 → `OnRep` → `CatchUpTo` → 예측 GE 정리 (서버 GE로 대체)
+
+FastArray 사용 이유: "최고 번호" 방식은 패킷 손실 시 중간 키가 누락될 수 있음.
+
+### 한계 (헤더 주석 명시)
+
+연쇄 GA 롤백은 현재 지원 안 됨. 의존성은 클라이언트 내부에만 존재하고 서버는 체인을 모름.  
+우회책: GA_A 성공 태그를 GA_B 활성화 조건으로 설정 → 서버도 GA_A 거부 시 GA_B 거부.
