@@ -63,31 +63,68 @@ ActivateAbility() 리턴 ──── 윈도우 종료
 
 ---
 
-## 종료 — 두 가지 경로
+## 롤백 메커니즘 — FPredictionKeyDelegates
+
+### 핵심: 롤백 콜백은 예측 시점에 미리 등록된다
+
+"롤백 시에 Key#5 태그된 것을 찾아서 되돌린다"는 게 자연스러운 추측이지만, 실제는 방향이 반대다.
+
+```
+GE 예측 적용 시점 (ApplyGameplayEffectSpec):
+  FActiveGameplayEffect 생성  ← PredictionKey = Key#5 태그
+  동시에:
+    FPredictionKeyDelegates::DelegateMap[Key#5].RejectedDelegates.Add( RemoveThisGE )
+    FPredictionKeyDelegates::DelegateMap[Key#5].CaughtUpDelegates.Add( RemoveThisGE )
+```
+
+GE를 적용하는 순간, **"이 키가 거부되거나 확인되면 나를 제거해줘"** 라는 콜백을 맵에 등록한다.
+
+```cpp
+// FPredictionKeyDelegates 내부 구조
+TMap<int16, FDelegates> DelegateMap;
+
+struct FDelegates {
+    TArray<FPredictionKeyEvent> RejectedDelegates;   // 거부 시 호출
+    TArray<FPredictionKeyEvent> CaughtUpDelegates;   // 확인 시 호출
+};
+```
+
+GE 하나가 적용될 때마다 이 맵에 항목이 추가된다.  
+같은 Key#5로 GE 세 개를 적용하면 `DelegateMap[5].RejectedDelegates`에 세 개의 제거 콜백이 쌓인다.
 
 ### 거부 (Reject) → 즉시 롤백
 
 ```
 서버: ClientActivateAbilityFailed(Key#5) RPC
-  → FPredictionKeyDelegates::BroadcastRejectedDelegate(Key#5)
-  → Key#5 태그된 GE 전부 제거
+  → FPredictionKeyDelegates::BroadcastRejectedDelegate(5)
+  → DelegateMap[5].RejectedDelegates 전부 호출
+  → 각자 자기 GE 제거
 ```
 
-`NewRejectedDelegate()`로 롤백 동작을 등록해두는 방식.  
-GE가 예측 적용될 때 자동으로 "이 키가 거부되면 나를 제거해줘" 델리게이트를 등록한다.
+탐색 없이 등록된 콜백 목록을 그냥 실행한다. 롤백 대상이 GE만이 아니라  
+GameplayCue, 몽타주 등 여러 종류여도 동일한 맵에 콜백만 추가하면 된다.
 
 ### 확인 (CatchUp) → 예측본 정리
 
 ```
-서버: ReplicatedPredictionKeyMap에 Key#5 추가 → FastArray 복제
-  → 클라이언트 수신: FReplicatedPredictionKeyItem::OnRep
-  → CatchUpTo(Key#5)
-  → FPredictionKeyDelegates::BroadcastCaughtUpDelegate(Key#5)
-  → 예측 GE 제거 (서버에서 복제된 GE로 대체됨)
+서버: 같은 Key#5로 GE 생성 → ReplicatedPredictionKeyMap에 Key#5 추가 → FastArray 복제
+  → 클라이언트 수신 (서버 GE 복제):
+      Key#5 태그 확인 → "내가 예측한 것" → OnAdded 재호출 안 함 (Redo 방지)
+  → 클라이언트 수신 (ReplicatedPredictionKeyMap):
+      FReplicatedPredictionKeyItem::OnRep → CatchUpTo(Key#5)
+      → BroadcastCaughtUpDelegate(5)
+      → DelegateMap[5].CaughtUpDelegates 전부 호출
+      → 예측본 GE 제거 (서버 GE로 대체됨)
 ```
 
-서버 GE가 복제돼 내려올 때, 클라이언트는 같은 Key#5 태그를 확인하고 **OnAdded 재호출을 막는다** (Redo 문제 방지).  
-그 뒤 CatchUp이 일어나면 예측본만 조용히 제거한다.
+### Reject/CatchUp 둘 다 RemoveGE를 부르는 이유
+
+```
+거부(Reject):  서버가 GE를 안 만들었음 → 예측본 제거 = 롤백
+확인(CatchUp): 서버 GE가 복제돼서 내려옴 → 예측본 제거 = 중복 정리
+```
+
+두 경우 모두 예측본 GE는 사라진다. 제거 동작이 같아서 같은 콜백을 쓴다.
 
 ---
 
