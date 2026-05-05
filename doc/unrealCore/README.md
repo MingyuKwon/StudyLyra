@@ -11,3 +11,4 @@ Lyra와 무관한 UE5 엔진 자체 시스템 분석 문서 모음.
 | [replication/](replication/README.md) | 복제 시스템 — NetDriver 파이프라인, Actor 복제, Shadow Buffer, Relevancy |
 | [world_framework.md](world_framework.md) | UWorld · AWorldSettings · GameMode · GameState — 역할 구분, 생성 체인, Lyra Experience 연결 |
 | [player_framework.md](player_framework.md) | PlayerController · LocalPlayer — 생존 범위 차이, 분리 이유, 스플릿스크린 |
+| [prediction_key.md](prediction_key.md) | FPredictionKey — 구조, 예측 윈도우 수명, Reject/CatchUp 두 종료 경로, NetSerialize 특수 동작, 의존성 체인 |
