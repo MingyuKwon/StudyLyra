@@ -81,6 +81,25 @@ else
 - Enhanced Input 이벤트 즉시 콜백 호출. `Input_Move()`, `Input_LookMouse()`, `Input_LookStick()`, `Input_Crouch()`, `Input_AutoRun()`
 - 마우스: 델타 그대로 전달. 스틱: `* Rate * DeltaSeconds`로 프레임 독립적 처리.
 
+---
+
+## Enhanced Input — Subsystem vs Component 역할 분리
+
+> 출처: `Source/LyraGame/Character/LyraHeroComponent.cpp`  
+> 상세 문서: `doc/unrealCore/enhanced_input.md`
+
+- **UEnhancedInputLocalPlayerSubsystem**: LocalPlayer당 하나. 활성 IMC 목록 관리. 키 → InputAction 변환 담당.
+- **UEnhancedInputComponent**: Actor에 붙는 컴포넌트. InputAction → 콜백 함수 바인딩 담당.
+
+```
+키 입력 → Subsystem(IMC로 Action 결정) → Component(Action에 바인딩된 함수 실행)
+```
+
+AddMappingContext는 Subsystem에, BindNativeAction은 Component에 — 둘 다 InitializePlayerInput에서 호출되지만 역할이 다르다.
+IMC가 LocalPlayer 단위인 이유: 스플릿스크린에서 플레이어마다 다른 컨텍스트 세트를 가질 수 있기 때문.
+
+---
+
 ### AbilityInputBlocked
 `TAG_Gameplay_AbilityInputBlocked` 태그가 ASC에 있으면 `ProcessAbilityInput` 진입 시 전체 무시 + `ClearAbilityInput()`.
 
