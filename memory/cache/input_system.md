@@ -98,6 +98,13 @@ else
 AddMappingContext는 Subsystem에, BindNativeAction은 Component에 — 둘 다 InitializePlayerInput에서 호출되지만 역할이 다르다.
 IMC가 LocalPlayer 단위인 이유: 스플릿스크린에서 플레이어마다 다른 컨텍스트 세트를 가질 수 있기 때문.
 
+BindAction 오버로드 구조:
+- `HandlerSignature`: void Func() — VarTypes로 추가 인자 고정 (FGameplayTag 패턴)
+- `ValueSignature`: void Func(FInputActionValue&) — 입력값 전달
+- `InstanceSignature`: void Func(FInputActionInstance&) — 값 + 타이밍(ElapsedTime 등) 전달
+- UFUNCTION 버전: FName 문자열로 런타임 바인딩 (Blueprint용)
+함수 파라미터 타입으로 컴파일러가 오버로드 자동 선택. VarTypes는 델리게이트 생성 시 고정되어 Execute 시 입력값 대신 전달.
+
 ---
 
 ### AbilityInputBlocked
