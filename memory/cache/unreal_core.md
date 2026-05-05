@@ -231,6 +231,26 @@ return Character->GetActorLocation() + FVector::UpVector * HeightAdjustment;
 
 ---
 
+## 25. PlayerController vs LocalPlayer — 생존 범위 분리
+
+> 출처: `Source/LyraGame/Character/LyraHeroComponent.cpp`  
+> 상세 문서: `doc/unrealCore/player_framework.md`
+
+| | PlayerController | LocalPlayer |
+|---|---|---|
+| 존재 위치 | 게임 월드 안 (Actor) | 엔진/플랫폼 레이어 |
+| 생존 범위 | 레벨 전환 시 소멸/재생성 | 게임 실행 내내 유지 |
+| 복제 | 서버↔클라이언트 | 복제 안 됨 (로컬 전용) |
+
+분리 이유:
+- **스플릿스크린**: 한 머신에 LocalPlayer 2개, 각자 PC 따로 가짐
+- **레벨 전환 데이터 유지**: PC는 소멸되지만 LocalPlayer는 살아있음
+- **서버에 LocalPlayer 없음**: 전용 서버는 뷰포트가 없으므로 LocalPlayer 미존재
+
+`PC->GetLocalPlayer()`로 LocalPlayer를 꺼내는 코드는 로컬 머신 전용 데이터(Enhanced Input 컨텍스트 등)에 접근하는 신호.
+
+---
+
 ## 24. GameplayMessageSubsystem — pub/sub 메시지 버스
 
 > 출처: `Plugins/GameplayMessageRouter/Source/GameplayMessageRuntime/`  

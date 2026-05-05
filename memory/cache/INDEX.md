@@ -11,4 +11,4 @@
 | [input_system.md](input_system.md) | PlayerController 입력 파이프라인, ProcessAbilityInput, Lyra 입력 시스템(LyraInputConfig/HeroComponent) |
 | [modular_gamefeature.md](modular_gamefeature.md) | ModularGameplay(GameFrameworkComponentManager/InitState), GameFeature/Experience 로드 흐름, World프레임워크(GameMode/GameState) |
 | [networking.md](networking.md) | 언리얼 복제 파이프라인(RepLayout/RPC), GetLifetimeReplicatedProps 매크로, PredictionKey 생명주기/롤백 |
-| [unreal_core.md](unreal_core.md) | UGameplayTagsManager, LooseGameplayTag vs GE태그, Slate/UMG UI 파이프라인, CommonUser, 카메라 시스템, GameplayMessageSubsystem |
+| [unreal_core.md](unreal_core.md) | UGameplayTagsManager, LooseGameplayTag vs GE태그, Slate/UMG UI 파이프라인, CommonUser, 카메라 시스템, GameplayMessageSubsystem, PlayerController vs LocalPlayer |
