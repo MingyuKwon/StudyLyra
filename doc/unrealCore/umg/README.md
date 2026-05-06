@@ -9,6 +9,7 @@ Slate 위에 올린 UObject 기반 UI 시스템. 게임 코드에서 직접 다�
 | [03_lifecycle.md](03_lifecycle.md) | UUserWidget 생명주기 — Initialize · PreConstruct · Construct · Destruct · Tick |
 | [04_viewport.md](04_viewport.md) | 뷰포트 추가/제거 — AddToViewport · AddToPlayerScreen · RemoveFromParent · ZOrder |
 | [05_binding.md](05_binding.md) | 위젯 바인딩 — BindWidget · BindWidgetAnim · Property Binding |
+| [06_addtoviewport_flow.md](06_addtoviewport_flow.md) | AddToViewport/RemoveFromParent 내부 호출 체인 — TakeWidget·SObjectWidget·NativeConstruct/Destruct 발화 시점 |
 
 ---
 
