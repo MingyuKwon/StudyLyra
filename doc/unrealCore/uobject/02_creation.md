@@ -7,22 +7,56 @@
 UObject를 상속한 클래스라도 **종류에 따라 생성 방법이 다르다.**  
 C++ `new`는 절대 사용하지 않는다.
 
-`new UMyObject()`를 호출하면 UObject 생성자가 내부적으로 `GUObjectArray`에 자신을 등록한다.  
-GC는 이 객체의 **존재를 알고 있다.** 하지만 GC는 루트셋에서 출발해 UPROPERTY 참조를 따라가며 "살아있음"을 표시하는 방식으로 동작한다.
+## C++ new vs NewObject
+
+### new가 하는 일
+
+```
+new UMyObject()
+  → C++ 힙 할당 (malloc)
+  → UObject::UObject() 생성자 실행
+      → GUObjectArray에 등록됨   ← GC가 존재는 앎
+  → 끝
+```
+
+Outer 없음 / RF_ 플래그 없음 / PostInitProperties 호출 없음 / 이름 등록 없음.  
+GC 입장에서는 존재는 알지만 루트셋에서 이 객체에 도달할 UPROPERTY 참조가 없으므로 "쓰레기"로 판단한다.
 
 ```cpp
 UMyObject* Ptr = new UMyObject();
-// GUObjectArray에 등록됨 — GC가 존재는 앎
-// 그러나 어떤 UPROPERTY도 이 객체를 가리키지 않음
-// → GC가 "아무도 참조 안 함" 으로 판단
+// GC가 존재는 알지만 UPROPERTY 참조가 없음
 // → 다음 GC 사이클에 수거
-
-Ptr->DoSomething();   // 이미 수거된 객체 — dangling pointer → 크래시
+Ptr->DoSomething();   // 수거된 객체 접근 — 크래시
 ```
 
-GC가 몰라서 수거되는 것이 아니라,  
-**GC가 알고 있지만 UPROPERTY 참조가 없어 '쓰레기'로 판단해 수거**하는 것이다.  
-UPROPERTY 참조는 GC 수거 시 자동으로 null이 되지만, raw pointer는 null이 되지 않아 dangling pointer가 된다.
+GC가 몰라서 수거되는 것이 아니라, **알고 있지만 '아무도 참조 안 함'으로 판단해 수거**하는 것이다.  
+UPROPERTY 참조는 수거 시 자동으로 null이 되지만 raw pointer는 null이 안 되므로 dangling pointer가 된다.
+
+### NewObject가 하는 일
+
+```
+NewObject<UMyObject>(Outer)
+  → StaticConstructObject_Internal()
+      → UE 오브젝트 풀에서 메모리 할당   ← C++ 힙이 아님
+      → GUObjectArray에 올바르게 등록
+      → Outer 연결 (소유권 체인 구성)
+      → RF_ 플래그 설정
+      → 이름 등록 (FName 테이블)
+      → 생성자 실행
+      → PostInitProperties() 호출        ← 직렬화·에디터 초기화
+```
+
+| 항목 | `new` | `NewObject` |
+|------|-------|-------------|
+| 메모리 할당 | C++ 힙 (malloc) | UE 오브젝트 풀 |
+| GUObjectArray 등록 | 불완전하게 등록 | 올바르게 등록 |
+| Outer (소유권 체인) | 없음 | 있음 |
+| RF_ 플래그 | 없음 | 설정됨 |
+| PostInitProperties | 호출 안 됨 | 호출됨 |
+| GC 참조 추적 | 불가 (루트셋 도달 안 됨) | 가능 (Outer 체인으로 추적) |
+| 직렬화·에디터 통합 | 안 됨 | 됨 |
+
+`NewObject`로 만든 객체는 Outer 체인을 따라 루트셋에 도달할 수 있으므로 UPROPERTY로 참조하는 한 GC에 수거되지 않는다.
 
 ---
 
