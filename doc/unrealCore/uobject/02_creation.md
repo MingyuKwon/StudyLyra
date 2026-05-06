@@ -5,7 +5,24 @@
 > `Engine/Source/Runtime/Engine/Private/LevelActor.cpp`
 
 UObject를 상속한 클래스라도 **종류에 따라 생성 방법이 다르다.**  
-C++ `new`는 절대 사용하지 않는다 — GC가 모르는 객체가 되어 바로 수거되거나 dangling pointer가 된다.
+C++ `new`는 절대 사용하지 않는다.
+
+`new UMyObject()`를 호출하면 UObject 생성자가 내부적으로 `GUObjectArray`에 자신을 등록한다.  
+GC는 이 객체의 **존재를 알고 있다.** 하지만 GC는 루트셋에서 출발해 UPROPERTY 참조를 따라가며 "살아있음"을 표시하는 방식으로 동작한다.
+
+```cpp
+UMyObject* Ptr = new UMyObject();
+// GUObjectArray에 등록됨 — GC가 존재는 앎
+// 그러나 어떤 UPROPERTY도 이 객체를 가리키지 않음
+// → GC가 "아무도 참조 안 함" 으로 판단
+// → 다음 GC 사이클에 수거
+
+Ptr->DoSomething();   // 이미 수거된 객체 — dangling pointer → 크래시
+```
+
+GC가 몰라서 수거되는 것이 아니라,  
+**GC가 알고 있지만 UPROPERTY 참조가 없어 '쓰레기'로 판단해 수거**하는 것이다.  
+UPROPERTY 참조는 GC 수거 시 자동으로 null이 되지만, raw pointer는 null이 되지 않아 dangling pointer가 된다.
 
 ---
 
