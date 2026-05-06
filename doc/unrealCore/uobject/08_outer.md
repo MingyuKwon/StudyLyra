@@ -50,34 +50,75 @@ Outer를 잘못 지정하면 예상치 못한 패키지에 묶이거나 직렬�
 
 ---
 
-## 역할 3 — 수명 연계 (단방향)
+## 역할 3 — 수명 연계
 
-Outer가 GC되면 Inner도 함께 수거된다.  
-Outer가 Inner를 UPROPERTY로 들고 있으므로, Outer가 사라지면 그 참조도 사라지고 Inner도 "아무도 참조 안 함" 상태가 되기 때문이다.
-
-```
-Outer 수거
-  → Outer의 UPROPERTY(Inner) 참조 소멸
-  → Inner도 참조 없음 → 다음 GC에 수거
-```
-
-**반대는 자동이 아니다.**  
-Outer가 살아있다고 Inner가 자동으로 살아남지 않는다.  
-GC는 Outer → Inner를 자동 추적하지 않는다 — Inner를 살리려면 별도 UPROPERTY 참조가 있어야 한다.
+Outer 관계와 UPROPERTY는 **별개**다. Outer를 지정해도 UPROPERTY가 자동으로 생기지 않는다.
 
 ```cpp
-// Outer = this 지정, 하지만 UPROPERTY에 저장 안 함 → 수거됨
+// Outer = this 지정, UPROPERTY 없음 → GC가 Inner를 수거
 UMyObject* Obj = NewObject<UMyObject>(this);
 
-// Outer = this 지정, UPROPERTY에 저장 → 살아남음
+// Outer = this 지정, UPROPERTY에 저장 → Inner 살아남음
 UPROPERTY()
 UMyObject* MyData;
 MyData = NewObject<UMyObject>(this);
 ```
 
-`NewObject(this)` 관례의 이유: Outer를 `this`로 설정하면 이름 계층이 자연스럽고,  
-동시에 `this`의 UPROPERTY가 Inner를 들고 있으므로 GC 생존도 보장된다.  
-두 역할이 같은 객체를 가리키는 것이다.
+GC는 오직 UPROPERTY(Token Stream)만 추적한다. Outer 관계 자체는 GC 경로가 아니다.
+
+### 전형적인 패턴 — Outer가 UPROPERTY도 함께 들고 있을 때
+
+가장 흔한 사용 방식은 Outer와 UPROPERTY 소유자를 같은 객체로 맞추는 것이다.
+
+```
+A (Outer이자 UPROPERTY 소유자)
+  └── B (Inner)
+```
+
+이 패턴에서 수명 연계가 성립한다:
+
+```
+A가 GC될 때:
+  → A의 UPROPERTY(B) 참조 소멸
+  → B를 가리키는 참조가 없음
+  → B도 다음 GC에 수거
+```
+
+Outer를 `this`로 지정하는 관례의 이유: 이름 계층이 자연스럽고,  
+동시에 `this`의 UPROPERTY가 Inner를 잡고 있어 GC 생존도 보장되기 때문이다.
+
+### Outer가 죽어도 Inner가 살아남는 경우 — Orphan 상태
+
+다른 객체가 Inner를 UPROPERTY로 쥐고 있으면, Outer가 GC되어도 Inner는 살아남는다.  
+GC는 순수 도달 가능성 기반이므로 C가 B를 참조하는 한 B는 수거되지 않는다.
+
+```
+A (Outer)  ──UPROPERTY──▶  B (Inner)
+C          ──UPROPERTY──▶  B
+
+A가 GC될 때:
+  루트셋 → ... → C → B   ← C의 UPROPERTY로 도달 가능
+  → B "살아있음" 표시 → 수거 안 됨
+
+결과:
+  B는 메모리에 살아있지만 B->GetOuter()가 이미 수거된 A를 가리킴
+  → B->GetPathName() 경로 조립 실패
+  → 직렬화, 에디터 기능 오동작 가능
+  → "Orphan(고아)" 상태
+```
+
+이 상황은 대부분 **설계가 잘못된 것**이다.
+
+```
+잘못된 설계:
+  A (짧은 수명) → B (Outer)
+  C (긴 수명)   → B (UPROPERTY 참조)
+  → A가 먼저 죽으면 B가 Orphan
+
+올바른 설계:
+  Outer는 B를 참조하는 모든 객체 중 가장 오래 사는 객체로 지정
+  → World, GameInstance, GameState 같은 긴 수명 객체
+```
 
 ---
 
@@ -106,8 +147,9 @@ Outer 체인의 최상단이 루트셋에 속해 있기 때문에, 그 밑의 �
 |------|------|
 | 이름·경로 | `GetPathName()` — Outer 타고 올라가며 경로 조립 |
 | 패키지 소속 | 최상단 UPackage가 저장 파일을 결정 |
-| 수명 연계 | Outer 죽으면 Inner도 죽음 (단방향 — 반대는 자동이 아님) |
-| GC 생존 보장 | Outer가 아니라 **UPROPERTY 참조**가 담당 |
+| 수명 연계 | Outer·UPROPERTY 소유자가 같을 때: Outer 죽으면 Inner도 죽음 |
+| Orphan 위험 | Outer 죽어도 다른 UPROPERTY 참조가 있으면 Inner 생존 → 고아 상태 |
+| GC 생존 보장 | Outer 관계가 아니라 **UPROPERTY 참조**가 담당 |
 
 ---
 
