@@ -127,8 +127,51 @@ Actor->SetTeam(ETeam::Red);
 UGameplayStatics::FinishSpawningActor(Actor, SpawnTransform);
 ```
 
-`SpawnActorDeferred()`는 내부적으로 `PostInitializeComponents()`까지만 실행하고 멈춘다.  
-`FinishSpawningActor()`를 호출해야 `BeginPlay()`가 실행된다.
+`SpawnActorDeferred()`는 내부적으로 초기화 단계를 중간에서 멈추고,  
+`FinishSpawningActor()`를 호출할 때 나머지를 실행한다.
+
+### SpawnActor vs SpawnActorDeferred — 내부 차이
+
+두 함수는 모두 `PostSpawnInitialize()`를 거친다.  
+차이는 이 함수 내부의 `bDeferConstruction` 분기에서 갈린다.
+
+```cpp
+// Actor.cpp — PostSpawnInitialize()
+RegisterAllComponents();    // ← 양쪽 모두 실행 (컴포넌트 등록 → 메시 렌더됨)
+PostActorCreated();
+
+if (!bDeferConstruction)
+{
+    FinishSpawning(UserSpawnTransform, true);   // 일반 스폰: 즉시 완료
+}
+// Deferred: 여기서 멈춤. transform을 GSpawnActorDeferredTransformCache에 보관
+```
+
+`FinishSpawning()` 안에 들어있는 것들:
+
+```cpp
+// Actor.cpp — FinishSpawning()
+ExecuteConstruction(...)        // BP Construction Script
+PostActorConstruction()
+    PreInitializeComponents()
+    InitializeComponents()
+    PostInitializeComponents()
+DispatchBeginPlay()             // BeginPlay
+```
+
+| 단계 | 일반 SpawnActor | SpawnActorDeferred |
+|------|----------------|--------------------|
+| `RegisterAllComponents()` | O (즉시) | O (즉시) |
+| `PostActorCreated()` | O | O |
+| `ExecuteConstruction()` — BP 컨스트럭션 스크립트 | O (즉시) | X → FinishSpawning 때 |
+| `PreInitializeComponents()` | O (즉시) | X → FinishSpawning 때 |
+| `InitializeComponents()` | O (즉시) | X → FinishSpawning 때 |
+| `PostInitializeComponents()` | O (즉시) | X → FinishSpawning 때 |
+| `BeginPlay()` | O (즉시) | X → FinishSpawning 때 |
+
+**게임 월드에서 보이는가?**  
+`RegisterAllComponents()`가 분기 전에 실행되므로 **Deferred 중에도 Actor는 렌더된다.**  
+눈에는 보이지만 BeginPlay가 불리지 않아 게임 로직은 시작되지 않은 상태다.
 
 ---
 
