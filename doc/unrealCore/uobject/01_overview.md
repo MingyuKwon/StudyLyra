@@ -101,6 +101,64 @@ DECLARE_CLASS(AMyActor, AActor, ...)
 `GENERATED_BODY()`는 이 generated.h의 코드 블록을 **클래스 본문 안에 붙여넣는 자리**다.  
 `GENERATED_BODY()`를 빼면 `StaticClass()`가 없으니 컴파일 자체가 안 된다.
 
+### GENERATED_BODY()가 generated.h 코드를 가져오는 원리
+
+"코드를 삽입"하는 게 아니라 **generated.h에 정의된 또 다른 매크로의 이름을 조립해서 간접 호출**하는 방식이다.
+
+`ObjectMacros.h`의 실제 정의:
+
+```cpp
+// Engine/Source/Runtime/CoreUObject/Public/UObject/ObjectMacros.h
+#define BODY_MACRO_COMBINE_INNER(A, B, C, D)  A##B##C##D
+#define BODY_MACRO_COMBINE(A, B, C, D)        BODY_MACRO_COMBINE_INNER(A, B, C, D)
+
+#define GENERATED_BODY(...) \
+    BODY_MACRO_COMBINE(CURRENT_FILE_ID, _, __LINE__, _GENERATED_BODY)
+```
+
+`##`는 C++ 매크로의 **토큰 붙이기(token pasting)** 연산자다.  
+`CURRENT_FILE_ID`와 `__LINE__`을 이어붙여 유일한 매크로 이름을 조립한다.
+
+`AMyActor.h`의 25번째 줄에 `GENERATED_BODY()`가 있다면 전개 흐름은:
+
+```
+GENERATED_BODY()
+  → BODY_MACRO_COMBINE(CURRENT_FILE_ID, _, 25, _GENERATED_BODY)
+  → AMyActor_h ## _ ## 25 ## _GENERATED_BODY
+  → AMyActor_h_25_GENERATED_BODY          ← 이 이름의 매크로를 호출
+```
+
+`CURRENT_FILE_ID`도 generated.h 안에서 정의된다:
+
+```cpp
+// AMyActor.generated.h
+#undef  CURRENT_FILE_ID
+#define CURRENT_FILE_ID  AMyActor_h
+```
+
+그리고 UHT가 generated.h를 만들 때 **딱 그 이름으로** 매크로를 미리 정의해둔다:
+
+```cpp
+// AMyActor.generated.h
+#define AMyActor_h_25_GENERATED_BODY \
+    AMyActor_h_25_SPARSE_DATA \
+    AMyActor_h_25_RPC_WRAPPERS \
+    AMyActor_h_25_INCLASS_NO_PURE_DECLS \
+    AMyActor_h_25_ENHANCED_CONSTRUCTORS
+    // → 최종적으로 StaticClass(), __DefaultConstructor, Serialize 등이 나옴
+```
+
+**줄 번호(`__LINE__`)를 쓰는 이유**: 한 헤더에 클래스가 여러 개 있을 때 각 `GENERATED_BODY()`가 서로 다른 줄에 있으므로 **다른 이름의 매크로**를 호출하게 되어 충돌을 막는다.
+
+```cpp
+class AMyActor : public AActor {
+    GENERATED_BODY()   // 줄 25 → AMyActor_h_25_GENERATED_BODY
+};
+class AMyHelper : public UObject {
+    GENERATED_BODY()   // 줄 35 → AMyActor_h_35_GENERATED_BODY
+};
+```
+
 ### UClass 오브젝트 — 클래스를 표현하는 UObject
 
 `StaticClass()`가 반환하는 `UClass*`는 **클래스 자체를 표현하는 UObject**다.  
