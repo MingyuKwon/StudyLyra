@@ -8,13 +8,46 @@
 
 ## UPackage란
 
-`.uasset` / `.umap` 파일 하나와 1:1 대응하는 UObject다.  
-엔진의 모든 파일 I/O는 UPackage 단위로 일어난다.
+UObject 시스템의 파일 단위 컨테이너다.  
+종류에 따라 실제 파일이 있는 것과 없는 것으로 나뉜다.
+
+### 패키지 종류
+
+| 종류 | 경로 접두사 | 실제 파일 | 내용 |
+|------|-------------|-----------|------|
+| 콘텐츠 패키지 | `/Game/`, `/Engine/` | `.uasset` / `.umap` | 에셋·레벨 인스턴스 |
+| 스크립트 패키지 | `/Script/` | 없음 (바이너리에서 로드) | C++ 모듈의 UClass 객체들 |
+| Transient 패키지 | `/Engine/Transient` | 없음 (메모리에만 존재) | 런타임 임시 오브젝트 |
+
+### 콘텐츠 패키지 — 에셋과 1:1
 
 ```
 Content/Meshes/SM_Rock.uasset    ←→  UPackage("/Game/Meshes/SM_Rock")
 Content/Maps/MyLevel.umap        ←→  UPackage("/Game/Maps/MyLevel")
 ```
+
+### 스크립트 패키지 — C++ 모듈당 1개
+
+C++ 모듈 하나당 Script 패키지 하나가 생긴다.  
+그 모듈에 있는 **모든 UClass 객체**를 담는 컨테이너다.
+
+```
+/Script/Engine      → UStaticMesh, AActor, UTexture2D 등 엔진 UClass 전부
+/Script/MyGame      → AMyActor, UMyComponent 등 내 게임 C++ UClass 전부
+/Script/CoreUObject → UObject, UPackage 등 코어 UClass 전부
+```
+
+`.uasset` 파일이 없다. 엔진이 모듈(DLL / 실행 파일)을 로드할 때 메모리에 생성된다.
+
+콘텐츠 패키지와 Script 패키지의 내용물 차이:
+
+```
+/Script/Engine.StaticMesh          ← UStaticMesh 클래스 자체 (UClass 객체)
+/Game/Meshes/SM_Rock.SM_Rock       ← SM_Rock 인스턴스 (UStaticMesh의 인스턴스)
+```
+
+"에셋 1:1" 법칙은 `/Game/` 콘텐츠 패키지에만 해당한다.  
+`/Script/` 패키지는 모듈 하나당 하나이며 해당 모듈의 UClass 전부를 담는다.
 
 ---
 
