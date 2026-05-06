@@ -173,6 +173,37 @@ DispatchBeginPlay()             // BeginPlay
 `RegisterAllComponents()`가 분기 전에 실행되므로 **Deferred 중에도 Actor는 렌더된다.**  
 눈에는 보이지만 BeginPlay가 불리지 않아 게임 로직은 시작되지 않은 상태다.
 
+### FinishSpawning은 같은 틱 안에서 호출하는 것이 표준
+
+Deferred Spawn의 목적은 "초기화 콜백이 불리기 **전에** 프로퍼티를 밀어넣는 것"이다.  
+따라서 실제 코드에서는 SpawnActorDeferred 직후 같은 프레임 안에 FinishSpawning을 호출한다.
+
+```cpp
+// 실제 사용 패턴 — 전부 같은 프레임
+AMyActor* Actor = GetWorld()->SpawnActorDeferred<AMyActor>(...);
+Actor->SetDamage(100.f);
+Actor->SetTeam(ETeam::Red);
+UGameplayStatics::FinishSpawningActor(Actor, Transform);  // 바로 완료
+```
+
+FinishSpawning을 의도적으로 오래 미루면 다음 문제가 생긴다.
+
+- Actor는 월드에 렌더되고 있는데 BeginPlay가 안 불린 채 다른 시스템(Overlap, LineTrace)에 걸릴 수 있음
+- BeginPlay 의존 로직이 실행 안 된 상태로 상호작용 → 버그 온상
+- 레퍼런스를 오랫동안 직접 들고 있어야 해서 코드가 복잡해짐
+
+**30초 뒤에 활성화하고 싶은 경우**  
+Deferred를 오래 미루는 대신, 일반 SpawnActor로 완전히 스폰한 뒤 Actor 내부에서 비활성 상태로 시작하는 패턴을 쓴다.
+
+```cpp
+// SpawnActor로 완전히 스폰 (BeginPlay까지 즉시 실행)
+AMyActor* Actor = GetWorld()->SpawnActor<AMyActor>(...);
+
+// Actor 내부에서 비활성 상태로 시작
+// BeginPlay()에서 SetActorHiddenInGame(true), 로직 비활성화
+// 타이머나 이벤트에서 활성화
+```
+
 ---
 
 ## SpawnActor 반환값 체크
