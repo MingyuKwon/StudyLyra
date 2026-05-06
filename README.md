@@ -65,6 +65,7 @@ GAS 학습 분석
 | [입력 파이프라인](doc/unrealCore/input_pipeline.md) | PlayerTick → ProcessInputStack 전체 흐름, Accumulator 패턴, bDown 홀드 원리 |
 | [Enhanced Input](doc/unrealCore/enhanced_input.md) | IMC 관리(UEnhancedInputLocalPlayerSubsystem) vs Action 바인딩(UEnhancedInputComponent) 역할 분리 |
 | [Slate](doc/unrealCore/slate/README.md) | Slate UI 프레임워크 기초 — SWidget 계층, TSharedRef 메모리 모델, 레이아웃 시스템, 선언형 문법 |
+| [UMG](doc/unrealCore/umg/README.md) | UMG — UWidget 계층, UUserWidget 생명주기, 뷰포트 추가/제거, BindWidget |
 | [UI 파이프라인](doc/unrealCore/ui_pipeline.md) | Slate/UMG 렌더 흐름, TakeWidget 브릿지, Prepass/OnPaint 두 단계 Pass |
 | [월드 프레임워크](doc/unrealCore/world_framework.md) | UWorld · AWorldSettings · GameMode · GameState 역할 구분, 생성 체인 |
 | [플레이어 프레임워크](doc/unrealCore/player_framework.md) | PlayerController · LocalPlayer 생존 범위 차이, 분리 이유, 스플릿스크린 |

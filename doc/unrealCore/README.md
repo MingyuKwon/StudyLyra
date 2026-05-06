@@ -13,4 +13,5 @@ Lyra와 무관한 UE5 엔진 자체 시스템 분석 문서 모음.
 | [player_framework.md](player_framework.md) | PlayerController · LocalPlayer — 생존 범위 차이, 분리 이유, 스플릿스크린 |
 | [prediction_key.md](prediction_key.md) | FPredictionKey — 구조, 예측 윈도우 수명, Reject/CatchUp 두 종료 경로, NetSerialize 특수 동작, 의존성 체인 |
 | [slate/](slate/README.md) | Slate UI 프레임워크 — SWidget 계층, TSharedRef 메모리 모델, 레이아웃 시스템, 선언형 문법 |
+| [umg/](umg/README.md) | UMG — UWidget 계층, UUserWidget 생명주기, 뷰포트 추가/제거, BindWidget/Property Binding |
 | [ui_pipeline.md](ui_pipeline.md) | Slate/UMG 렌더 흐름 — FEngineLoop 틱, DrawPrepass/OnPaint 두 단계 Pass, TakeWidget 브릿지 |
