@@ -62,6 +62,8 @@ GAS 학습 분석
 
 | 문서/폴더 | 내용 |
 |-----------|------|
+| [Actor](doc/unrealCore/actor/README.md) | Actor·Component 개념, SpawnActor, 생명주기 |
+| [Collision](doc/unrealCore/collision/README.md) | Block/Overlap/Ignore, CollisionEnabled 종류, 성능 최적화 |
 | [입력 파이프라인](doc/unrealCore/input_pipeline.md) | PlayerTick → ProcessInputStack 전체 흐름, Accumulator 패턴, bDown 홀드 원리 |
 | [Enhanced Input](doc/unrealCore/enhanced_input.md) | IMC 관리(UEnhancedInputLocalPlayerSubsystem) vs Action 바인딩(UEnhancedInputComponent) 역할 분리 |
 | [Slate](doc/unrealCore/slate/README.md) | Slate UI 프레임워크 기초 — SWidget 계층, TSharedRef 메모리 모델, 레이아웃 시스템, 선언형 문법 |
@@ -70,7 +72,6 @@ GAS 학습 분석
 | [월드 프레임워크](doc/unrealCore/world_framework.md) | UWorld · AWorldSettings · GameMode · GameState 역할 구분, 생성 체인 |
 | [플레이어 프레임워크](doc/unrealCore/player_framework.md) | PlayerController · LocalPlayer 생존 범위 차이, 분리 이유, 스플릿스크린 |
 | [PredictionKey](doc/unrealCore/prediction_key.md) | FPredictionKey 구조, 예측 윈도우 수명, Reject/CatchUp 두 종료 경로, NetSerialize |
-| [Actor 생명주기](doc/unrealCore/actor_lifecycle/README.md) | PostInitProperties → Destroyed 전체 생명주기, Component 초기화 순서 |
 | [복제 시스템](doc/unrealCore/replication/README.md) | NetDriver 파이프라인, Actor 복제, Shadow Buffer, Relevancy, NetSerialize |
 | [엔진 플러그인](doc/unrealCore/plugin/README.md) | ModularGameplay, GameFeatures, CommonUser, GameplayMessage 분석 |
 
