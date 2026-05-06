@@ -80,12 +80,11 @@ UMyObject* Obj = NewObject<UMyObject>(this, ClassToSpawn);
 ```
 
 **Outer란?**  
-생성된 객체의 소유자. GC는 Outer → Object 방향으로 소유권 체인을 추적한다.  
-Outer가 수거되면 Inner도 함께 수거 대상이 된다.  
-컴포넌트라면 Actor를 Outer로, 일반 데이터 오브젝트라면 `this` 또는 `GetTransientPackage()`를 쓴다.
+생성된 객체의 소유자·소속 컨텍스트. 이름 경로, 패키지 소속, 수명 연계를 결정한다.  
+컴포넌트라면 Actor를 Outer로, 일반 데이터 오브젝트라면 `this` 또는 `GetTransientPackage()`를 쓴다.  
+상세 설명 → [08_outer.md](08_outer.md)
 
 ```cpp
-// Outer를 잘못 지정하면 생기는 문제
 UMyData* Data = NewObject<UMyData>(GetTransientPackage()); // OK — 전역 Transient 패키지
 UMyData* Data = NewObject<UMyData>();                      // OK — Outer 생략 시 Transient 패키지
 UMyData* Data = NewObject<UMyData>(nullptr);               // Outer 없음 — 위험

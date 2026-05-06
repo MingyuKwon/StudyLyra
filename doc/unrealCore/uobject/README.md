@@ -12,3 +12,4 @@ GC, Reflection, Serialization, CDO, Blueprint 연동까지 포함한다.
 | [05_garbage_collection.md](05_garbage_collection.md) | GC 동작 원리, UPROPERTY 참조 추적, AddToRoot |
 | [06_isvalid.md](06_isvalid.md) | MarkPendingKill / IsValid / IsValidLowLevel 차이 |
 | [07_blueprint_asset.md](07_blueprint_asset.md) | C++ 클래스 → Blueprint Asset 생성 과정 |
+| [08_outer.md](08_outer.md) | Outer — 이름·패키지 소속·수명 연계, UPackage 루트셋 구조 |
