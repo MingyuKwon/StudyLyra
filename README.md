@@ -58,7 +58,29 @@ GAS 학습 분석
 
 ## 언리얼 코어 분석
 
+> 상세 인덱스: [doc/unrealCore/README.md](doc/unrealCore/README.md)
+
+| 문서/폴더 | 내용 |
+|-----------|------|
+| [입력 파이프라인](doc/unrealCore/input_pipeline.md) | PlayerTick → ProcessInputStack 전체 흐름, Accumulator 패턴, bDown 홀드 원리 |
+| [Enhanced Input](doc/unrealCore/enhanced_input.md) | IMC 관리(UEnhancedInputLocalPlayerSubsystem) vs Action 바인딩(UEnhancedInputComponent) 역할 분리 |
+| [UI 파이프라인](doc/unrealCore/ui_pipeline.md) | Slate/UMG 렌더 흐름, TakeWidget 브릿지, Prepass/OnPaint 두 단계 Pass |
+| [월드 프레임워크](doc/unrealCore/world_framework.md) | UWorld · AWorldSettings · GameMode · GameState 역할 구분, 생성 체인 |
+| [플레이어 프레임워크](doc/unrealCore/player_framework.md) | PlayerController · LocalPlayer 생존 범위 차이, 분리 이유, 스플릿스크린 |
+| [PredictionKey](doc/unrealCore/prediction_key.md) | FPredictionKey 구조, 예측 윈도우 수명, Reject/CatchUp 두 종료 경로, NetSerialize |
+| [Actor 생명주기](doc/unrealCore/actor_lifecycle/README.md) | PostInitProperties → Destroyed 전체 생명주기, Component 초기화 순서 |
+| [복제 시스템](doc/unrealCore/replication/README.md) | NetDriver 파이프라인, Actor 복제, Shadow Buffer, Relevancy, NetSerialize |
+| [엔진 플러그인](doc/unrealCore/plugin/README.md) | ModularGameplay, GameFeatures, CommonUser, GameplayMessage 분석 |
+
+---
+
+## GAS 레퍼런스
+
 | 문서 | 내용 |
 |------|------|
-| [입력 파이프라인](doc/unrealCore/input_pipeline.md) | PlayerTick → ProcessInputStack 전체 흐름, Accumulator 패턴, bDown 홀드 원리 |
-| [UI 파이프라인](doc/unrealCore/ui_pipeline.md) | Slate/UMG 렌더 흐름, TakeWidget 브릿지, Prepass/OnPaint 두 단계 Pass |
+| [디버깅](doc/gas/reference/debugging.md) | showdebug abilitysystem, GAS 로그, 콘솔 명령 |
+| [최적화](doc/gas/reference/optimization.md) | ASC Replication Mode, GC 최적화 패턴 |
+| [Quality of Life](doc/gas/reference/quality_of_life.md) | Batch GE, Generic Tag Response, FGameplayEffectContextHandle 확장 |
+| [ASC Replicated Containers](doc/gas/reference/asc_replicated_containers.md) | FActiveGameplayEffectsContainer, FGameplayAbilitySpecContainer 복제 구조 |
+| [Dave Ratti Q&A](doc/gas/reference/dave_ratti_qa.md) | GAS 개발자 Dave Ratti의 공식 Q&A 정리 |
+| [트러블슈팅](doc/gas/reference/troubleshooting.md) | 흔한 GAS 오류 및 해결책 |
