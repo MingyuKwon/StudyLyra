@@ -30,7 +30,10 @@ Ptr->DoSomething();   // 수거된 객체 접근 — 크래시
 ```
 
 GC가 몰라서 수거되는 것이 아니라, **알고 있지만 '아무도 참조 안 함'으로 판단해 수거**하는 것이다.  
-UPROPERTY 참조는 수거 시 자동으로 null이 되지만 raw pointer는 null이 안 되므로 dangling pointer가 된다.
+`new`로 만든 객체는 Ptr이 raw pointer이므로 수거 후에도 null이 되지 않는다 → dangling pointer → 크래시.
+
+> UPROPERTY로 들고 있으면 GC가 수거하지 않는다.  
+> auto-null은 객체가 **명시적으로 파괴될 때** (Destroy/MarkAsGarbage) 일어나는 동작이며, 아래 GC Token Stream 섹션에서 설명한다.
 
 ### NewObject가 하는 일
 
