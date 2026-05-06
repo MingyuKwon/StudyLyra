@@ -49,6 +49,38 @@ Slate가 `UUserWidget*`을 들고 있다고 해서 GC가 그 UObject를 살려�
 
 ---
 
+## UUserWidget이란
+
+UMG에는 두 종류의 위젯이 있다.
+
+| 클래스 | 역할 | 예시 |
+|--------|------|------|
+| `UWidget` | UMG 기본 원소 위젯 (엔진 제공) | UButton, UTextBlock, UImage |
+| `UUserWidget` | `UWidget`들을 조립해서 만든 복합 위젯 | WBP_HUD, WBP_InventoryPanel |
+
+에디터에서 Widget Blueprint를 새로 만들면 내부적으로 `UUserWidget`을 상속한 클래스가 생긴다.  
+즉 **개발자가 직접 설계하는 UI 화면의 C++ 기반**이 `UUserWidget`이다.
+
+`UUserWidget`이 특별한 이유는 **WidgetTree**를 소유하기 때문이다.  
+WidgetTree 안에 `UButton`, `UTextBlock` 같은 자식 `UWidget`들이 UPROPERTY로 매달려 있다.
+
+```
+UUserWidget (WBP_HUD)
+  └── WidgetTree
+        ├── UVerticalBox
+        │     ├── UTextBlock   (HP 텍스트)
+        │     └── UProgressBar (HP 바)
+        └── UButton            (스킬 버튼)
+```
+
+`UUserWidget`이 GC되면 WidgetTree 안의 자식 위젯들도 전부 수거 대상이 된다.  
+그래서 Slate 트리가 이 `UUserWidget`을 참조하는 동안은 GC가 건드리면 안 된다.
+
+단순 `UWidget`(UButton 등)은 항상 어떤 `UUserWidget`의 WidgetTree 안에 UPROPERTY로 소유되므로  
+`UUserWidget`만 살아있으면 자식들도 자동으로 살아있다. 별도 보호가 불필요하다.
+
+---
+
 ## SObjectWidget — GC 브릿지
 
 이 단절 문제를 해결하는 것이 `SObjectWidget`이다.
