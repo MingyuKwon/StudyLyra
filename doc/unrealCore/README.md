@@ -4,6 +4,7 @@ Lyra와 무관한 UE5 엔진 자체 시스템 분석 문서 모음.
 
 | 파일/폴더 | 내용 |
 |-----------|------|
+| [uobject/](uobject/README.md) | UObject 시스템 — GC, CDO, DefaultSubobject, IsValid, Blueprint Asset |
 | [actor/](actor/README.md) | Actor·Component 개념, SpawnActor 메커니즘, 생명주기 |
 | [collision/](collision/README.md) | Collision 시스템 — Block/Overlap/Ignore, CollisionEnabled 종류, 성능 최적화 |
 | [input_pipeline.md](input_pipeline.md) | PlayerController 틱 → ProcessAbilityInput까지 입력 처리 경로 |

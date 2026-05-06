@@ -62,6 +62,7 @@ GAS 학습 분석
 
 | 문서/폴더 | 내용 |
 |-----------|------|
+| [UObject](doc/unrealCore/uobject/README.md) | GC, CDO, DefaultSubobject, IsValid/MarkAsGarbage, Blueprint Asset |
 | [Actor](doc/unrealCore/actor/README.md) | Actor·Component 개념, SpawnActor, 생명주기 |
 | [Collision](doc/unrealCore/collision/README.md) | Block/Overlap/Ignore, CollisionEnabled 종류, 성능 최적화 |
 | [입력 파이프라인](doc/unrealCore/input_pipeline.md) | PlayerTick → ProcessInputStack 전체 흐름, Accumulator 패턴, bDown 홀드 원리 |
