@@ -46,7 +46,8 @@ NewObject<UMyObject>(this);                  // → this의 패키지에 소속,
 NewObject<UMyObject>(GetTransientPackage()); // → Transient 패키지, 저장 안 됨
 ```
 
-Outer를 잘못 지정하면 예상치 못한 패키지에 묶이거나 직렬화가 꼬인다.
+Outer를 잘못 지정하면 예상치 못한 패키지에 묶이거나 직렬화가 꼬인다.  
+UPackage의 역할과 에셋 저장·로드 흐름 → [09_upackage.md](09_upackage.md)
 
 ---
 
