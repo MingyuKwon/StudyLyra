@@ -8,61 +8,27 @@
 
 ## UPackage란
 
-UObject 시스템의 파일 단위 컨테이너다.  
+UObject 시스템의 파일·모듈 단위 컨테이너다.  
 종류에 따라 실제 파일이 있는 것과 없는 것으로 나뉜다.
 
-### 패키지 종류
-
-| 종류 | 경로 접두사 | 실제 파일 | 내용 |
-|------|-------------|-----------|------|
-| 콘텐츠 패키지 | `/Game/`, `/Engine/` | `.uasset` / `.umap` | 에셋·레벨 인스턴스 |
-| 스크립트 패키지 | `/Script/` | 없음 (바이너리에서 로드) | C++ 모듈의 UClass 객체들 |
-| Transient 패키지 | `/Engine/Transient` | 없음 (메모리에만 존재) | 런타임 임시 오브젝트 |
-
-### 콘텐츠 패키지 — 에셋과 1:1
-
-```
-Content/Meshes/SM_Rock.uasset    ←→  UPackage("/Game/Meshes/SM_Rock")
-Content/Maps/MyLevel.umap        ←→  UPackage("/Game/Maps/MyLevel")
-```
-
-### 스크립트 패키지 — C++ 모듈당 1개
-
-C++ 모듈 하나당 Script 패키지 하나가 생긴다.  
-그 모듈에 있는 **모든 UClass 객체**를 담는 컨테이너다.
-
-```
-/Script/Engine      → UStaticMesh, AActor, UTexture2D 등 엔진 UClass 전부
-/Script/MyGame      → AMyActor, UMyComponent 등 내 게임 C++ UClass 전부
-/Script/CoreUObject → UObject, UPackage 등 코어 UClass 전부
-```
-
-`.uasset` 파일이 없다. 엔진이 모듈(DLL / 실행 파일)을 로드할 때 메모리에 생성된다.
-
-콘텐츠 패키지와 Script 패키지의 내용물 차이:
-
-```
-/Script/Engine.StaticMesh          ← UStaticMesh 클래스 자체 (UClass 객체)
-/Game/Meshes/SM_Rock.SM_Rock       ← SM_Rock 인스턴스 (UStaticMesh의 인스턴스)
-```
-
-"에셋 1:1" 법칙은 `/Game/` 콘텐츠 패키지에만 해당한다.  
-`/Script/` 패키지는 모듈 하나당 하나이며 해당 모듈의 UClass 전부를 담는다.
+| 종류 | 경로 | 실제 파일 | 내용 | 로드 시점 |
+|------|------|-----------|------|-----------|
+| 콘텐츠 패키지 | `/Game/`, `/Engine/` | `.uasset` / `.umap` | 에셋·레벨 인스턴스 | 참조 방식에 따라 다름 |
+| 스크립트 패키지 | `/Script/` | 없음 | C++ 모듈의 UClass 전체 | 엔진 시작 시 모듈 DLL 로드 |
+| Transient 패키지 | `/Engine/Transient` | 없음 | 런타임 임시 오브젝트 | 엔진 시작 시 (항상 존재) |
 
 ---
 
 ## 왜 필요한가 — 포인터는 저장할 수 없다
 
-런타임 포인터 주소는 저장할 수 없다. 다음 실행 때 주소가 달라진다.  
+런타임 포인터 주소는 다음 실행 때 달라진다.  
 **문자열 경로만이 실행 간에 유효하게 오브젝트를 식별**할 수 있다.
 
 ```
-/Game/Meshes/SM_Rock.SM_Rock
-      ↑                ↑
-  UPackage 경로    패키지 안 오브젝트 이름
+/Game/Meshes/SM_Rock . SM_Rock
+      ↑                  ↑
+  UPackage 경로     패키지 안 오브젝트 이름
 ```
-
-### 저장·로드 흐름
 
 ```
 저장:
@@ -72,30 +38,28 @@ C++ 모듈 하나당 Script 패키지 하나가 생긴다.
 
 로드:
   "/Game/Meshes/SM_Rock.SM_Rock" 읽음
-  → UPackage("/Game/Meshes/SM_Rock") 로드 (SM_Rock.uasset 파일 열기)
+  → UPackage("/Game/Meshes/SM_Rock") 로드 (SM_Rock.uasset 열기)
   → 패키지 안에서 이름 "SM_Rock" 오브젝트 검색
   → 포인터 복원
 ```
 
 ---
 
-## 패키지 ↔ 에셋 관계
+## 콘텐츠 패키지 — 에셋과 1:1
 
 사용자 입장에서 **에셋 하나 = 패키지 하나 = 파일 하나**다.  
-패키지 안에 UObject가 여러 개일 수 있지만 나머지는 주인공 에셋을 지탱하는 **내부 부품**이지 독립적인 에셋이 아니다.
-
-### 일반 에셋 — 주인공 1개 + 내부 부품
+패키지 안 UObject가 여러 개여도 나머지는 주인공을 지탱하는 내부 부품이다.
 
 ```
 SM_Rock.uasset
-  ├── UStaticMesh  "SM_Rock"     ← 주인공 (사용자가 만든 에셋)
+  ├── UStaticMesh  "SM_Rock"     ← 주인공
   └── (소켓, LOD 데이터 등)      ← 내부 부품
 ```
 
 주인공 이름이 패키지 이름과 같아서 `/Game/Meshes/SM_Rock.SM_Rock`처럼  
-이름이 반복되어 보인다. 패키지와 오브젝트가 하나인 게 아니라 이름이 같을 뿐이다.
+이름이 반복되어 보이는 것이다. 패키지와 오브젝트가 하나인 게 아니라 이름이 같을 뿐이다.
 
-### Blueprint — 에디터용과 런타임용이 분리된다
+**Blueprint** — 에디터용과 런타임용이 분리되어 두 오브젝트가 존재한다.
 
 ```
 BP_Hero.uasset
@@ -103,99 +67,115 @@ BP_Hero.uasset
   └── UBlueprintGeneratedClass "BP_Hero_C"  ← 런타임 클래스 (필수 부품)
 ```
 
-에디터에서 편집하는 오브젝트와 실제 인스턴스를 찍어내는 클래스를 분리해서 관리하기 때문이다.
-
-### 레벨 (.umap) — 예외
-
-레벨은 수많은 독립 오브젝트가 하나의 패키지에 담기는 특수 케이스다.
+**레벨 (.umap)** — 수많은 독립 오브젝트가 하나의 패키지에 담기는 예외 케이스다.
 
 ```
 MyLevel.umap
-  ├── AMyActor  "Actor_1"    ← 독립적인 오브젝트들
-  ├── AMyActor  "Actor_2"
+  ├── AMyActor  "Actor_1"
+  ├── AMyActor  "Actor_2"    ← 독립적인 오브젝트들
   └── ALight    "Light_1"
 ```
 
-레벨 안 특정 Actor를 참조하려면 패키지 경로만으로는 부족하고 세부 path가 필요하다.
+---
+
+## 스크립트 패키지 — C++ 모듈당 1개
+
+C++ 모듈 하나당 Script 패키지 하나. `.uasset` 파일이 없고 모듈 DLL 로드 시 메모리에 생성된다.  
+해당 모듈의 **모든 UClass 객체**를 담는다 — 에셋 인스턴스가 아니라 클래스 메타데이터다.
 
 ```
-/Game/Maps/MyLevel          ← 파일은 찾지만 오브젝트가 수백 개
-/Game/Maps/MyLevel.Actor_1  ← 정확히 이 Actor
+/Script/Engine      → UStaticMesh, AActor 등 엔진 UClass 전부
+/Script/MyGame      → AMyActor, UMyComponent 등 내 게임 UClass 전부
+/Script/CoreUObject → UObject, UPackage 등 코어 UClass 전부
+```
+
+```
+/Script/Engine.StaticMesh        ← UStaticMesh 클래스 자체 (UClass 객체)
+/Game/Meshes/SM_Rock.SM_Rock     ← SM_Rock 인스턴스 (UStaticMesh의 인스턴스)
 ```
 
 ---
 
-## Transient — 저장하지 않음
+## 콘텐츠 패키지 로드 시점 — 참조 방식이 결정한다
 
-Transient는 **"직렬화(저장) 제외"** 를 의미한다.  
-언리얼 곳곳에서 같은 의미로 등장한다.
-
-### UPROPERTY(Transient)
+### Hard 참조 — 참조하는 패키지 로드 시 함께
 
 ```cpp
 UPROPERTY()
-float MaxSpeed = 600.f;     // 저장됨 — 에디터에서 바꾼 값이 .uasset에 기록
-
-UPROPERTY(Transient)
-float CurrentSpeed = 0.f;  // 저장 안 됨 — 런타임에 계산되는 값
+UStaticMesh* MyMesh;   // Hard 참조
 ```
 
-`CurrentSpeed`는 매 실행마다 0에서 시작해 게임 로직이 채운다.  
-저장할 필요가 없고 저장하면 오히려 이상한 값이 로드될 수 있다.
+이 Actor가 담긴 레벨이 로드될 때 `MyMesh` 패키지도 **같이 로드**된다.
 
-### UCLASS(Transient)
+```
+MyLevel 로드
+  → BP_MyActor 로드
+      → SM_Rock 로드
+          → T_Rock_Diffuse 로드    ← 체인 전체가 한 번에 딸려 올라옴
+```
+
+참조 체인이 깊을수록 초기 로드 시간이 길어진다.
+
+### Soft 참조 — 명시적 요청 시에만
 
 ```cpp
-UCLASS(Transient)
-class UGameInstance : public UObject { ... }
+UPROPERTY()
+TSoftObjectPtr<UStaticMesh> MyMesh;   // Soft 참조
 ```
 
-이 클래스의 인스턴스는 절대 파일에 저장되지 않는다.  
-`UGameInstance`, `UWorld` 같이 매 실행마다 새로 만들어지는 것들이 해당한다.
-
-### GetTransientPackage() — 파일 없는 패키지
-
-`GetTransientPackage()`는 디스크에 대응하는 파일이 없는 전역 패키지다.  
-런타임에만 존재하고 엔진이 꺼지면 사라진다.
-
-NewObject를 만들 때 Outer는 반드시 있어야 한다.  
-"아무 에셋에도 속하지 않는 임시 오브젝트"가 필요할 때 Transient 패키지가 Outer 역할을 대신한다.
+레벨이 로드돼도 `MyMesh` 패키지는 로드되지 않는다. 직접 요청해야 한다.
 
 ```cpp
-// 저장 불필요 — Transient 패키지 소속
-UMyRuntimeData* Data = NewObject<UMyRuntimeData>(GetTransientPackage());
+// 동기 로드 (완료까지 게임 스레드 블로킹)
+UStaticMesh* Mesh = MyMesh.LoadSynchronous();
 
-// 저장 필요 — 실제 패키지 소속
-UMyDataAsset* Asset = NewObject<UMyDataAsset>(SomeRealPackage);
+// 비동기 로드 (완료 시 콜백)
+StreamableManager.RequestAsyncLoad(
+    MyMesh.ToSoftObjectPath(),
+    FStreamableDelegate::CreateUObject(this, &AMyActor::OnMeshLoaded)
+);
 ```
 
-```
-실제 패키지:   UPackage("/Game/Meshes/SM_Rock")  →  SM_Rock.uasset 파일 존재
-Transient 패키지: UPackage("/Engine/Transient")  →  대응 파일 없음
-                                                     엔진 시작 시 메모리에만 생성
-                                                     RF_RootSet으로 루트셋 등록
-```
+### 레벨 스트리밍 — 조건 충족 시
 
-### Transient 정리
-
-| 위치 | 의미 |
-|------|------|
-| `UPROPERTY(Transient)` | 이 프로퍼티는 저장 안 함 |
-| `UCLASS(Transient)` | 이 클래스 인스턴스는 저장 안 함 |
-| `GetTransientPackage()` | 저장 안 하는 오브젝트들의 Outer 역할 패키지 |
-| `RF_Transient` 플래그 | 이 UObject 인스턴스는 저장 안 함 |
+```
+플레이어가 특정 구역 진입
+  → ULevelStreaming 조건 감지
+  → 해당 맵 패키지 비동기 로드 → 로드 완료 후 레벨 활성화
+```
 
 ---
 
-## UPackage가 담당하는 작업
+## Transient — 직렬화 제외
 
-| 작업 | 설명 |
+Transient는 **"직렬화(저장) 대상에서 제외"** 를 의미한다.  
+저장 행위 자체를 막는 게 아니라 직렬화 과정에서 건너뛰는 것이다.
+
+| 위치 | 의미 |
 |------|------|
-| 에셋 저장 | UPackage 직렬화 → .uasset 파일 |
-| 에셋 로드 | .uasset 파일 → UPackage 역직렬화 |
-| 크로스 에셋 참조 | 경로 문자열로 다른 패키지 오브젝트 참조 |
-| 레벨 스트리밍 | UPackage 단위로 로드/언로드 |
-| 쿠킹 | UPackage 단위로 패키징·최적화 |
+| `UPROPERTY(Transient)` | 이 프로퍼티는 저장 안 함, GC 추적은 유지 |
+| `UCLASS(Transient)` | 이 클래스 인스턴스는 저장 안 함 (`UGameInstance`, `UWorld` 등) |
+| `GetTransientPackage()` | 저장 안 하는 오브젝트의 Outer 역할 패키지 |
+| `RF_Transient` 플래그 | 이 UObject 인스턴스만 저장 안 함 |
+
+```cpp
+UPROPERTY()
+float MaxSpeed = 600.f;      // 저장됨
+
+UPROPERTY(Transient)
+float CurrentSpeed = 0.f;   // 저장 안 됨 — 런타임에 채워지는 캐시값
+
+UPROPERTY(Transient, Replicated)
+float CurrentSpeed = 0.f;   // 저장 안 됨 + 네트워크 복제는 됨
+                             // Transient는 디스크 직렬화만 제외, 복제와 무관
+```
+
+`GetTransientPackage()`는 어느 에셋에도 속하지 않는 임시 오브젝트의 Outer 역할을 한다.
+
+```cpp
+UMyRuntimeData* Data = NewObject<UMyRuntimeData>(GetTransientPackage());
+// 엔진 시작 시 생성, RF_RootSet 등록, 디스크에 저장 안 됨
+```
 
 ---
 
