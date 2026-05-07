@@ -151,6 +151,56 @@ ResponseTable     → "등록됐을 때 채널별로 어떻게 반응?" (등록 
 
 ---
 
+## Block이 실제로 막으려면
+
+Block 응답은 **"막겠다는 의사표시"** 일 뿐이다.  
+실제로 겹침을 방지하려면 Physics 시뮬레이션이나 Sweep 기반 이동 중 하나가 반드시 있어야 한다.
+
+### QueryOnly + Block끼리 만나면
+
+```
+물리 시뮬레이션 관점: 그냥 통과
+  → 두 오브젝트 모두 Chaos 브로드페이즈에 없음
+  → 강체 충돌 자체가 일어나지 않음
+
+LineTrace / Sweep 쿼리 관점: Block HitResult 반환
+  → Query BVH에는 둘 다 있음 → 쿼리는 막힘
+```
+
+### 겹침을 막는 세 가지 방법
+
+**① Physics 켜기 (QueryAndPhysics + Block)**
+
+Chaos가 강체 시뮬레이션으로 직접 침투를 방지한다.  
+힘·중력·반발력 자동 처리. 대신 시뮬레이션 비용 발생.
+
+**② bSweep = true 이동**
+
+CMC가 내부적으로 쓰는 방식. CMC 없이도 직접 쓸 수 있다.
+
+```cpp
+FHitResult Hit;
+SetActorLocation(NewLocation, /*bSweep=*/true, &Hit);
+// 이동 전 Sweep 쿼리 → Block 만나면 그 지점에서 멈춤
+```
+
+**③ 아무것도 안 하면**
+
+```cpp
+SetActorLocation(NewLocation);  // bSweep 기본값 false
+// Sweep 없이 좌표만 이동 → QueryOnly든 QueryAndPhysics든 겹침
+```
+
+### 정리
+
+| 방식 | 겹침 방지 | 비용 |
+|------|-----------|------|
+| Physics 켜기 | O (Chaos가 처리) | 시뮬레이션 비용 |
+| bSweep=true 이동 | O (Sweep 쿼리로 처리) | 쿼리 비용 |
+| 그 외 | X (그냥 겹침) | — |
+
+---
+
 ## 소스의 판별 함수
 
 ```cpp
