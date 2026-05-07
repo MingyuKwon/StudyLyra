@@ -33,11 +33,25 @@ SpawnActor / NewObject 시 CDO의 프로퍼티를 새 인스턴스에 복사하�
 StaticConstructObject_Internal() 내부:
   1. 메모리 할당
   2. FObjectInitializer 생성 → 스레드 로컬 스택 푸시
-  3. 생성자(C++ constructor) 실행
+  3. 생성자(C++ constructor) 실행        ← Raw 필드 초기화
   4. FObjectInitializer 소멸자 실행
-       → InitProperties()     ← CDO 프로퍼티 복사 (여기서 발생)
-       → PostInitProperties() ← 복사 완료 후 호출되는 콜백
+       → InitProperties()                ← UPROPERTY 필드만 CDO에서 복사 (Token Stream)
+       → PostInitProperties()            ← 복사 완료 후 호출되는 콜백
 ```
+
+**복사 대상은 UPROPERTY 필드만이다.**  
+`InitProperties`는 UHT가 생성한 Token Stream(UPROPERTY 오프셋 목록)을 순회하며 복사한다.  
+`UPROPERTY`가 없는 Raw C++ 필드는 Token Stream에 없으므로 건너뛴다 — 생성자가 책임진다.
+
+```cpp
+UPROPERTY()
+float Speed = 300.f;    // InitProperties가 CDO 값으로 복사 (생성자 값 덮어씀)
+
+float RawField = 300.f; // 생성자만 초기화, CDO 복사 대상 아님
+```
+
+생성자가 UPROPERTY 필드에 값을 써도 InitProperties가 CDO 값으로 덮어쓴다.  
+에디터에서 바꾼 값이 CDO에 저장되어 있으면 그 값이 적용되는 것도 이 순서 때문이다.
 
 Blueprint 클래스는 기본값이 Blueprint VM 실행으로 결정되는데,  
 CDO 덕분에 VM을 컴파일 시 딱 한 번만 실행하고 이후 인스턴스는 복사만 한다.
