@@ -13,4 +13,4 @@ GC, Reflection, Serialization, CDO, Blueprint 연동까지 포함한다.
 | [06_isvalid.md](06_isvalid.md) | MarkPendingKill / IsValid / IsValidLowLevel 차이 |
 | [07_blueprint_asset.md](07_blueprint_asset.md) | C++ 클래스 → Blueprint Asset 생성 과정 |
 | [08_outer.md](08_outer.md) | Outer — 이름·패키지 소속·수명 연계, UPackage 루트셋 구조 |
-| [09_upackage.md](09_upackage.md) | UPackage — .uasset 파일 단위, 직렬화·에셋 로딩·크로스 참조 원리 |
+| [upackage/](upackage/README.md) | UPackage — 종류, 로드 시점, 파이프라인, Transient |
