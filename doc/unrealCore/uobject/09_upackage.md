@@ -146,6 +146,68 @@ StreamableManager.RequestAsyncLoad(
 
 ---
 
+## 패키지 로드 파이프라인 — 내부 흐름
+
+### FLinkerLoad
+
+`FLinkerLoad` — 패키지 파일을 디스크에서 읽는 클래스다.  
+패키지 로드 요청이 들어오면 FLinkerLoad가 파일을 열고 오브젝트를 복원한다.
+
+패키지 파일의 내부 구조:
+
+```
+파일 헤더      (버전, 플래그 등 요약 정보)
+Name 테이블    (파일 안에서 쓰이는 FName 문자열 목록)
+Import 테이블  (이 패키지가 참조하는 다른 패키지의 오브젝트 목록)
+Export 테이블  (이 패키지에 실제로 들어있는 오브젝트 목록)
+Export 데이터  (각 오브젝트의 직렬화된 프로퍼티 값 — CDO 대비 델타)
+```
+
+Import는 "다른 파일에서 빌려 쓰는 것", Export는 "이 파일이 소유한 것"이다.  
+포인터 복원 시 Import 테이블의 경로 문자열로 다른 패키지를 찾아 포인터를 연결한다.
+
+### 오브젝트 복원 흐름
+
+```
+패키지 로드 요청
+  → FLinkerLoad 파일 열기
+  → Export 테이블 순회 — 각 오브젝트마다:
+        StaticConstructObject_Internal()   ← 생성 + CDO 복사
+        RF_NeedLoad 플래그 부착            ← "아직 읽을 데이터 있음"
+
+  → Export 데이터 순회 — 각 오브젝트마다:
+        Serialize()                        ← 델타 데이터 덮어씀
+        RF_NeedLoad 제거
+
+  → PostLoad() 호출                        ← 모든 Serialize 완료 후
+```
+
+두 순회가 분리된 이유: A가 B를 참조할 때 A를 Serialize하기 전에 B가 먼저 존재해야 하므로,  
+전체 오브젝트를 먼저 생성(1차 순회)하고 나서 데이터를 채운다(2차 순회).
+
+### PostLoad
+
+패키지에서 로드된 **모든 Export 오브젝트**에 호출된다. 호출 순서는 의존성 순서다 — A가 B를 참조하면 B의 PostLoad가 먼저 불린다.
+
+| | PostInitProperties | PostLoad |
+|---|---|---|
+| 호출 시점 | 생성자 직후 (항상) | 패키지 Serialize 완료 후 |
+| 대상 | 모든 UObject | 패키지에서 로드된 오브젝트만 |
+| 용도 | 생성 직후 파생값 초기화 | 캐시 재구성, 버전 마이그레이션, 포인터 픽스업 |
+
+런타임 `NewObject` / `SpawnActor`로 만든 오브젝트는 PostLoad가 호출되지 않는다 — 디스크에서 온 게 아니기 때문이다.
+
+```
+패키지에서 로드된 오브젝트:
+  생성자 → PostInitProperties → Serialize(델타 적용) → PostLoad
+
+런타임 NewObject / SpawnActor:
+  생성자 → PostInitProperties
+  (PostLoad 없음)
+```
+
+---
+
 ## Transient — 직렬화 제외
 
 Transient는 **"직렬화(저장) 대상에서 제외"** 를 의미한다.  
