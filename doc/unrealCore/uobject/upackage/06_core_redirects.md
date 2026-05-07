@@ -10,8 +10,6 @@
 
 클래스·프로퍼티·열거형·구조체를 **리네임했을 때 기존 에셋이 깨지지 않도록** 로드 시점에 이름을 교체해주는 시스템이다.
 
-### 왜 필요한가
-
 `.uasset` 파일 안의 Import 테이블에는 참조하는 클래스·프로퍼티의 **이름 문자열**이 저장된다.  
 클래스 이름을 바꾸면 기존 `.uasset`의 Import 테이블에는 구 이름이 그대로 남는다.
 
@@ -20,25 +18,36 @@ BP_Hero.uasset Import 테이블:
   /Script/MyGame.OldClassName   ← 리네임 전 이름이 박혀 있음
 ```
 
-Core Redirects가 없으면 로드 시 `/Script/MyGame.OldClassName`을 찾지 못해 에셋이 깨진다.  
+Core Redirects가 없으면 로드 시 구 이름을 찾지 못해 에셋이 깨진다.  
 Core Redirects가 있으면 로드 시 구 이름을 새 이름으로 교체해 정상 로드된다.
 
 ---
 
-## 동작 시점
+## 동작 — 에셋 파일은 수정되지 않는다
 
-패키지 로드 파이프라인의 Import 해석 단계에서 적용된다.
+**Core Redirects는 에셋 파일 자체를 수정하지 않는다.**  
+`.uasset` 안의 구 이름은 그대로 남고, 로드 시점에 **메모리 안에서만** 번역이 일어난다.
 
 ```
-FLinkerLoad가 Import 테이블 읽기
-  → 각 Import 이름에 Core Redirects 적용
-      OldClassName → NewClassName 교체
-  → 교체된 이름으로 UClass 검색
-  → 포인터 복원
+.uasset 파일:   /Script/MyGame.OldClassName  ← 파일에는 구 이름 그대로
+Core Redirects 적용 (메모리):
+  OldClassName → NewClassName 교체
+  교체된 이름으로 UClass 검색 → 포인터 복원
 ```
 
-에디터에서 **"Fix Up Redirectors"** 를 실행하면 에셋 파일 자체의 이름을 새 이름으로 갱신하고  
-Core Redirects 항목을 제거할 수 있다. 배포 전에 정리하는 것이 권장된다.
+로드할 때마다 번역 비용이 발생하므로 **배포 전에는 반드시 정리**해야 한다.
+
+### Fix Up Redirectors
+
+에디터에서 **"Fix Up Redirectors"** 를 실행하면 에셋 파일 자체를 새 이름으로 갱신한다.
+
+```
+Fix Up Redirectors 실행:
+  1. 영향받는 에셋 전부 로드
+  2. Core Redirects 적용 후 새 이름으로 다시 저장
+  3. .uasset 파일 안의 이름이 새 이름으로 갱신됨
+  4. Core Redirects 항목 제거 가능
+```
 
 ---
 
@@ -67,10 +76,10 @@ C++ 클래스와 Blueprint 클래스 모두 지원한다.
 ### EnumRedirects — 열거형 리네임
 
 ```ini
-; 열거형 타입 자체를 리네임
+; 열거형 타입 리네임
 +EnumRedirects=(OldName="OldEnumName", NewName="NewEnumName")
 
-; 열거형 값을 리네임
+; 열거형 값 리네임
 +EnumRedirects=(OldName="OldEnumName", NewName="NewEnumName", ValueChanges=(("OldValue","NewValue")))
 ```
 
@@ -86,8 +95,6 @@ C++ 클래스와 Blueprint 클래스 모두 지원한다.
 +PackageRedirects=(OldName="/OldModule", NewName="/NewModule", MatchSubstring=true)
 ```
 
-모듈 전체를 리네임할 때 사용한다.
-
 ### FunctionRedirects — 함수 리네임
 
 ```ini
@@ -98,7 +105,8 @@ C++ 클래스와 Blueprint 클래스 모두 지원한다.
 
 ## 설정 위치
 
-프로젝트의 `Config/DefaultEngine.ini` 또는 플랫폼별 ini 파일에 작성한다.
+프로젝트의 `Config/DefaultEngine.ini`에 작성한다.  
+플러그인은 플러그인 자체의 `Config/` 폴더 ini에 둘 수 있다.
 
 ```ini
 [CoreRedirects]
@@ -106,15 +114,42 @@ C++ 클래스와 Blueprint 클래스 모두 지원한다.
 +PropertyRedirects=(OldName="AMyNewActor.OldSpeed", NewName="NewSpeed")
 ```
 
-플러그인은 플러그인 자체의 `Config/` 폴더에 ini를 둘 수 있다.
-
 ---
 
 ## Soft 참조와의 관계
 
-Soft 참조(`TSoftObjectPtr`, `TSoftClassPtr`)는 경로 문자열을 그대로 저장한다.  
-Core Redirects는 로드 시점에 적용되므로 Soft 참조로 저장된 구 경로도 교체된다.  
-단, "Fix Up Redirectors"를 실행하면 Soft 참조 경로도 새 이름으로 갱신된다.
+Soft 참조(`TSoftObjectPtr`, `TSoftClassPtr`)는 내부적으로 경로 문자열(`FSoftObjectPath`)을 저장한다.
+
+```cpp
+TSoftObjectPtr<UStaticMesh> MyMesh;
+// 내부: FSoftObjectPath = "/Game/Meshes/SM_Rock.SM_Rock"
+```
+
+에디터에서 이 값을 설정하면 경로 문자열이 `.uasset`에 직렬화된다.  
+Core Redirects는 두 시점에 적용된다.
+
+```
+① 포함된 에셋이 로드될 때:
+  .uasset 안의 FSoftObjectPath 문자열 읽기
+  → Core Redirects 적용 → 새 경로로 교체 (메모리에서)
+
+② 실제 로드 요청 시 (LoadSynchronous / AsyncLoad):
+  경로 문자열로 패키지 찾기 전에 Core Redirects 적용
+  → 새 경로로 에셋 로드
+```
+
+단, **런타임에 코드에서 직접 문자열로 만든 경로**는 Core Redirects가 적용되지 않는다.
+
+```cpp
+// 직렬화된 값 → Core Redirects 적용됨 ✓
+UPROPERTY()
+TSoftObjectPtr<UStaticMesh> MyMesh;  // 에디터에서 설정한 값
+
+// 코드에서 직접 만든 문자열 → Core Redirects 적용 안 됨 ✗
+FSoftObjectPath Path(TEXT("/Game/Meshes/OldName.OldName"));
+```
+
+Fix Up Redirectors는 Soft Reference 문자열도 `.uasset` 안에서 새 경로로 갱신한다.
 
 ---
 
