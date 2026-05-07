@@ -24,19 +24,66 @@ AMyActor::AMyActor()
 
 ---
 
-## CDO 등록과 인스턴스 복사
+## 내부 동작 — 항상 새 오브젝트를 만든다
 
-`CreateDefaultSubobject`로 만든 서브오브젝트는 타입 무관하게 **CDO의 서브오브젝트 목록에 등록**된다.  
-Actor 인스턴스가 스폰될 때 CDO의 서브오브젝트 목록을 보고 각 인스턴스에 복사본을 만든다.
+`CreateDefaultSubobject`는 CDO 생성이든 일반 인스턴스 생성이든  
+**항상 `StaticConstructObject_Internal`을 호출해서 새 오브젝트를 만든다.**  
+CDO의 서브오브젝트를 공유하거나 재사용하는 게 아니다.
+
+```cpp
+// UObjectGlobals.cpp:6006
+Result = StaticConstructObject_Internal(Params);
+```
+
+두 경우의 차이는 `Params.Template` — 프로퍼티 초기값을 어디서 복사해오는가다.
 
 ```
-CDO(AMyActor)
-  ├── MeshComp (CDO 서브오브젝트)    ← CDO에 등록됨
-  └── MyData   (CDO 서브오브젝트)    ← UObject도 동일하게 등록됨
+CDO 생성 시:
+  Template 미지정 → 서브오브젝트 클래스 자체의 CDO가 기준
+  AddDefaultSubobject() 호출 → UClass 서브오브젝트 목록에 등록  ← CDO만 해당
 
-스폰된 AMyActor 인스턴스
-  ├── MeshComp (CDO에서 복사)
-  └── MyData   (CDO에서 복사)
+일반 인스턴스 생성 시 (SpawnActor 기본):
+  Template = CDO의 서브오브젝트  → CDO 서브오브젝트 프로퍼티 복사
+  AddDefaultSubobject() 호출 안 함  ← 인스턴스는 등록 불필요
+
+커스텀 Template 지정 시 (Params.Template = ExistingActor):
+  Template = ExistingActor의 해당 서브오브젝트 → 그 값 복사
+```
+
+```cpp
+// UObjectGlobals.cpp:6020 — CDO 생성 시에만 실행
+if (Outer->HasAnyFlags(RF_ClassDefaultObject) && Outer->GetClass()->GetSuperClass())
+{
+    Outer->GetClass()->AddDefaultSubobject(Result, ReturnType);
+}
+```
+
+각 Actor 인스턴스는 **자기만의 독립된 MeshComp**를 갖는다.  
+CDO의 MeshComp는 공유 객체가 아니라 초기값의 원본이다.
+
+```
+SpawnActor<AMyActor>() 호출 시:
+  생성자 실행
+    → CreateDefaultSubobject("MeshComp")
+        → StaticConstructObject_Internal()     ← 새 MeshComp 생성
+            → CDO의 MeshComp를 Template으로   ← 초기값 복사
+        → 새 MeshComp 반환 (공유 아님)
+```
+
+---
+
+## CDO 등록과 인스턴스 추적
+
+```
+CDO 생성 시: UClass 서브오브젝트 목록에 등록 (AddDefaultSubobject)
+  CDO(AMyActor)
+    ├── MeshComp  ← UClass가 알고 있음
+    └── MyData    ← UClass가 알고 있음
+
+인스턴스 생성 시: UClass 목록에 등록하지 않음
+  AMyActor 인스턴스
+    ├── MeshComp  ← OwnedComponents(UPROPERTY) 또는 UPROPERTY 변수로 추적
+    └── MyData    ← UPROPERTY 변수로만 추적
 ```
 
 에디터에서 컴포넌트 기본값을 수정하면 CDO 서브오브젝트에 저장된다.
@@ -48,39 +95,22 @@ CDO(AMyActor)
 ### UActorComponent 계열
 
 `UActorComponent` 서브오브젝트는 인스턴스 생성 시 `AActor::OwnedComponents`(UPROPERTY)에 자동 추가된다.  
-UPROPERTY 변수로 저장하지 않아도 GC에 수거되지는 않는다.  
+UPROPERTY 변수가 없어도 GC에 수거되지는 않는다.  
 그러나 포인터 접근·에디터 노출·직렬화가 불가능하므로 의미 없는 컴포넌트가 된다.
-
-```cpp
-AMyActor::AMyActor()
-{
-    // OwnedComponents가 잡아주므로 GC는 안전
-    // 하지만 포인터 없으므로 접근 불가, 에디터에서도 안 보임
-    CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
-}
-```
 
 ### 일반 UObject 계열
 
 `UActorComponent`가 아닌 일반 `UObject`는 `OwnedComponents`에 들어가지 않는다.  
-UPROPERTY 없이 만든 인스턴스 복사본을 붙잡아 줄 참조가 없으므로 **GC에 수거될 수 있다.**
+UPROPERTY 없이 만든 인스턴스 서브오브젝트를 붙잡아 줄 참조가 없으므로 **GC에 수거될 수 있다.**
+
+### 올바른 패턴
 
 ```cpp
-AMyActor::AMyActor()
-{
-    // CDO 등록은 됨, 하지만 인스턴스 복사본을 잡아줄 UPROPERTY 없음
-    CreateDefaultSubobject<UMyObject>(TEXT("Data"));  // 위험
-}
-```
-
-### UPROPERTY가 있어야 하는 이유
-
-```cpp
-UPROPERTY()                          // 반드시 필요
-UStaticMeshComponent* MeshComp;
+UPROPERTY()
+UStaticMeshComponent* MeshComp;   // UActorComponent: OwnedComponents 백업 있지만 UPROPERTY 필수
 
 UPROPERTY()
-UMyObject* Data;
+UMyObject* Data;                   // 일반 UObject: UPROPERTY 없으면 GC 위험
 
 AMyActor::AMyActor()
 {
@@ -93,33 +123,20 @@ AMyActor::AMyActor()
 |------|---------------|----------------|
 | GC 안전 (컴포넌트) | O | O (OwnedComponents) |
 | GC 안전 (일반 UObject) | O | **X** |
-| GC auto-null | O | X (dangling 위험) |
+| GC auto-null | O | X — dangling 위험 |
 | 에디터 노출·직렬화 | O | X |
-| 포인터 접근 | O | X (변수 없음) |
-
-### Raw pointer (UPROPERTY 없는 포인터)
-
-```cpp
-UStaticMeshComponent* MeshComp;  // UPROPERTY 없음
-```
-
-GC가 컴포넌트를 수거할 때 UPROPERTY 포인터는 자동으로 null이 되지만  
-raw pointer는 null이 안 된다 → dangling pointer → 크래시.
+| 포인터 접근 | O | X |
 
 ---
 
 ## 생성자 밖에서 호출하면 안 되는 이유
 
-`CreateDefaultSubobject`는 내부적으로 **CDO 생성 중인지 검사**한다.  
-생성자 밖(BeginPlay 등)에서 호출하면 `ensureMsg`가 발동하고 nullptr를 반환한다.
+`CreateDefaultSubobject`는 **생성자 안인지 검사**한다 (소스 5950번 줄).  
+생성자 밖(BeginPlay 등)에서 호출하면 Fatal 로그를 남기고 nullptr를 반환한다.
 
 ```cpp
-void AMyActor::BeginPlay()
-{
-    Super::BeginPlay();
-    // 잘못된 사용 — ensureMsg 발동 후 nullptr 반환
-    UStaticMeshComponent* Bad = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Bad"));
-}
+// UObjectGlobals.cpp:5950
+UE_CLOG(!FUObjectThreadContext::Get().IsInConstructor, LogUObjectGlobals, Fatal, ...);
 ```
 
 런타임에 컴포넌트를 동적으로 추가하려면 `NewObject + RegisterComponent`를 사용한다.  
@@ -132,7 +149,9 @@ void AMyActor::BeginPlay()
 | 항목 | CreateDefaultSubobject | NewObject (런타임) |
 |------|------------------------|-------------------|
 | 호출 위치 | 생성자 안에서만 | 어디서든 |
-| CDO 등록 | O | X |
+| 내부 생성 방식 | StaticConstructObject_Internal | StaticConstructObject_Internal |
+| CDO 등록 | O (CDO 생성 시) | X |
+| Template | CDO 서브오브젝트 | 지정하지 않으면 클래스 CDO |
 | 직렬화 | O | X (기본) |
 | Blueprint 노출 | O | X |
 | 사용 목적 | 기본 구성 정의 | 런타임 동적 추가 |
