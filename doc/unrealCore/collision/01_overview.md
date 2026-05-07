@@ -15,40 +15,68 @@
 
 ---
 
-## 응답 3종류 — Block / Overlap / Ignore
+## ECollisionChannel — 내부 구조
 
-두 컴포넌트가 만났을 때의 반응을 각 채널별로 설정한다.
+Object Type과 Trace Channel은 **별개의 타입이 아니다.**  
+둘 다 같은 `ECollisionChannel` enum 안에 있으며 내부적으로는 그냥 채널 0~31번이다.
 
-| 응답 | 물리 반응 | 이벤트 | 설명 |
-|------|-----------|--------|------|
-| **Block** | 막힘 (통과 불가) | `OnHit` | 실제로 부딪혀서 막힘 |
-| **Overlap** | 통과함 | `OnBeginOverlap` / `OnEndOverlap` | 통과하면서 이벤트만 발생 |
-| **Ignore** | 통과함 | 없음 | 완전히 무시 |
-
-**두 컴포넌트의 응답이 모두 Block이어야 Block으로 처리된다.**  
-한쪽이라도 Ignore면 Ignore, 둘 다 Overlap이면 Overlap.
-
+```cpp
+enum ECollisionChannel
+{
+    ECC_WorldStatic  = 0,   // 관례적으로 Object Type
+    ECC_WorldDynamic = 1,   // 관례적으로 Object Type
+    ECC_Pawn         = 2,   // 관례적으로 Object Type
+    ECC_Visibility   = 3,   // 관례적으로 Trace Channel
+    ECC_Camera       = 4,   // 관례적으로 Trace Channel
+    ECC_PhysicsBody  = 5,   // 관례적으로 Object Type
+    // ...
+};
 ```
-[캐릭터 Capsule]    Block  →  WorldStatic
-[바닥 Floor]        Block  ←  Pawn
-결과: Block (막힘, OnHit 발생)
 
-[트리거 Box]        Overlap →  Pawn
-[캐릭터 Capsule]    Overlap ←  WorldDynamic
-결과: Overlap (통과, OnBeginOverlap 발생)
+물리 레이어(PhysX/Chaos)는 이 채널 번호로 bitmask 연산을 할 뿐이다.  
+"trace용인지 object용인지"는 모른다 — 어떤 API에 넘기느냐가 구분을 만든다.
 
-[총알 Projectile]   Block  →  Pawn
-[파티클 Effect]     Ignore ←  Projectile
-결과: Ignore (무시)
+```cpp
+LineTraceSingleByChannel(..., ECC_Visibility, ...);   // Trace Channel로 사용
+LineTraceSingleByObjectType(..., ECC_Pawn, ...);      // Object Type으로 사용
 ```
+
+에디터 UI에서 별도 드롭다운으로 분리되는 것도 `DefaultEngine.ini`의 `bTraceType` 플래그로 구분할 뿐이다.
 
 ---
 
-## Object Channel (Object Type)
+## Object Type — 오브젝트의 정체성
 
 **"나는 무엇인가"** — 컴포넌트가 자신을 어떤 타입으로 분류할지 선언한다.
 
-엔진 기본 제공 Object Channel:
+Object Type이 필요한 이유는 두 가지다.
+
+**① 물리 충돌은 양방향이다**
+
+```
+Pawn ↔ WorldStatic 충돌:
+  Pawn이 WorldStatic을 어떻게 볼 것인가?   → Block
+  WorldStatic이 Pawn을 어떻게 볼 것인가?   → Block
+  둘 다 타입이 있어야 서로 응답 정의 가능
+```
+
+Trace Channel만으로는 "내가 쏜 레이가 무엇에 맞나"는 알 수 있지만  
+"이 오브젝트와 저 오브젝트가 물리적으로 어떻게 반응하나"를 정의할 수 없다.
+
+**② 타입 기반 쿼리**
+
+```cpp
+// "이 구 안에 있는 Pawn 타입을 전부 찾아라"
+GetWorld()->OverlapMultiByObjectType(
+    Results,
+    Center,
+    FQuat::Identity,
+    FCollisionObjectQueryParams(ECC_Pawn),
+    FCollisionShape::MakeSphere(500.f)
+);
+```
+
+엔진 기본 Object Type:
 
 | 채널 | 용도 |
 |------|------|
@@ -59,63 +87,72 @@
 | `Vehicle` | 탈것 |
 | `Destructible` | 파괴 가능 오브젝트 |
 
-게임별 커스텀 채널은 프로젝트 세팅 → Collision에서 추가한다 (`ECC_GameTraceChannel1` ~ `18`).
-
 ```cpp
-// 컴포넌트의 Object Type 설정
 CapsuleComponent->SetCollisionObjectType(ECC_Pawn);
 ```
 
 ---
 
-## Trace Channel
+## Trace Channel — 쿼리의 목적
 
 **"무엇을 찾을 것인가"** — LineTrace, Sweep 쿼리에서 어떤 오브젝트를 감지할지 지정한다.
+
+```cpp
+FHitResult Hit;
+GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility);
+```
 
 엔진 기본 Trace Channel:
 
 | 채널 | 용도 |
 |------|------|
-| `Visibility` | 일반 가시성 체크 (카메라 차단 여부 등) |
+| `Visibility` | 일반 가시성 체크 |
 | `Camera` | 카메라 전용 |
 
-Object Channel과 Trace Channel은 같은 `ECollisionChannel` enum이지만  
-Object Channel은 컴포넌트 타입 선언에, Trace Channel은 쿼리 필터에 사용한다.
+### Object Type 채널로 LineTrace를 쏘면?
+
+`ECC_Pawn`을 Trace Channel 자리에 넣는 것은 기술적으로 가능하다.
 
 ```cpp
-// Visibility 채널로 LineTrace
-FHitResult Hit;
-bool bHit = GetWorld()->LineTraceSingleByChannel(
-    Hit,
-    StartLocation,
-    EndLocation,
-    ECC_Visibility     // 이 채널에 Block 응답인 컴포넌트만 감지
-);
+// 컴파일은 됨
+GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Pawn);
 ```
+
+각 오브젝트는 모든 채널에 응답 테이블을 갖는다. 벽의 `ECC_Pawn` 응답은  
+"Pawn이 나에게 물리적으로 부딪힐 때 Block"으로 세팅된 것이지  
+"Pawn 채널 레이에 반응해라" 의도가 아니다.  
+우연히 응답이 맞아떨어져 동작할 수 있지만 결과를 예측하기 어렵다 — 쓰지 않는다.
 
 ---
 
-## Response Matrix — 응답이 결정되는 규칙
+## 응답 3종류 — Block / Overlap / Ignore
 
-두 컴포넌트가 만날 때 최종 응답은 둘의 응답 중 **더 허용적인 쪽**을 따른다.
+두 컴포넌트가 만났을 때의 반응을 각 채널별로 설정한다.
+
+| 응답 | 물리 반응 | 이벤트 |
+|------|-----------|--------|
+| **Block** | 막힘 | `OnHit` |
+| **Overlap** | 통과 | `OnBeginOverlap` / `OnEndOverlap` |
+| **Ignore** | 통과 | 없음 |
+
+### Response Matrix
+
+최종 응답은 둘 중 **더 허용적인 쪽**을 따른다.
 
 ```
-Block  + Block  = Block     (둘 다 막아야 막힘)
-Block  + Overlap = Overlap  (한쪽이 통과 허용하면 통과)
-Block  + Ignore = Ignore    (한쪽이 무시하면 무시)
+Block  + Block   = Block
+Block  + Overlap = Overlap
+Block  + Ignore  = Ignore
 Overlap + Ignore = Ignore
-```
 
-즉 우선순위: `Ignore > Overlap > Block`
+우선순위: Ignore > Overlap > Block
+```
 
 ---
 
 ## Preset (Collision Profile)
 
-Object Type과 모든 채널에 대한 Response를 묶어 이름을 붙인 것.  
-에디터의 Collision 섹션 드롭다운이 이것이다.
-
-엔진 기본 Preset 예시:
+Object Type과 모든 채널 응답을 묶어 이름을 붙인 것.
 
 | Preset | Object Type | 주요 응답 |
 |--------|-------------|-----------|
@@ -127,10 +164,9 @@ Object Type과 모든 채널에 대한 Response를 묶어 이름을 붙인 것.
 | `Projectile` | WorldDynamic | Pawn·WorldStatic Block, 나머지 Ignore |
 
 ```cpp
-// C++에서 Preset 적용
 MeshComponent->SetCollisionProfileName(TEXT("BlockAll"));
 
-// 또는 개별 설정
+// 개별 설정
 MeshComponent->SetCollisionObjectType(ECC_WorldDynamic);
 MeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
 MeshComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
@@ -144,21 +180,13 @@ MeshComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 // Hit 이벤트 (Block 결과)
 MeshComponent->OnComponentHit.AddDynamic(this, &AMyActor::OnHit);
 
-void AMyActor::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
-    UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit) { }
-
 // Overlap 이벤트
 MeshComponent->OnComponentBeginOverlap.AddDynamic(this, &AMyActor::OnOverlapBegin);
-
-void AMyActor::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
-    UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-    bool bFromSweep, const FHitResult& SweepResult) { }
 ```
 
-Hit 이벤트를 받으려면 컴포넌트의 `bSimulationGeneratesHitEvents` 또는 `bNotifyRigidBodyCollision`이 켜져 있어야 한다.  
-Overlap 이벤트를 받으려면 `bGenerateOverlapEvents`가 켜져 있어야 한다.
+Hit 이벤트: `bNotifyRigidBodyCollision` 켜져 있어야 함.  
+Overlap 이벤트: `bGenerateOverlapEvents` 켜져 있어야 함.
 
 ---
 
 ## 내 노트
-
