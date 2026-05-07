@@ -111,6 +111,46 @@ LineTrace·Sweep·Overlap 감지 + 물리 접촉 데이터 생성.
 
 ---
 
+## 채널 시스템과의 관계
+
+`CollisionEnabled`와 채널(ECollisionChannel + ResponseTable)은 **레이어가 다르다.**
+
+```
+CollisionEnabled  → "나는 어떤 시스템에 등록되나?"   (파이프라인 게이트)
+ResponseTable     → "등록됐을 때 채널별로 어떻게 반응?" (등록 이후 판정)
+```
+
+채널은 Query인지 Physics인지 모른다. 어느 시스템의 파이프라인에서 조회되느냐가 구분을 만들 뿐이다.
+
+### LineTrace가 들어올 때
+
+```
+1. Query 가속구조(BVH)에서 후보 추출
+     → QueryOnly / QueryAndPhysics / QueryAndProbe 인 컴포넌트만 여기 있음
+     → PhysicsOnly / NoCollision은 이 단계에서 이미 없음
+
+2. 후보들 상대로 채널 + ResponseTable 매칭
+     → "이 컴포넌트의 ECC_Visibility 응답이 Block / Overlap / Ignore?"
+```
+
+물리 시뮬레이션도 동일한 구조:
+
+```
+1. Chaos 브로드페이즈에서 후보 추출
+     → PhysicsOnly / QueryAndPhysics 인 컴포넌트만
+
+2. 충돌 후보끼리 채널 응답 확인
+```
+
+### 핵심
+
+| 역할 | 담당 |
+|------|------|
+| 이 시스템에 참여하나? | `CollisionEnabled` |
+| 참여했을 때 어떻게 반응? | `ECollisionChannel` + `ResponseTable` |
+
+---
+
 ## 소스의 판별 함수
 
 ```cpp
