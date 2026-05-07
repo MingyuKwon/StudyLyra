@@ -95,18 +95,48 @@ DataAsset 같은 에셋성 오브젝트는 명시적으로 Destroy되지 않는�
 bool UObject::IsValidLowLevel() const;
 ```
 
-GC 플래그가 아니라 **이 포인터가 실제로 유효한 UObject 메모리를 가리키는지** 검사한다.  
-`GUObjectArray`에 이 주소가 등록되어 있는지 확인하는 방식이다.
+### 왜 필요한가 — IsValid()의 전제가 깨지는 경우
+
+`IsValid()`는 포인터가 유효한 UObject 메모리를 가리킨다고 **전제하고** 플래그를 읽는다.  
+UPROPERTY 포인터는 GC 수거 시 auto-null되므로 이 전제가 항상 성립한다.
+
+raw pointer는 GC 수거 후에도 null이 되지 않는다.  
+수거된 메모리가 재사용되면 그 주소에서 플래그를 읽는 것 자체가 위험하다.
+
+```cpp
+UMyObject* RawPtr = NewObject<UMyObject>(...);
+// UPROPERTY 없음 → GC 수거 가능
+
+// GC 수거 후 → 해당 메모리가 다른 용도로 재사용될 수 있음
+
+IsValid(RawPtr)        // 그 메모리에서 바로 플래그 읽음
+                       // 이미 다른 데이터가 있을 수 있음 → 크래시 or 쓰레기값
+```
+
+### IsValidLowLevel()이 하는 것
+
+플래그를 읽기 전에 **GUObjectArray에 이 주소가 등록되어 있는지 먼저 확인**한다.  
+GUObjectArray는 현재 살아있는 모든 UObject 주소를 관리한다.
+
+```cpp
+RawPtr->IsValidLowLevel()
+  → GUObjectArray에 이 주소가 있는가?
+      없으면 → false 반환  (플래그 읽기 전에 걸러냄)
+      있으면 → 플래그 체크
+```
 
 | 항목 | IsValid | IsValidLowLevel |
 |------|---------|-----------------|
+| 전제 | 포인터가 UObject 메모리임을 가정 | 아무것도 가정 안 함 |
 | nullptr 체크 | O | O |
 | garbage 플래그 체크 | O | X |
-| 메모리 레벨 유효성 | X | O (GUObjectArray 검사) |
+| GUObjectArray 확인 | X | O |
+| raw pointer 안전성 | X (수거 후 크래시 가능) | O |
 | 비용 | 저 | 중 |
 | 용도 | 게임플레이 코드 | 엔진 내부, 직렬화, 에디터 |
 
-일반 게임플레이 코드에서 IsValidLowLevel을 써야 한다면 설계를 재고하는 것이 맞다.
+UPROPERTY를 올바르게 쓰면 raw pointer 문제가 생기지 않으므로  
+일반 게임플레이 코드에서 IsValidLowLevel()을 써야 한다면 설계를 재고하는 것이 맞다.
 
 ---
 
