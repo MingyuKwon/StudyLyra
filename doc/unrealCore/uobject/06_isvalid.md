@@ -8,84 +8,64 @@
 
 ## MarkAsGarbage
 
-UObject를 **즉시 메모리에서 삭제하지 않고** garbage 상태로 만드는 함수다.  
-UE4의 `MarkPendingKill`이 UE5에서 `MarkAsGarbage`로 대체됐다.
+UObject를 **즉시 메모리에서 삭제하지 않고** garbage 상태로 만드는 함수다.
 
 ```cpp
-MyObj->MarkAsGarbage();   // UE5
+MyObj->MarkAsGarbage();
 ```
 
 호출 직후:
-1. 객체에 garbage 플래그 설정
-2. 다음 GC 사이클에서 수거 대상으로 처리
-3. 이 객체를 가리키는 **UPROPERTY 포인터는 GC 수거 시 자동으로 null**
+1. garbage 플래그 설정 — 메모리는 아직 있음
+2. 다음 GC 사이클에서 수거
+3. 이 객체를 가리키는 UPROPERTY 포인터는 **GC 수거 시** 자동으로 null
 4. raw pointer는 null이 되지 않음 → dangling pointer
 
-`AActor::Destroy()`도 내부적으로 `MarkAsGarbage()`를 호출한다.  
-Destroy 직후 액터는 garbage 플래그가 세워지지만 메모리에는 아직 있다.
+`AActor::Destroy()`도 내부적으로 `MarkAsGarbage()`를 호출한다.
 
 ---
 
-## IsValid() — 왜 null 체크로 충분하지 않은가
+## IsValid()
 
 ```cpp
 bool IsValid(const UObject* Test);
 ```
 
-`Destroy()` / `MarkAsGarbage()` 호출 후 GC 수거 전 구간이 문제다.
+null 체크만으로 충분하지 않은 이유는 `Destroy()` 후 GC 수거 전 구간이다.
 
 ```cpp
 UPROPERTY()
 AActor* Target;
 
-Target->Destroy();       // garbage 플래그 세워짐, 메모리는 아직 있음
+Target->Destroy();    // garbage 플래그 세워짐, 메모리는 아직 있음
 
-Target != nullptr        // TRUE  — UPROPERTY auto-null은 GC 수거 시 일어남
-IsValid(Target)          // FALSE — garbage 플래그 감지
+Target != nullptr     // TRUE  — UPROPERTY auto-null은 GC 수거 시 일어남
+IsValid(Target)       // FALSE — garbage 플래그 감지
 ```
 
-GC 수거 → UPROPERTY auto-null이므로, GC 수거 이후는 null 체크로 잡힌다.  
-잡히지 않는 구간은 **"Destroy됐지만 아직 수거 전"** 이다. IsValid()가 이 구간을 커버한다.
-
-```cpp
-// 올바른 패턴
-if (IsValid(Target))
-{
-    Target->DoSomething();
-}
-
-// 위험한 패턴
-if (Target != nullptr)
-{
-    Target->DoSomething();  // Destroy 후 garbage 상태 액터에 접근 가능
-}
-```
-
-IsValid() 내부:
+GC 수거 이후는 UPROPERTY가 auto-null되므로 null 체크로 잡힌다.  
+잡히지 않는 구간은 **"Destroy됐지만 아직 수거 전"**이다 — IsValid()가 이 구간을 커버한다.
 
 ```cpp
 IsValid(Obj) = Obj != nullptr
-            && !Obj->IsUnreachable()          // GC 수거 대상으로 표시됐는지
-            && !Obj->IsPendingKillOrUnreachable() // MarkAsGarbage / Destroy 됐는지
+            && !Obj->IsUnreachable()
+            && !Obj->IsPendingKillOrUnreachable()  // garbage 플래그 확인
 ```
 
 ---
 
 ## 어떤 UObject에 IsValid()가 필요한가
 
-IsValid()가 필요한 조건은 **"명시적으로 Destroy / MarkAsGarbage 될 수 있는가"** 다.
+핵심 기준: **명시적으로 Destroy / MarkAsGarbage 될 수 있는가.**
 
-| 타입 | 죽는 방식 | 필요한 체크 |
-|------|-----------|------------|
+| 타입 | 죽는 방식 | 체크 |
+|------|-----------|------|
 | AActor | `Destroy()` → garbage 플래그 | `IsValid()` |
 | UActorComponent | `DestroyComponent()` → garbage 플래그 | `IsValid()` |
 | UDataAsset | 패키지 언로드 → GC 수거 → UPROPERTY auto-null | null 체크로 충분 |
-| UGameInstance / UGameState | 게임 종료 시 GC 수거 → UPROPERTY auto-null | null 체크로 충분 |
+| UGameInstance / UGameState | 게임 종료 → GC 수거 → UPROPERTY auto-null | null 체크로 충분 |
 
 DataAsset 같은 에셋성 오브젝트는 명시적으로 Destroy되지 않는다.  
-사라질 때는 GC가 UPROPERTY를 auto-null해주므로 null 체크만으로 충분하다.
-
-단, IsValid() 자체의 비용이 거의 없고, 오브젝트의 수명이 불확실하다면 IsValid()를 쓰는 것이 더 안전하다.
+사라질 때는 GC가 UPROPERTY를 auto-null하므로 null 체크만으로 충분하다.
 
 ---
 
@@ -95,42 +75,45 @@ DataAsset 같은 에셋성 오브젝트는 명시적으로 Destroy되지 않는�
 bool UObject::IsValidLowLevel() const;
 ```
 
-### 왜 필요한가 — IsValid()의 전제가 깨지는 경우
+### 메모리 유효성 vs 논리적 유효성
 
-`IsValid()`는 포인터가 유효한 UObject 메모리를 가리킨다고 **전제하고** 플래그를 읽는다.  
-UPROPERTY 포인터는 GC 수거 시 auto-null되므로 이 전제가 항상 성립한다.
+`IsValid()`는 **"이 오브젝트가 논리적으로 살아있나"**를 묻는다.  
+그 질문에 답하려면 메모리에서 garbage 플래그를 읽어야 한다.
 
-raw pointer는 GC 수거 후에도 null이 되지 않는다.  
-수거된 메모리가 재사용되면 그 주소에서 플래그를 읽는 것 자체가 위험하다.
+여기서 전제가 하나 있다 — **읽으려는 메모리가 여전히 UObject 구조를 갖고 있어야 한다.**
 
-```cpp
-UMyObject* RawPtr = NewObject<UMyObject>(...);
-// UPROPERTY 없음 → GC 수거 가능
+Destroy됐지만 GC 수거 전인 오브젝트는 이 전제를 만족한다.  
+메모리에 UObject가 그대로 있고, garbage 플래그도 거기 있으므로 IsValid()가 안전하게 읽을 수 있다.
 
-// GC 수거 후 → 해당 메모리가 다른 용도로 재사용될 수 있음
-
-IsValid(RawPtr)        // 그 메모리에서 바로 플래그 읽음
-                       // 이미 다른 데이터가 있을 수 있음 → 크래시 or 쓰레기값
 ```
+Destroy 후 GC 수거 전:
+  메모리: UObject 구조 그대로  → 플래그 읽기 안전
+  garbage 플래그: 세워져 있음
+  → IsValid() → false 반환  ✓
+
+GC 수거된 raw pointer:
+  메모리: 다른 데이터로 재사용됐을 수 있음  → 플래그 읽기 자체가 위험
+  → IsValid() → 쓰레기값 or 크래시  ✗
+```
+
+UPROPERTY 포인터는 GC 수거 시 auto-null되므로 이 문제가 생기지 않는다.  
+raw pointer는 수거 후에도 주소를 들고 있어서 문제가 생긴다.
 
 ### IsValidLowLevel()이 하는 것
 
-플래그를 읽기 전에 **GUObjectArray에 이 주소가 등록되어 있는지 먼저 확인**한다.  
-GUObjectArray는 현재 살아있는 모든 UObject 주소를 관리한다.
+플래그를 읽기 전에 **GUObjectArray에 이 주소가 등록되어 있는지 먼저 확인**한다.
 
-```cpp
-RawPtr->IsValidLowLevel()
-  → GUObjectArray에 이 주소가 있는가?
-      없으면 → false 반환  (플래그 읽기 전에 걸러냄)
-      있으면 → 플래그 체크
+```
+IsValidLowLevel():
+  GUObjectArray에 이 주소가 있는가?
+    없으면 → false 반환  (플래그 읽기 전에 걸러냄)
+    있으면 → 플래그 체크
 ```
 
 | 항목 | IsValid | IsValidLowLevel |
 |------|---------|-----------------|
-| 전제 | 포인터가 UObject 메모리임을 가정 | 아무것도 가정 안 함 |
-| nullptr 체크 | O | O |
-| garbage 플래그 체크 | O | X |
-| GUObjectArray 확인 | X | O |
+| 논리적 유효성 (garbage 플래그) | O | X |
+| 메모리 유효성 (GUObjectArray) | 가정함 | O |
 | raw pointer 안전성 | X (수거 후 크래시 가능) | O |
 | 비용 | 저 | 중 |
 | 용도 | 게임플레이 코드 | 엔진 내부, 직렬화, 에디터 |
@@ -147,16 +130,13 @@ Destroy / MarkAsGarbage될 수 있는 오브젝트 (Actor, Component):
   → IsValid(Ptr)
 
 에셋, GameInstance 등 명시적으로 죽지 않는 오브젝트:
-  → Ptr != nullptr  (null 체크로 충분)
+  → Ptr != nullptr
 
 포인터가 실제 UObject 메모리인지 확인해야 할 때 (엔진 내부):
   → Ptr->IsValidLowLevel()
 
-Actor 파괴:
-  → Actor->Destroy()
-
-Actor 외 UObject 파괴:
-  → Ptr->MarkAsGarbage()
+Actor 파괴:   Actor->Destroy()
+UObject 파괴: Ptr->MarkAsGarbage()
 ```
 
 ---
