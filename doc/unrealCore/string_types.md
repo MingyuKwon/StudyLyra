@@ -181,10 +181,45 @@ FProperty* Prop = Actor->GetClass()->FindPropertyByName(FName("Health"));
 
 로컬라이제이션을 지원하는 문자열. UI에 표시되는 텍스트에만 사용한다.
 
+### NSLOCTEXT / LOCTEXT 는 FText를 만드는 매크로
+
+`NSLOCTEXT`는 FText 타입의 인스턴스를 만들어 반환하는 매크로다.  
+FText가 타입이고, NSLOCTEXT는 그 타입을 만드는 방법 중 하나다.
+
+```cpp
+// int32 x = 42; 에서 42가 int32를 만드는 것처럼
+// NSLOCTEXT(...)가 FText를 만든다
+FText MyText = NSLOCTEXT("MyGame", "HealthLabel", "체력");
+//    ↑ 타입                ↑ Namespace  ↑ Key      ↑ 번역 없을 때 폴백
+```
+
+FText를 만드는 방법은 여러 가지이고, 만들고 나서 쓰는 방식은 동일하다.
+
+```cpp
+FText A = NSLOCTEXT("MyGame", "HealthLabel", "체력"); // 번역 가능
+FText B = FText::FromString(PlayerName);              // 동적 값
+FText C = FText::AsNumber(1234);                      // 숫자 포맷
+
+// 만드는 방법과 무관하게 동일하게 사용
+MyTextBlock->SetText(A);
+MyTextBlock->SetText(B);
+FString Str = A.ToString();  // 현재 언어 설정에 따른 결과 반환
+```
+
+파일 상단에 `LOCTEXT_NAMESPACE`를 선언하면 Namespace를 매번 쓰지 않아도 된다.
+
+```cpp
+#define LOCTEXT_NAMESPACE "MyGame"
+
+FText Label = LOCTEXT("HealthLabel", "체력");  // Namespace 생략
+
+#undef LOCTEXT_NAMESPACE
+```
+
 ### 구조
 
 ```
-FText
+FText (NSLOCTEXT로 만든 경우)
 ├── 로컬라이제이션 키 (Namespace + Key)  ← 번역 테이블 참조
 └── 현재 언어에 맞는 문자열 캐시
 ```
