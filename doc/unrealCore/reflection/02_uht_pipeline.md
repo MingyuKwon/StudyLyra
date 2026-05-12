@@ -235,3 +235,52 @@ void AMyActor::Fire()
 ---
 
 ## 내 노트
+
+### UFUNCTION 종류별 호출 경로 — gen.cpp 개입 여부
+
+UFUNCTION이 붙는다고 항상 gen.cpp 래퍼를 경유하는 것이 아니다.  
+**gen.cpp가 함수 본체를 대신 생성하는 경우에만** ProcessEvent를 경유한다.
+
+#### 일반 BlueprintCallable
+
+```cpp
+UFUNCTION(BlueprintCallable)
+void Fire();
+```
+
+C++에서 `actor->Fire()`를 직접 호출하면 gen.cpp 개입 없이 바로 C++ 함수가 실행된다.  
+gen.cpp가 하는 일은 `UFunction` 메타데이터 객체 생성뿐이고, 호출 경로엔 끼지 않는다.
+
+Blueprint 노드에서 호출할 때만 `exec_Fire()` thunk 함수를 경유해 C++로 들어온다.
+
+#### BlueprintNativeEvent / BlueprintImplementableEvent
+
+이 두 지정자는 **gen.cpp가 함수 본체 자체를 생성**한다. 개발자가 직접 `Fire()` 바디를 작성하지 않는다.
+
+```cpp
+// gen.cpp가 생성하는 Fire() 본체 (개념적 구현)
+void AMyActor::Fire()
+{
+    ProcessEvent(FindFunctionChecked(TEXT("Fire")), nullptr);
+    // Blueprint 오버라이드 있으면 → Blueprint VM 실행
+    // 없으면 → Fire_Implementation() 호출 (NativeEvent의 경우)
+}
+```
+
+C++에서 `actor->Fire()`를 호출해도 이 gen.cpp 생성 함수를 통해 ProcessEvent로 간다.  
+`BlueprintImplementableEvent`는 `_Implementation`이 없으며, BP 오버라이드도 없으면 아무것도 실행되지 않는다.
+
+#### RPC (Server / Client / NetMulticast)
+
+BlueprintNativeEvent와 동일한 구조다.  
+gen.cpp가 `ServerFire()` 본체를 생성하고, ProcessEvent → NetDriver 경로로 연결한다.  
+개발자는 `ServerFire_Implementation()`만 작성한다.
+
+#### 정리
+
+| UFUNCTION 종류 | C++에서 직접 호출 시 경로 |
+|----------------|--------------------------|
+| `BlueprintCallable` (일반) | 직접 C++ 함수 실행 — gen.cpp 개입 없음 |
+| `BlueprintNativeEvent` | gen.cpp 생성 본체 → ProcessEvent → BP 오버라이드 or `_Implementation` |
+| `BlueprintImplementableEvent` | gen.cpp 생성 본체 → ProcessEvent → BP VM (오버라이드 없으면 아무것도 안 함) |
+| `Server` / `Client` / `NetMulticast` | gen.cpp 생성 본체 → ProcessEvent → NetDriver |
