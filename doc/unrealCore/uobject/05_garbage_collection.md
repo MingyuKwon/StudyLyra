@@ -146,5 +146,73 @@ MyObj->ConditionalBeginDestroy();
 
 ---
 
+## 케이스별 GC 추적 여부
+
+### 컨테이너(TArray / TMap / TSet)에 UObject를 넣어둔 경우
+
+컨테이너 자체에 UPROPERTY가 있느냐 없느냐가 기준이다.  
+GC는 `FArrayProperty` / `FMapProperty` / `FSetProperty`가 컨테이너 안을 재귀적으로 들여다본다.
+
+```cpp
+UPROPERTY()
+TArray<UObject*> TrackedArray;   // GC가 내부 UObject* 추적 → 수집 안 됨
+
+TArray<UObject*> UntrackedArray; // GC 모름 → 수집됨
+```
+
+### USTRUCT 안에 UPROPERTY UObject 멤버가 있는 경우
+
+USTRUCT 내부 UPROPERTY만으로는 부족하다.  
+**USTRUCT 인스턴스 자체가 GC 추적 경로 안에 있어야 한다.**
+
+GC는 UClass → FStructProperty → 구조체 내부 FProperty 순으로 재귀 탐색한다.  
+USTRUCT 인스턴스가 추적 경로에서 끊기면 내부 UPROPERTY도 의미 없다.
+
+```cpp
+USTRUCT()
+struct FMyStruct
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    UMyObject* Obj;
+};
+
+UCLASS()
+class AMyActor : public AActor
+{
+    UPROPERTY()
+    FMyStruct MyStruct;   // 구조체에 UPROPERTY → GC가 내부 Obj까지 재귀 탐색 → 수집 안 됨
+
+    FMyStruct MyStruct2;  // UPROPERTY 없음 → GC가 구조체 자체를 모름 → 내부 Obj도 수집됨
+};
+```
+
+### 네이티브 C++ 클래스/구조체에 UPROPERTY를 붙인 경우
+
+UPROPERTY가 아무 효과가 없다.  
+UHT는 `GENERATED_BODY()`가 없는 클래스·구조체를 처리하지 않으므로 FProperty가 생성되지 않는다.  
+GC는 이 포인터의 존재를 전혀 모른다.
+
+```cpp
+struct FNativeStruct   // USTRUCT 아님, GENERATED_BODY() 없음
+{
+    UPROPERTY()        // UHT가 무시 → FProperty 생성 안 됨 → GC 추적 안 됨
+    UMyObject* Obj;    // → 수집됨
+};
+```
+
+### 요약
+
+| 케이스 | GC 추적 | 수집 여부 |
+|--------|---------|----------|
+| 컨테이너에 UPROPERTY 있음 | O | 수집 안 됨 |
+| 컨테이너에 UPROPERTY 없음 | X | **수집됨** |
+| USTRUCT 내 UPROPERTY + 구조체 인스턴스도 UPROPERTY | O | 수집 안 됨 |
+| USTRUCT 내 UPROPERTY + 구조체 인스턴스는 UPROPERTY 없음 | X | **수집됨** |
+| 네이티브 C++ 클래스에 UPROPERTY | X (UHT 무시) | **수집됨** |
+
+---
+
 ## 내 노트
 
