@@ -160,6 +160,9 @@ TArray<UObject*> TrackedArray;   // GC가 내부 UObject* 추적 → 수집 안 
 TArray<UObject*> UntrackedArray; // GC 모름 → 수집됨
 ```
 
+**수집 방지**: 컨테이너 선언에 `UPROPERTY()` 를 붙인다.  
+컨테이너 안의 개별 UObject*에 UPROPERTY를 붙이는 것은 의미 없다 — 컨테이너 자체가 추적 대상이 되어야 한다.
+
 ### USTRUCT 안에 UPROPERTY UObject 멤버가 있는 경우
 
 USTRUCT 내부 UPROPERTY만으로는 부족하다.  
@@ -188,6 +191,9 @@ class AMyActor : public AActor
 };
 ```
 
+**수집 방지**: 구조체 멤버 UPROPERTY와 **구조체 인스턴스 선언 모두** UPROPERTY가 있어야 한다.  
+둘 중 하나라도 빠지면 GC 추적 체인이 끊긴다.
+
 ### 네이티브 C++ 클래스/구조체에 UPROPERTY를 붙인 경우
 
 UPROPERTY가 아무 효과가 없다.  
@@ -202,15 +208,52 @@ struct FNativeStruct   // USTRUCT 아님, GENERATED_BODY() 없음
 };
 ```
 
+**수집 방지**: 네이티브 C++ 클래스에서는 UPROPERTY로 UObject를 보호할 수 없다.  
+아래 중 하나를 선택해야 한다.
+
+```cpp
+// ① 클래스를 UCLASS로 변경
+UCLASS()
+class UMyClass : public UObject
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    UMyObject* Obj;   // 이제 GC 추적됨
+};
+
+// ② AddToRoot로 UObject 자체를 루트셋에 고정
+Obj->AddToRoot();     // GC 수거 대상에서 제외 (RemoveFromRoot() 잊지 말 것)
+
+// ③ FGCObject 상속 — 네이티브 클래스에서 UObject 참조를 GC에 알리는 공식 방법
+class FMyNativeClass : public FGCObject
+{
+public:
+    UMyObject* Obj;
+
+    virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+    {
+        Collector.AddReferencedObject(Obj);   // GC에 직접 참조 등록
+    }
+
+    virtual FString GetReferencerName() const override
+    {
+        return TEXT("FMyNativeClass");
+    }
+};
+```
+
+`FGCObject`는 네이티브 C++ 클래스가 UCLASS 없이 UObject 참조를 GC에 등록할 수 있는 공식 인터페이스다.
+
 ### 요약
 
-| 케이스 | GC 추적 | 수집 여부 |
-|--------|---------|----------|
-| 컨테이너에 UPROPERTY 있음 | O | 수집 안 됨 |
-| 컨테이너에 UPROPERTY 없음 | X | **수집됨** |
-| USTRUCT 내 UPROPERTY + 구조체 인스턴스도 UPROPERTY | O | 수집 안 됨 |
-| USTRUCT 내 UPROPERTY + 구조체 인스턴스는 UPROPERTY 없음 | X | **수집됨** |
-| 네이티브 C++ 클래스에 UPROPERTY | X (UHT 무시) | **수집됨** |
+| 케이스 | GC 추적 | 수집 방지 방법 |
+|--------|---------|--------------|
+| 컨테이너에 UPROPERTY 있음 | O | (이미 안전) |
+| 컨테이너에 UPROPERTY 없음 | X | 컨테이너에 `UPROPERTY()` 추가 |
+| USTRUCT 내 UPROPERTY + 구조체 인스턴스도 UPROPERTY | O | (이미 안전) |
+| USTRUCT 내 UPROPERTY + 구조체 인스턴스는 UPROPERTY 없음 | X | 구조체 인스턴스 선언에도 `UPROPERTY()` 추가 |
+| 네이티브 C++ 클래스에 UPROPERTY | X | `FGCObject` 상속 또는 `AddToRoot()` |
 
 ---
 
