@@ -172,6 +172,44 @@ public:
 
 ---
 
+## UClass vs UScriptStruct 비교
+
+`UClass`와 `UScriptStruct`는 둘 다 `UStruct`의 **형제 자식**이다.
+
+```
+UStruct
+├── UClass        ← UCLASS
+└── UScriptStruct ← USTRUCT
+```
+
+`UScriptStruct`가 `UClass`의 부모가 아니다.  
+`UStruct`에서 공통 기반을 물려받고, 각자 다른 필드를 추가한 구조다.
+
+### 공통점 (UStruct에서 상속)
+
+- `ChildProperties` — FProperty 링크드 리스트 보유
+- UPROPERTY 선언 가능
+- 직렬화 가능
+- `SuperStruct` 체인으로 부모 타입 연결
+
+### UClass만 추가로 가진 것
+
+| 필드 / 기능 | 설명 |
+|------------|------|
+| `FuncMap` | UFUNCTION 보유 가능 |
+| `ClassDefaultObject` | CDO 보유 |
+| `ClassConstructor` | `NewObject` / `SpawnActor`로 인스턴스 생성 가능 |
+| `Interfaces` | 인터페이스 구현 목록 |
+| GC 개별 추적 | UObject이므로 스택·임베드 불가, GC가 수명 관리 |
+
+### UScriptStruct의 특징
+
+- 스택 할당·다른 구조체 안에 임베드 가능
+- GC가 인스턴스 자체를 추적하지 않음 (UPROPERTY 안의 UObject* 참조만 추적)
+- UFUNCTION 불가, CDO 없음, `SpawnActor` 불가
+
+---
+
 ## FProperty 핵심 필드
 
 ```cpp
