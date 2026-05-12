@@ -184,87 +184,66 @@ FProperty* Prop = Actor->GetClass()->FindPropertyByName(FName("Health"));
 ### 구조
 
 ```
-FText (NSLOCTEXT로 만든 경우)
+FText (번역 가능한 경우)
 ├── 로컬라이제이션 키 (Namespace + Key)  ← 번역 테이블 참조
 └── 현재 언어에 맞는 문자열 캐시
 ```
 
-빌드 시 `Namespace::Key` 조합으로 번역 테이블(.po 파일)을 참조한다.  
-런타임에 언어를 바꾸면 FText가 자동으로 갱신된다.
+`Namespace + Key` 조합으로 번역 테이블을 참조한다.  
+런타임에 언어 설정을 바꾸면 FText가 자동으로 갱신된다.
+
+### FText 생성 방법
+
+`NSLOCTEXT`는 FText를 만들어 반환하는 매크로다. FText가 타입이고, NSLOCTEXT는 그 타입을 초기화하는 방법 중 하나다 (`int32 x = 42`에서 `42`가 int32를 만드는 것과 같다).
 
 ```cpp
-// 번역 가능 — Namespace "MyGame", Key "HealthLabel"
-FText Text = NSLOCTEXT("MyGame", "HealthLabel", "체력");
-// 언어를 영어로 바꾸면 → "Health" (번역 파일에 등록돼 있으면)
+// 번역 가능 — Namespace, Key, 번역 없을 때 폴백 순
+FText A = NSLOCTEXT("MyGame", "HealthLabel", "체력");
+// 영어 설정 시 → "Health" (번역 파일에 등록돼 있으면)
 
-// FText::FromString — 로컬라이제이션 키 없음, 언어를 바꿔도 값이 그대로
-FText Dynamic = FText::FromString(PlayerName);  // 플레이어 이름 등 동적 값
+// 번역 불필요한 동적 값
+FText B = FText::FromString(PlayerName);
 
-// 숫자·퍼센트 포맷 — 로케일에 맞는 구분자 자동 적용
-FText NumText = FText::AsNumber(1234567);        // "1,234,567" (로케일 적용)
-FText PctText = FText::AsPercent(0.75f);         // "75%"
-```
-
-### FText::FromString 주의
-
-`FText::FromString`으로 만든 FText는 Namespace·Key가 없다.  
-번역 테이블과 연결되지 않으므로 언어를 바꿔도 문자열이 그대로 남는다.
-
-```cpp
-FText Label = FText::FromString(TEXT("체력"));
-// 언어를 영어로 바꿔도 → "체력" 그대로 — 번역 안 됨
-```
-
-**번역돼야 하는 고정 문구에는 절대 쓰지 않는다.**  
-런타임에 동적으로 결정되는 값(플레이어 이름, 점수, 서버에서 받은 텍스트 등)처럼
-애초에 번역 대상이 아닌 경우에만 쓴다.
-
-### 상황별 올바른 선택
-
-| 상황 | 올바른 방법 |
-|------|-----------|
-| 번역이 필요한 고정 UI 문구 | `NSLOCTEXT("NS", "Key", "기본값")` |
-| 번역 불필요한 동적 값 (이름, 숫자) | `FText::FromString()` / `FText::AsNumber()` |
-| 문자열 처리·조작 | `FString` |
-| 로그·디버그 출력 | `FString` |
-
-- `FText`끼리 직접 비교(`==`)는 피한다 — 번역 결과를 비교하는 것이므로 의도가 불명확
-- 비교가 필요하면 `FString`으로 변환 후 비교
-
-### NSLOCTEXT / LOCTEXT — FText를 만드는 매크로
-
-`NSLOCTEXT`는 FText 타입의 인스턴스를 반환하는 매크로다.  
-FText가 타입이고, NSLOCTEXT는 그 타입을 만드는 방법 중 하나다.
-
-```cpp
-// int32 x = 42; 에서 42가 int32를 만드는 것처럼
-// NSLOCTEXT(...)가 FText를 만든다
-FText MyText = NSLOCTEXT("MyGame", "HealthLabel", "체력");
-//    ↑ 타입                ↑ Namespace  ↑ Key      ↑ 번역 없을 때 폴백
-```
-
-FText를 만드는 방법은 여러 가지이고, 만들고 나서 쓰는 방식은 동일하다.
-
-```cpp
-FText A = NSLOCTEXT("MyGame", "HealthLabel", "체력"); // 번역 가능
-FText B = FText::FromString(PlayerName);              // 동적 값
-FText C = FText::AsNumber(1234);                      // 숫자 포맷
+// 숫자·퍼센트 — 로케일에 맞는 구분자 자동 적용
+FText C = FText::AsNumber(1234567);   // "1,234,567"
+FText D = FText::AsPercent(0.75f);   // "75%"
 
 // 만드는 방법과 무관하게 동일하게 사용
 MyTextBlock->SetText(A);
-MyTextBlock->SetText(B);
-FString Str = A.ToString();  // 현재 언어 설정에 따른 결과 반환
+FString Str = A.ToString();  // 현재 언어로 로컬라이즈된 결과 반환
 ```
 
 파일 상단에 `LOCTEXT_NAMESPACE`를 선언하면 Namespace를 매번 쓰지 않아도 된다.
 
 ```cpp
 #define LOCTEXT_NAMESPACE "MyGame"
-
 FText Label = LOCTEXT("HealthLabel", "체력");  // Namespace 생략
-
 #undef LOCTEXT_NAMESPACE
 ```
+
+### FText::FromString 주의
+
+`FText::FromString`으로 만든 FText는 Namespace·Key가 없다.  
+언어를 바꿔도 문자열이 그대로 남는다.
+
+```cpp
+FText Label = FText::FromString(TEXT("체력"));
+// 언어를 영어로 바꿔도 → "체력" 그대로
+```
+
+번역돼야 하는 고정 문구에는 쓰지 않는다.  
+플레이어 이름·점수처럼 애초에 번역 대상이 아닌 동적 값에만 쓴다.
+
+### 상황별 선택
+
+| 상황 | 방법 |
+|------|------|
+| 번역이 필요한 고정 UI 문구 | `NSLOCTEXT("NS", "Key", "기본값")` |
+| 번역 불필요한 동적 값 (이름, 숫자) | `FText::FromString()` / `FText::AsNumber()` |
+| 문자열 처리·조작 | `FString` |
+| 로그·디버그 출력 | `FString` |
+
+`FText`끼리 직접 비교(`==`)는 피한다. 비교가 필요하면 `FString`으로 변환 후 비교한다.
 
 ---
 
