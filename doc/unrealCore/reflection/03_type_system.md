@@ -92,6 +92,62 @@ public:
 
 ---
 
+## UScriptStruct에는 UFUNCTION을 선언할 수 없다
+
+`UStruct`는 `FuncMap`을 갖고 있지 않다 — `FuncMap`은 `UClass` 전용이다.  
+따라서 USTRUCT 안에 `UFUNCTION`을 선언하면 UHT가 에러를 낸다.
+
+```cpp
+USTRUCT(BlueprintType)
+struct FDamageInfo
+{
+    GENERATED_BODY()
+
+    UFUNCTION()         // ← UHT 에러
+    void Calculate();
+};
+```
+
+이유는 UFunction 실행 모델이 **UObject 컨텍스트를 전제**하기 때문이다.
+
+| 필요한 것 | USTRUCT가 못 하는 이유 |
+|-----------|----------------------|
+| `ProcessEvent(this, ...)` | USTRUCT는 UObject가 아니라 `this`를 넘길 수 없음 |
+| RPC | Actor/UObject 소유권이 없어 NetDriver가 라우팅 불가 |
+| Blueprint 호출 | Blueprint VM이 UObject* 단위로 함수를 실행함 |
+| GC 추적 | USTRUCT 인스턴스는 스택·임베드 가능 — 개별 추적 대상이 아님 |
+
+일반 C++ 멤버 함수는 자유롭게 쓸 수 있다. 리플렉션에 참여하지 않을 뿐이다.
+
+```cpp
+USTRUCT(BlueprintType)
+struct FDamageInfo
+{
+    GENERATED_BODY()
+
+    UPROPERTY() float Amount;
+
+    // 일반 C++ 함수 — 완전히 OK, Blueprint 노출만 안 됨
+    float GetScaled(float Multiplier) const { return Amount * Multiplier; }
+};
+```
+
+USTRUCT 멤버 함수를 Blueprint에 노출하고 싶으면
+`UBlueprintFunctionLibrary`에 `static UFUNCTION`으로 만드는 것이 언리얼의 관례다.
+
+```cpp
+UCLASS()
+class UDamageLibrary : public UBlueprintFunctionLibrary
+{
+    GENERATED_BODY()
+
+    UFUNCTION(BlueprintCallable)
+    static float GetScaledDamage(const FDamageInfo& Info, float Multiplier);
+};
+```
+
+---
+
 ## UClass 추가 필드
 
 ```cpp
