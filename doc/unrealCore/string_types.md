@@ -70,14 +70,110 @@ Name1.IsValid();         // 유효한 FName인지
 NAME_None == FName();    // 빈 FName 비교
 ```
 
-### 언제 쓰는가
+### 사용 예시
 
-| 사용처 | 이유 |
-|--------|------|
-| 에셋 이름, 소켓 이름 | 식별자 비교가 빈번, O(1) 비교 필요 |
-| `FindFunctionByName()` | 함수명이 FName |
-| `FindPropertyByName()` | 프로퍼티명이 FName |
-| `GameplayTag` 내부 | 태그 경로가 FName 체인 |
+#### 소켓·본 이름
+
+스켈레탈 메시의 소켓이나 본은 FName으로 식별한다.
+캐릭터 이동 중 매 틱마다 조회되므로 O(1) 비교가 중요하다.
+
+```cpp
+// 소켓 위치·회전 조회
+FVector  SocketLoc = Mesh->GetSocketLocation(FName("hand_r"));
+FRotator SocketRot = Mesh->GetSocketRotation(FName("hand_r"));
+
+// 소켓에 붙이기
+WeaponActor->AttachToComponent(
+    Mesh,
+    FAttachmentTransformRules::SnapToTargetIncludingScale,
+    FName("weapon_socket")
+);
+
+// 본 이름으로 Physics 설정
+Mesh->SetAllBodiesBelowSimulatePhysics(FName("pelvis"), true);
+```
+
+#### 컴포넌트 생성 이름
+
+`CreateDefaultSubobject`의 이름 파라미터가 FName이다.
+이 이름은 컴포넌트의 `GetFName()`으로 조회되고, 에디터 계층 패널에 표시된다.
+
+```cpp
+AMyActor::AMyActor()
+{
+    CameraComponent = CreateDefaultSubobject<UCameraComponent>(FName("CameraComponent"));
+    SpringArm = CreateDefaultSubobject<USpringArmComponent>(FName("SpringArm"));
+}
+```
+
+#### 머티리얼 파라미터 이름
+
+머티리얼 인스턴스의 파라미터를 이름으로 조회·설정한다.
+
+```cpp
+UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(Material, this);
+
+MID->SetScalarParameterValue(FName("Opacity"), 0.5f);
+MID->SetVectorParameterValue(FName("Color"), FLinearColor::Red);
+
+// 파라미터 존재 여부 확인
+float Value;
+bool bFound = MID->GetScalarParameterValue(FName("Opacity"), Value);
+```
+
+#### 애니메이션 — 몽타주 섹션·커브 이름
+
+```cpp
+// 몽타주의 특정 섹션부터 재생
+AnimInstance->Montage_Play(AttackMontage);
+AnimInstance->Montage_JumpToSection(FName("ComboB"), AttackMontage);
+
+// 애니메이션 커브 값 읽기 (블렌드 스페이스, 노티파이 등에서 설정)
+float SpeedCurve = AnimInstance->GetCurveValue(FName("Speed"));
+```
+
+#### DataTable 행 이름
+
+DataTable의 각 행은 FName 키로 관리된다.
+
+```cpp
+// DataTable에서 행 찾기
+if (FMyItemData* Row = ItemDataTable->FindRow<FMyItemData>(FName("Sword_001"), TEXT("")))
+{
+    int32 Damage = Row->Damage;
+}
+```
+
+#### Actor Tags
+
+Actor의 `Tags` 배열은 `TArray<FName>`이다.
+
+```cpp
+// 태그 확인
+if (SomeActor->ActorHasTag(FName("Enemy")))
+{
+    // 적 처리
+}
+
+// 태그 추가
+SomeActor->Tags.Add(FName("Stunned"));
+```
+
+#### Collision Profile 이름
+
+콜리전 프리셋도 FName으로 식별한다.
+
+```cpp
+Mesh->SetCollisionProfileName(FName("BlockAll"));
+Mesh->SetCollisionProfileName(FName("OverlapAllDynamic"));
+```
+
+#### 리플렉션 시스템
+
+```cpp
+UFunction* Func = Actor->FindFunctionByName(FName("Fire"));
+FProperty* Prop = Actor->GetClass()->FindPropertyByName(FName("Health"));
+```
 
 ---
 
