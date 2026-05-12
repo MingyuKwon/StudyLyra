@@ -99,10 +99,11 @@ Args.Text(TAttribute<FText>::CreateUObject(this, &UMyHUDWidget::GetPlayerNameTex
 
 ## 이벤트 바인딩 — 델리게이트
 
-위젯의 이벤트(클릭, 호버 등)에 콜백을 등록하는 방식이다.
+위젯의 이벤트(클릭, 호버 등)에 콜백을 등록하는 방식이다.  
+Delegate 상세는 [delegate.md](../delegate.md) 참고.
 
 ```cpp
-// Dynamic Delegate (블루프린트에서도 호출 가능)
+// Dynamic Delegate (블루프린트에서도 호출 가능) — 대상 함수에 UFUNCTION 필수
 MyButton->OnClicked.AddDynamic(this, &UMyWidget::OnButtonClicked);
 
 // 람다 바인딩 (C++만)
@@ -112,9 +113,7 @@ MyButton->OnClicked.AddLambda([]()
 });
 ```
 
-`AddDynamic`은 `UFUNCTION`이 붙은 멤버 함수에만 사용할 수 있다.
-
-등록한 콜백은 위젯이 소멸하기 전에 해제한다.
+위젯이 소멸하기 전 `NativeDestruct`에서 반드시 해제한다.
 
 ```cpp
 void UMyWidget::NativeDestruct()

@@ -141,6 +141,9 @@ OnHealthChanged.RemoveDynamic(this, &AMyActor::HandleHealthChanged);
 내부에서 함수 이름을 `FName`으로 변환해 등록하기 때문에  
 **함수 시그니처가 Delegate 선언과 정확히 일치해야 한다.**
 
+`AddDynamic`은 **`UFUNCTION`이 붙은 멤버 함수에만** 사용할 수 있다.  
+`UFUNCTION` 없이 쓰면 컴파일 에러가 발생한다.
+
 ---
 
 ## 실행
@@ -205,6 +208,39 @@ C++끼리만 통신한다면 Non-Dynamic이 더 적합하다.
 
 `BindRaw`는 가장 빠르지만 가장 위험하다.  
 UObject 기반 클래스라면 항상 `BindUObject`를 쓰는 것이 원칙이다.
+
+---
+
+## 수명 관리 — 소멸 전 명시적 제거
+
+`AddUObject`는 GC가 대상을 수거할 때 자동으로 바인딩을 무효화하지만,  
+**등록한 쪽이 먼저 소멸되는 경우**에는 명시적 제거가 필요하다.
+
+UMG 위젯이 대표적인 예다 — `NativeDestruct`에서 반드시 제거한다.
+
+```cpp
+void UMyWidget::NativeOnInitialized()
+{
+    Super::NativeOnInitialized();
+    ConfirmButton->OnClicked.AddDynamic(this, &UMyWidget::OnConfirmClicked);
+}
+
+void UMyWidget::NativeDestruct()
+{
+    Super::NativeDestruct();
+    ConfirmButton->OnClicked.RemoveDynamic(this, &UMyWidget::OnConfirmClicked);
+}
+```
+
+`RemoveAll(this)`를 쓰면 해당 오브젝트의 모든 바인딩을 한 번에 제거할 수 있다.
+
+```cpp
+void UMyWidget::NativeDestruct()
+{
+    Super::NativeDestruct();
+    ConfirmButton->OnClicked.RemoveAll(this);  // this가 등록한 콜백 전부 제거
+}
+```
 
 ---
 
