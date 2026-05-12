@@ -126,6 +126,20 @@ UClass (AMyActor의 메타데이터)
   └── ClassFlags:  CLASS_Blueprintable ...
 ```
 
+이 객체들은 **타입 자체를 서술하는 메타데이터**로, 타입당 하나만 존재한다.  
+게임 인스턴스가 몇 개든 같은 UClass를 공유한다.
+
+```
+UClass (AMyActor)     ← 하나, 프로그램 전체에서 공유
+        ↓
+AMyActor 인스턴스 A  ──┐
+AMyActor 인스턴스 B  ──┼── GetClass() → 모두 같은 UClass* 반환
+AMyActor 인스턴스 C  ──┘
+```
+
+`RF_MarkAsNative` 플래그가 붙어 GC에 수집되지 않으며 프로그램 종료 시까지 살아있다.  
+Blueprint 클래스는 BP 에셋이 로드될 때 UClass가 생성되고, 언로드되면 함께 해제된다.
+
 런타임 접근 API:
 
 ```cpp
