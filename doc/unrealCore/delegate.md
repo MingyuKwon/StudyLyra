@@ -182,80 +182,76 @@ Multicast는 `ExecuteIfBound`가 없다. `Broadcast`는 바인딩이 없어도 �
 
 ---
 
-## 내부 구현 — std::function과의 비교
+## 내부 구현
 
-### std::function과 가장 가까운 것
+### Non-Dynamic — 타입 이레이저 + IDelegateInstance
 
-Non-Dynamic Single-cast Delegate가 `std::function`과 가장 가깝다.  
-둘 다 **타입 이레이저(type erasure)** 로 임의의 callable(함수 포인터, 람다, 멤버 함수)을 저장한다.
-
-```cpp
-// std::function
-std::function<void(float)> Fn = [](float f) {};
-
-// UE 동치 — 내부적으로 같은 패턴
-DECLARE_DELEGATE_OneParam(FOnDamaged, float);
-FOnDamaged Delegate;
-Delegate.BindLambda([](float f) {});
-```
-
-차이점:
-
-| | `std::function` | UE Non-Dynamic Delegate |
-|--|-----------------|------------------------|
-| 구현 | 표준 라이브러리 타입 이레이저 | 직접 구현한 `IDelegateInstance` 인터페이스 |
-| UObject 수명 추적 | X | O (`BindUObject` 시 TWeakObjectPtr 내장) |
-| Multicast | X | O (별도 타입) |
-| Blueprint 연동 | X | X (Dynamic으로 가야 함) |
-| 성능 | 비슷 (small buffer 최적화 동일) | 비슷 |
-
-### Non-Dynamic 내부 구조
+Delegate 변수 자체는 두 가지를 들고 있다.
 
 ```
-FDelegate (= TDelegate<Signature>)
-├── TAlignedBytes<16> InlineStorage  ← 힙 할당 없이 인라인 저장 (small 최적화)
-└── IDelegateInstance* Instance      ← 인라인 또는 힙을 가리킴
+TDelegate<void(float)>
+├── TAlignedBytes<16> InlineStorage  ← 힙 할당 없이 인라인 저장 (small buffer 최적화)
+└── IDelegateInstance* Instance      ← InlineStorage 또는 힙을 가리킴
 ```
 
-`IDelegateInstance`는 인터페이스고, 바인딩 방식마다 별도 구체 클래스가 있다.
+`IDelegateInstance`는 인터페이스다. 바인딩 방식마다 이를 구현하는 별도 구체 클래스가 생성된다.
 
 ```
-BindUObject → TUObjectMethodDelegate
-               ├── TWeakObjectPtr<UserClass> Object  ← GC 추적
-               └── void (UserClass::*FuncPtr)(float) ← 멤버 함수 포인터
+BindUObject(this, &AMyActor::HandleDamage)
+  → TUObjectMethodDelegate 생성
+      ├── TWeakObjectPtr<AMyActor> Object  ← GC 추적 가능
+      └── void (AMyActor::*FuncPtr)(float) ← 멤버 함수 포인터
 
-BindRaw     → TRawMethodDelegate
-               ├── UserClass* Object                  ← raw 포인터 (위험)
-               └── void (UserClass::*FuncPtr)(float)
+BindRaw(RawPtr, &FMyClass::HandleDamage)
+  → TRawMethodDelegate 생성
+      ├── FMyClass* Object                 ← raw 포인터 (수명 추적 없음)
+      └── void (FMyClass::*FuncPtr)(float)
 
-BindLambda  → TFunctorDelegate
-               └── TStoredFunctor (람다 캡처 포함)
+BindLambda([](float f) { ... })
+  → TFunctorDelegate 생성
+      └── 람다 객체 (캡처 포함)를 내부에 복사
 ```
 
-Execute() 시 `IDelegateInstance::Execute()`를 가상 호출 → 각 구현에서 Object + FuncPtr로 실제 함수 호출.  
-`ExecuteIfBound()`는 `IsSafeToExecute()`를 먼저 확인 — `BindUObject`라면 TWeakObjectPtr 유효성 검사가 여기서 일어난다.
+`Execute()` 호출 시 흐름:
 
-### Dynamic 내부 구조 — FName + ProcessEvent
+```
+Delegate.Execute(50.f)
+  → IDelegateInstance::Execute(Params)  ← 가상 호출
+      → (Object.*FuncPtr)(50.f)         ← 실제 함수 호출
+```
+
+`ExecuteIfBound()`는 실행 전 `IDelegateInstance::IsSafeToExecute()`를 확인한다.  
+`BindUObject`의 경우 이 안에서 `TWeakObjectPtr::IsValid()`가 호출된다 — 대상 UObject가 이미 수거됐으면 실행하지 않는다.
+
+### Dynamic — FName + ProcessEvent
 
 Dynamic Delegate는 함수 포인터를 저장하지 않는다.
 
 ```
 AddDynamic(this, &AMyActor::HandleDamage)
-  → 내부에서 "HandleDamage" 를 FName으로 변환해 저장
+  → 매크로가 "HandleDamage" 문자열을 FName으로 변환해 저장
+      ├── UObject* Object
+      └── FName FunctionName = FName("HandleDamage")
 
-Execute() / Broadcast()
-  → UObject::FindFunctionByName(FName("HandleDamage"))
-  → UObject::ProcessEvent(Func, Params)
+Execute() / Broadcast() 시
+  → Object->FindFunctionByName(FName("HandleDamage"))
+  → Object->ProcessEvent(Func, &Params)
 ```
 
-`ProcessEvent`는 Blueprint VM 진입점이기도 해서 Blueprint에서도 같은 경로로 함수가 호출된다.  
-FName 조회 + ProcessEvent 오버헤드 때문에 Non-Dynamic보다 느리다.
+`ProcessEvent`는 Blueprint VM 진입점과 같은 경로다.  
+FName 조회 + ProcessEvent 스택 비용이 붙기 때문에 Non-Dynamic보다 느리다.
 
 ### Multicast
 
-`TMulticastDelegate`는 내부적으로 `TArray<TSharedRef<IDelegateInstance>>`를 들고 있다.  
-`Broadcast()`는 이 배열을 순회하며 각 Instance의 `Execute()`를 호출한다.  
-Broadcast 도중 Remove가 일어나도 안전하도록 순회 전 배열을 복사하는 방어 로직이 내장돼 있다.
+`TMulticastDelegate`는 내부적으로 Single-cast 인스턴스 배열을 들고 있다.
+
+```
+TMulticastDelegate<void(int32)>
+└── TArray<TSharedRef<IDelegateInstance>> InvocationList
+```
+
+`Broadcast(1000)` 시 InvocationList를 순회하며 각 인스턴스의 `Execute()`를 호출한다.  
+순회 도중 `Remove()`가 호출돼도 안전하도록 순회 전에 배열을 로컬에 복사하는 방어 로직이 내장돼 있다.
 
 ---
 
