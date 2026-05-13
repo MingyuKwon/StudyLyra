@@ -241,6 +241,23 @@ Execute() / Broadcast() 시
 `ProcessEvent`는 Blueprint VM 진입점과 같은 경로다.  
 FName 조회 + ProcessEvent 스택 비용이 붙기 때문에 Non-Dynamic보다 느리다.
 
+**왜 Dynamic은 구현이 다른가**
+
+Blueprint 연동 때문이다.
+
+Non-Dynamic은 C++ 컴파일 타임에 함수 포인터가 확정된다. 하지만 Blueprint 함수는 에디터에서 만들어지고 런타임에 로드되므로 컴파일 타임에 주소를 알 수 없다. Blueprint가 이벤트를 구독하려면 함수를 주소가 아닌 **이름**으로 등록해야 한다. 그래서 FName 기반 런타임 조회가 불가피하다.
+
+`UFUNCTION`이 필수인 이유도 같은 맥락이다. FName으로 함수를 찾으려면 리플렉션 시스템에 그 함수가 등록돼 있어야 한다. `UFUNCTION`이 붙어야 UHT가 `UFunction` 객체를 생성하고 리플렉션 테이블에 등록한다. 등록이 없으면 `FindFunctionByName`이 찾지 못한다.
+
+```
+UFUNCTION() 있음 → UHT가 UFunction 생성 → 리플렉션 테이블 등록
+                    → FindFunctionByName("HandleDamage") 성공
+
+UFUNCTION() 없음 → 리플렉션 테이블에 없음 → 에러
+```
+
+FName 기반 조회, UFUNCTION 필수 조건, 느린 속도 모두 "Blueprint도 구독할 수 있는 이벤트"를 만들기 위한 트레이드오프다.
+
 ### Multicast
 
 `TMulticastDelegate`는 내부적으로 Single-cast 인스턴스 배열을 들고 있다.
