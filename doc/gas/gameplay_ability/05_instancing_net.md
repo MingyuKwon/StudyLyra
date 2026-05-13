@@ -32,3 +32,38 @@ GA의 `Net Execution Policy`는 GA를 어디서 실행하는지와 그 순서를
 ---
 
 ## 내 분석
+
+### FGameplayAbilitySpec과 GA 인스턴스의 관계
+
+`GiveAbility()` 시점에 ASC의 `ActivatableAbilities` 배열에 **FGameplayAbilitySpec**이 추가된다.  
+이것이 "이 ASC에 이 어빌리티가 부여돼 있다"는 슬롯 역할을 한다. GA 인스턴스와는 별개 개념이다.
+
+Spec 안에는:
+- GA 클래스 (`TSubclassOf<UGameplayAbility>`)
+- 고유 핸들 (`FGameplayAbilitySpecHandle`)
+- 레벨, InputID
+- **`UGameplayAbility* Ability`** — 실제 GA 인스턴스 또는 CDO를 가리킴
+
+Activate 시점에 InstancingPolicy에 따라 이 포인터가 달라진다.
+
+| Policy | GA 인스턴스 생성 | `Spec.Ability` 가리키는 곳 |
+|--------|----------------|---------------------------|
+| Non-Instanced | 없음 | CDO |
+| Instanced Per Actor | 최초 Activate 1회 생성, 이후 재사용 | 그 인스턴스 |
+| Instanced Per Execution | Activate마다 새로 생성 | `Spec.NonReplicatedInstances` 배열 |
+
+---
+
+### GE는 인스턴스가 존재하지 않는다
+
+GE는 데이터 에셋(CDO)으로만 존재하고 `new`/`Spawn`되지 않는다.  
+적용 시 **구조체**가 만들어진다.
+
+```
+ApplyGameplayEffect() 호출
+  → FGameplayEffectSpec (구조체) 생성 — GE 클래스 + 레벨 + 컨텍스트
+  → 지속 효과라면 FActiveGameplayEffect (구조체) 로 ActiveGameplayEffects에 추가
+```
+
+GA는 Policy에 따라 인스턴스가 생기기도 안 생기기도 하지만,  
+GE는 어떤 경우에도 인스턴스가 만들어지지 않는다.
