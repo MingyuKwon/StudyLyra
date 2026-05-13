@@ -270,6 +270,51 @@ TMulticastDelegate<void(int32)>
 `Broadcast(1000)` 시 InvocationList를 순회하며 각 인스턴스의 `Execute()`를 호출한다.  
 순회 도중 `Remove()`가 호출돼도 안전하도록 순회 전에 배열을 로컬에 복사하는 방어 로직이 내장돼 있다.
 
+### 복사 / 이동 / 소멸
+
+**복사 생성자**
+
+InlineStorage 안에 `IDelegateInstance`가 있기 때문에 단순 `memcpy`로는 안 된다.  
+`IDelegateInstance`에 가상 `Clone()` 메서드가 있어서 복사 시 바인딩 전체를 새로 복제한다.
+
+```cpp
+FOnDamaged A;
+A.BindUObject(this, &AMyActor::HandleDamage);
+
+FOnDamaged B = A;  // IDelegateInstance::Clone() 호출
+// B의 InlineStorage에 새 TUObjectMethodDelegate 생성
+// TWeakObjectPtr, FuncPtr 모두 복사됨
+```
+
+**이동 생성자**
+
+InlineStorage를 그대로 `memcpy`하고 원본을 비운다.  
+`IDelegateInstance`를 새로 만들 필요가 없어서 복사보다 빠르다.
+
+```cpp
+FOnDamaged B = MoveTemp(A);
+// A의 InlineStorage 16바이트를 B로 전달
+// A는 IsBound() == false 상태가 됨
+```
+
+바인딩 대상이 InlineStorage보다 크면 힙에 올라가는데, 이 경우 이동은 힙 포인터만 넘기므로 더욱 O(1)이다.
+
+**Multicast의 복사 vs 이동**
+
+`TArray<IDelegateInstance>`를 들고 있어서 비용 차이가 크다.
+
+| | 동작 | 비용 |
+|--|------|------|
+| 복사 | TArray 전체 복사 + 각 Instance마다 `Clone()` | O(n) |
+| 이동 | TArray 포인터만 전달 | O(1) |
+
+Multicast를 컨테이너에 담을 때는 복사보다 이동을 쓰는 것이 성능상 유리하다.
+
+**소멸자**
+
+소멸 시 `IDelegateInstance`의 소멸자를 호출해 정리한다.  
+InlineStorage에 있으면 placement destroy, 힙에 있으면 `delete`.
+
 ---
 
 ## Dynamic vs Non-Dynamic
