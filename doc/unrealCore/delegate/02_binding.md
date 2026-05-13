@@ -107,6 +107,12 @@ if (OnDamaged.IsBound())
 }
 ```
 
+**바인딩 없이 Execute() 호출 시**
+
+내부에 `checkf(IsBound(), ...)` 가 있어서 Debug / Development 빌드에서는 즉시 assert로 크래시된다.  
+Shipping 빌드에서는 check가 제거되므로 미정의 동작이 된다.  
+바인딩 여부가 불확실하면 반드시 `ExecuteIfBound()`를 쓴다.
+
 ### Multicast
 
 ```cpp
@@ -117,7 +123,10 @@ OnScoreChanged.Broadcast(1000);
 OnScoreChanged.IsBound();
 ```
 
-Multicast는 `ExecuteIfBound`가 없다. `Broadcast`는 바인딩이 없어도 안전하게 아무것도 하지 않는다.
+**바인딩 없이 Broadcast() 호출 시**
+
+InvocationList가 비어 있으면 순회 없이 그냥 반환한다. 크래시 없이 안전하다.  
+`ExecuteIfBound`가 없는 이유도 여기에 있다 — `Broadcast` 자체가 항상 안전하기 때문이다.
 
 ---
 
