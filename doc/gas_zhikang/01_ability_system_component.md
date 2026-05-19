@@ -58,7 +58,41 @@ PlayerController는 멀티플레이어에서 모든 클라이언트에 존재하
 
 ### AI 제어 Pawn
 
-멀티플레이어 프로젝트에서 AI 제어 Pawn은 PlayerState가 없는 경우가 많다. `AIController::bWantsPlayerState = true`로 PlayerState를 부여하는 방법을 고려할 수 있다. AIController는 서버에만 존재하므로 ASC를 붙이기 부적합하지만, PlayerState는 모든 클라이언트에 복제된다. 플레이어와 봇 모두 PlayerState에 ASC를 두면 일관성 있게 관리된다.
+AI Pawn에 ASC를 붙이는 방법은 두 가지다.
+
+**방법 1 — Pawn에 직접 붙이기**
+
+```cpp
+// Pawn 생성자
+AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("ASC"));
+AbilitySystemComponent->SetIsReplicated(true);
+AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
+```
+
+- Pawn은 서버/클라 모두 존재하므로 ASC가 정상 복제된다.
+- Pawn이 죽고 삭제되면 ASC도 함께 사라진다 → 상태 유지 불필요한 AI에 적합.
+- AI가 많은 경우(RTS 유닛, 몹 대규모 스폰)에 적합. PlayerState 복제 오버헤드 없음.
+
+**방법 2 — PlayerState에 붙이기 (`bWantsPlayerState = true`)**
+
+```cpp
+// AIController 생성자
+bWantsPlayerState = true;
+// PlayerState 클래스에서 ASC를 플레이어와 동일하게 생성
+```
+
+- `GameMode`가 AIController에도 PlayerState를 자동 생성해 붙여준다.
+- PlayerState는 모든 클라이언트에 복제되며 `GameState::PlayerArray`에 포함된다.
+- Pawn이 죽어도 PlayerState는 유지되므로 버프/쿨다운 지속이 필요한 AI에 적합.
+- 플레이어와 봇이 동일한 ASC 구조를 가지므로 코드 일관성이 높다.
+- AI 수가 많으면 PlayerState 복제 비용이 증가하므로 소수의 봇(팀 기반 슈터 등)에 적합.
+
+| | Pawn에 직접 | PlayerState 경유 |
+|---|---|---|
+| AI 수 | 많아도 OK | 소수 권장 |
+| 상태 유지 | Pawn 삭제 시 소멸 | Pawn 교체 후에도 유지 |
+| 코드 일관성 | 플레이어와 구조 다름 | 플레이어와 동일 구조 |
+| 복제 오버헤드 | 낮음 | 높음 |
 
 ---
 
