@@ -22,4 +22,4 @@ GAS(Gameplay Ability System)는 게임플레이 관련 값과 동작을 체계�
 
 | 파일 | 내용 |
 |------|------|
-| (추가 예정) | |
+| [01 Ability System Component](01_ability_system_component.md) | ASC를 붙일 수 있는 Actor, 복수 ASC 금지 이유 |
