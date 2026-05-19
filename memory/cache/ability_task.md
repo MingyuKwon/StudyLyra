@@ -7,7 +7,7 @@
 ## 34. UGameplayTask 핵심 내부 구조
 
 > 소스: `C:/Program Files/Epic Games/UE_5.7/Engine/Source/Runtime/GameplayTasks/`  
-> 상세 문서: `doc/gas/ability_task/00_gameplay_task.md`
+> 상세 문서: `doc/gas_tranek/ability_task/00_gameplay_task.md`
 
 ### 상태 머신 (EGameplayTaskState)
 `Uninitialized → AwaitingActivation → Active ↔ Paused → Finished`
@@ -174,7 +174,7 @@ void UAbilityTask_WaitInputPress::OnPressCallback() {
 
 > 출처: `Engine/Plugins/Runtime/GameplayAbilities/.../GameplayAbilityTargetTypes.h`, `AbilitySystemComponent_Abilities.cpp`  
 > Lyra: `AbilitySystem/LyraGameplayAbilityTargetData_SingleTargetHit.h/cpp`, `AbilitySystem/LyraAbilitySystemComponent.cpp:520`  
-> 상세 문서: `doc/gas/ability_task/02_target_data.md`
+> 상세 문서: `doc/gas_tranek/ability_task/02_target_data.md`
 
 ### FGameplayAbilityTargetData
 - `USTRUCT` + 가상 함수 → UObject 없이 폴리모픽

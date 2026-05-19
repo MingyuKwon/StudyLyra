@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** `doc/gas/` 폴더를 GASDocumentation(tranek)을 뼈대로 삼아 완전히 새 구조로 재편. 각 파일에 GASDoc 요약 + 개인 분석 공간이 있는 템플릿으로 스캐폴딩.
+**Goal:** `doc/gas_tranek/` 폴더를 GASDocumentation(tranek)을 뼈대로 삼아 완전히 새 구조로 재편. 각 파일에 GASDoc 요약 + 개인 분석 공간이 있는 템플릿으로 스캐폴딩.
 
 **Architecture:** GASDoc 섹션 번호를 폴더/파일에 매핑. 각 파일은 `## 개념 요약` + `## 내 분석` 두 섹션으로 구성. README.md는 인덱스 전용(링크만), 내용 파일은 번호 접두사 사용.
 
@@ -13,13 +13,13 @@
 ## Task 1: cache 정리 + 기존 파일 삭제
 
 **Files:**
-- Move: `doc/gas/GASDocument_Readme.md` → `doc/gas/cache/GASDocument_Readme.md`
-- Delete: `doc/gas/` 내 기존 폴더/파일 (cache 제외)
+- Move: `doc/gas_tranek/GASDocument_Readme.md` → `doc/gas_tranek/cache/GASDocument_Readme.md`
+- Delete: `doc/gas_tranek/` 내 기존 폴더/파일 (cache 제외)
 
 - [ ] **Step 1: GASDocument_Readme.md를 cache로 이동**
 
 ```bash
-mv D:/LyraStarterGame/doc/gas/GASDocument_Readme.md D:/LyraStarterGame/doc/gas/cache/GASDocument_Readme.md
+mv D:/LyraStarterGame/doc/gas_tranek/GASDocument_Readme.md D:/LyraStarterGame/doc/gas_tranek/cache/GASDocument_Readme.md
 ```
 
 - [ ] **Step 2: cache 보존하면서 나머지 기존 폴더/파일 삭제**
@@ -33,7 +33,7 @@ rm -rf ability_system_component ability_task attribute_set execution_calculation
 - [ ] **Step 3: 삭제 확인**
 
 ```bash
-ls D:/LyraStarterGame/doc/gas/
+ls D:/LyraStarterGame/doc/gas_tranek/
 ```
 
 기대 결과: `cache/` 폴더만 남아있음
@@ -41,7 +41,7 @@ ls D:/LyraStarterGame/doc/gas/
 - [ ] **Step 4: cache 안 파일 확인**
 
 ```bash
-ls D:/LyraStarterGame/doc/gas/cache/
+ls D:/LyraStarterGame/doc/gas_tranek/cache/
 ```
 
 기대 결과: `GASDocument_Readme.md`와 `gas_doc_cache.md` 두 파일
@@ -50,22 +50,22 @@ ls D:/LyraStarterGame/doc/gas/cache/
 
 ```bash
 cd D:/LyraStarterGame
-git add -A doc/gas/
+git add -A doc/gas_tranek/
 git commit -m "refactor: doc/gas 기존 파일 삭제 및 GASDocument_Readme 캐시로 이동"
 ```
 
 ---
 
-## Task 2: doc/gas/README.md + 00_intro_setup.md 생성
+## Task 2: doc/gas_tranek/README.md + 00_intro_setup.md 생성
 
 **Files:**
-- Create: `doc/gas/README.md`
-- Create: `doc/gas/00_intro_setup.md`
+- Create: `doc/gas_tranek/README.md`
+- Create: `doc/gas_tranek/00_intro_setup.md`
 
-- [ ] **Step 1: doc/gas/README.md 생성 (전체 인덱스)**
+- [ ] **Step 1: doc/gas_tranek/README.md 생성 (전체 인덱스)**
 
 ```bash
-cat > D:/LyraStarterGame/doc/gas/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/README.md << 'EOF'
 # GAS 학습 노트
 
 > 기반: [GASDocumentation (tranek)](cache/GASDocument_Readme.md)
@@ -114,7 +114,7 @@ EOF
 - [ ] **Step 2: 00_intro_setup.md 생성**
 
 ```bash
-cat > D:/LyraStarterGame/doc/gas/00_intro_setup.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/00_intro_setup.md << 'EOF'
 # GAS 소개 & 셋업
 
 > **GASDoc**: 1~3 · [원문 참조](cache/GASDocument_Readme.md)
@@ -139,7 +139,7 @@ EOF
 - [ ] **Step 3: 파일 확인**
 
 ```bash
-ls D:/LyraStarterGame/doc/gas/
+ls D:/LyraStarterGame/doc/gas_tranek/
 ```
 
 기대 결과: `README.md`, `00_intro_setup.md`, `cache/`
@@ -148,7 +148,7 @@ ls D:/LyraStarterGame/doc/gas/
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/README.md doc/gas/00_intro_setup.md
+git add doc/gas_tranek/README.md doc/gas_tranek/00_intro_setup.md
 git commit -m "docs: doc/gas 메인 인덱스 및 intro_setup 스캐폴딩"
 ```
 
@@ -157,20 +157,20 @@ git commit -m "docs: doc/gas 메인 인덱스 및 intro_setup 스캐폴딩"
 ## Task 3: ability_system_component/ 생성 (GASDoc 4.1)
 
 **Files:**
-- Create: `doc/gas/ability_system_component/README.md`
-- Create: `doc/gas/ability_system_component/01_replication_mode.md`
-- Create: `doc/gas/ability_system_component/02_setup_initialization.md`
+- Create: `doc/gas_tranek/ability_system_component/README.md`
+- Create: `doc/gas_tranek/ability_system_component/01_replication_mode.md`
+- Create: `doc/gas_tranek/ability_system_component/02_setup_initialization.md`
 
 - [ ] **Step 1: 폴더 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/ability_system_component
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/ability_system_component
 ```
 
 - [ ] **Step 2: README.md 생성**
 
 ```bash
-cat > D:/LyraStarterGame/doc/gas/ability_system_component/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/ability_system_component/README.md << 'EOF'
 # Ability System Component (4.1)
 
 > **GASDoc**: 4.1 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -185,7 +185,7 @@ EOF
 - [ ] **Step 3: 01_replication_mode.md 생성**
 
 ```bash
-cat > D:/LyraStarterGame/doc/gas/ability_system_component/01_replication_mode.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/ability_system_component/01_replication_mode.md << 'EOF'
 # Replication Mode
 
 > **GASDoc**: 4.1.1 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -204,7 +204,7 @@ EOF
 - [ ] **Step 4: 02_setup_initialization.md 생성**
 
 ```bash
-cat > D:/LyraStarterGame/doc/gas/ability_system_component/02_setup_initialization.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/ability_system_component/02_setup_initialization.md << 'EOF'
 # Setup & Initialization
 
 > **GASDoc**: 4.1.2 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -224,7 +224,7 @@ EOF
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/ability_system_component/
+git add doc/gas_tranek/ability_system_component/
 git commit -m "docs: ability_system_component 스캐폴딩 (4.1)"
 ```
 
@@ -233,17 +233,17 @@ git commit -m "docs: ability_system_component 스캐폴딩 (4.1)"
 ## Task 4: gameplay_tag/ 생성 (GASDoc 4.2)
 
 **Files:**
-- Create: `doc/gas/gameplay_tag/README.md`
-- Create: `doc/gas/gameplay_tag/01_basics.md`
-- Create: `doc/gas/gameplay_tag/02_responding_to_changes.md`
-- Create: `doc/gas/gameplay_tag/03_loading_from_plugin.md`
+- Create: `doc/gas_tranek/gameplay_tag/README.md`
+- Create: `doc/gas_tranek/gameplay_tag/01_basics.md`
+- Create: `doc/gas_tranek/gameplay_tag/02_responding_to_changes.md`
+- Create: `doc/gas_tranek/gameplay_tag/03_loading_from_plugin.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/gameplay_tag
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/gameplay_tag
 
-cat > D:/LyraStarterGame/doc/gas/gameplay_tag/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/gameplay_tag/README.md << 'EOF'
 # Gameplay Tag (4.2)
 
 > **GASDoc**: 4.2 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -255,7 +255,7 @@ cat > D:/LyraStarterGame/doc/gas/gameplay_tag/README.md << 'EOF'
 | [03 플러그인 로드](03_loading_from_plugin.md) | 4.2.2 | ini 파일에서 태그 등록 |
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/gameplay_tag/01_basics.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/gameplay_tag/01_basics.md << 'EOF'
 # GameplayTag 기초
 
 > **GASDoc**: 4.2 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -270,7 +270,7 @@ cat > D:/LyraStarterGame/doc/gas/gameplay_tag/01_basics.md << 'EOF'
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/gameplay_tag/02_responding_to_changes.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/gameplay_tag/02_responding_to_changes.md << 'EOF'
 # 태그 변화 감지
 
 > **GASDoc**: 4.2.1 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -285,7 +285,7 @@ cat > D:/LyraStarterGame/doc/gas/gameplay_tag/02_responding_to_changes.md << 'EO
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/gameplay_tag/03_loading_from_plugin.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/gameplay_tag/03_loading_from_plugin.md << 'EOF'
 # 플러그인 ini에서 태그 로드
 
 > **GASDoc**: 4.2.2 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -305,7 +305,7 @@ EOF
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/gameplay_tag/
+git add doc/gas_tranek/gameplay_tag/
 git commit -m "docs: gameplay_tag 스캐폴딩 (4.2)"
 ```
 
@@ -314,19 +314,19 @@ git commit -m "docs: gameplay_tag 스캐폴딩 (4.2)"
 ## Task 5: attribute/ 생성 (GASDoc 4.3)
 
 **Files:**
-- Create: `doc/gas/attribute/README.md`
-- Create: `doc/gas/attribute/01_definition.md`
-- Create: `doc/gas/attribute/02_base_current_value.md`
-- Create: `doc/gas/attribute/03_meta_attribute.md`
-- Create: `doc/gas/attribute/04_responding_to_changes.md`
-- Create: `doc/gas/attribute/05_derived_attribute.md`
+- Create: `doc/gas_tranek/attribute/README.md`
+- Create: `doc/gas_tranek/attribute/01_definition.md`
+- Create: `doc/gas_tranek/attribute/02_base_current_value.md`
+- Create: `doc/gas_tranek/attribute/03_meta_attribute.md`
+- Create: `doc/gas_tranek/attribute/04_responding_to_changes.md`
+- Create: `doc/gas_tranek/attribute/05_derived_attribute.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/attribute
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/attribute
 
-cat > D:/LyraStarterGame/doc/gas/attribute/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute/README.md << 'EOF'
 # Attribute (4.3)
 
 > **GASDoc**: 4.3 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -340,7 +340,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute/README.md << 'EOF'
 | [05 Derived Attribute](05_derived_attribute.md) | 4.3.5 | 다른 Attribute로부터 계산 |
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute/01_definition.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute/01_definition.md << 'EOF'
 # Attribute 정의
 
 > **GASDoc**: 4.3.1 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -355,7 +355,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute/01_definition.md << 'EOF'
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute/02_base_current_value.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute/02_base_current_value.md << 'EOF'
 # BaseValue vs CurrentValue
 
 > **GASDoc**: 4.3.2 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -370,7 +370,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute/02_base_current_value.md << 'EOF'
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute/03_meta_attribute.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute/03_meta_attribute.md << 'EOF'
 # Meta Attribute
 
 > **GASDoc**: 4.3.3 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -385,7 +385,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute/03_meta_attribute.md << 'EOF'
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute/04_responding_to_changes.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute/04_responding_to_changes.md << 'EOF'
 # Attribute 변화 감지
 
 > **GASDoc**: 4.3.4 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -400,7 +400,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute/04_responding_to_changes.md << 'EOF'
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute/05_derived_attribute.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute/05_derived_attribute.md << 'EOF'
 # Derived Attribute
 
 > **GASDoc**: 4.3.5 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -420,7 +420,7 @@ EOF
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/attribute/
+git add doc/gas_tranek/attribute/
 git commit -m "docs: attribute 스캐폴딩 (4.3)"
 ```
 
@@ -429,20 +429,20 @@ git commit -m "docs: attribute 스캐폴딩 (4.3)"
 ## Task 6: attribute_set/ 생성 (GASDoc 4.4)
 
 **Files:**
-- Create: `doc/gas/attribute_set/README.md`
-- Create: `doc/gas/attribute_set/01_definition_design.md`
-- Create: `doc/gas/attribute_set/02_item_attributes.md`
-- Create: `doc/gas/attribute_set/03_defining_initializing.md`
-- Create: `doc/gas/attribute_set/04_pre_attribute_change.md`
-- Create: `doc/gas/attribute_set/05_post_ge_execute.md`
-- Create: `doc/gas/attribute_set/06_aggregator_created.md`
+- Create: `doc/gas_tranek/attribute_set/README.md`
+- Create: `doc/gas_tranek/attribute_set/01_definition_design.md`
+- Create: `doc/gas_tranek/attribute_set/02_item_attributes.md`
+- Create: `doc/gas_tranek/attribute_set/03_defining_initializing.md`
+- Create: `doc/gas_tranek/attribute_set/04_pre_attribute_change.md`
+- Create: `doc/gas_tranek/attribute_set/05_post_ge_execute.md`
+- Create: `doc/gas_tranek/attribute_set/06_aggregator_created.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/attribute_set
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/attribute_set
 
-cat > D:/LyraStarterGame/doc/gas/attribute_set/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute_set/README.md << 'EOF'
 # AttributeSet (4.4)
 
 > **GASDoc**: 4.4 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -457,7 +457,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute_set/README.md << 'EOF'
 | [06 OnAttributeAggregatorCreated](06_aggregator_created.md) | 4.4.7 | Aggregator 커스터마이징 |
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute_set/01_definition_design.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute_set/01_definition_design.md << 'EOF'
 # AttributeSet 정의 & 설계
 
 > **GASDoc**: 4.4.1~4.4.2 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -472,7 +472,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute_set/01_definition_design.md << 'EOF'
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute_set/02_item_attributes.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute_set/02_item_attributes.md << 'EOF'
 # 아이템 Attribute 패턴
 
 > **GASDoc**: 4.4.2.3 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -487,7 +487,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute_set/02_item_attributes.md << 'EOF'
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute_set/03_defining_initializing.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute_set/03_defining_initializing.md << 'EOF'
 # Attribute 선언 & 초기화
 
 > **GASDoc**: 4.4.3~4.4.4 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -502,7 +502,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute_set/03_defining_initializing.md << 'E
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute_set/04_pre_attribute_change.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute_set/04_pre_attribute_change.md << 'EOF'
 # PreAttributeChange()
 
 > **GASDoc**: 4.4.5 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -517,7 +517,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute_set/04_pre_attribute_change.md << 'EO
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute_set/05_post_ge_execute.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute_set/05_post_ge_execute.md << 'EOF'
 # PostGameplayEffectExecute()
 
 > **GASDoc**: 4.4.6 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -532,7 +532,7 @@ cat > D:/LyraStarterGame/doc/gas/attribute_set/05_post_ge_execute.md << 'EOF'
 
 EOF
 
-cat > D:/LyraStarterGame/doc/gas/attribute_set/06_aggregator_created.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/attribute_set/06_aggregator_created.md << 'EOF'
 # OnAttributeAggregatorCreated()
 
 > **GASDoc**: 4.4.7 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -552,7 +552,7 @@ EOF
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/attribute_set/
+git add doc/gas_tranek/attribute_set/
 git commit -m "docs: attribute_set 스캐폴딩 (4.4)"
 ```
 
@@ -561,15 +561,15 @@ git commit -m "docs: attribute_set 스캐폴딩 (4.4)"
 ## Task 7: gameplay_effect/ 생성 (GASDoc 4.5)
 
 **Files:**
-- Create: `doc/gas/gameplay_effect/README.md`
-- Create: `doc/gas/gameplay_effect/01_definition.md` ~ `10_advanced.md`
+- Create: `doc/gas_tranek/gameplay_effect/README.md`
+- Create: `doc/gas_tranek/gameplay_effect/01_definition.md` ~ `10_advanced.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/gameplay_effect
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/gameplay_effect
 
-cat > D:/LyraStarterGame/doc/gas/gameplay_effect/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/gameplay_effect/README.md << 'EOF'
 # Gameplay Effect (4.5)
 
 > **GASDoc**: 4.5 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -603,7 +603,7 @@ do
   FILE=$(echo $i | cut -d'|' -f1)
   SECTION=$(echo $i | cut -d'|' -f2)
   TITLE=$(echo $i | cut -d'|' -f3)
-  cat > D:/LyraStarterGame/doc/gas/gameplay_effect/${FILE}.md << EOF
+  cat > D:/LyraStarterGame/doc/gas_tranek/gameplay_effect/${FILE}.md << EOF
 # ${TITLE}
 
 > **GASDoc**: ${SECTION} · [원문 참조](../cache/GASDocument_Readme.md)
@@ -623,7 +623,7 @@ done
 - [ ] **Step 2: 파일 수 확인 (README 포함 11개)**
 
 ```bash
-ls D:/LyraStarterGame/doc/gas/gameplay_effect/ | wc -l
+ls D:/LyraStarterGame/doc/gas_tranek/gameplay_effect/ | wc -l
 ```
 
 기대 결과: `11`
@@ -632,7 +632,7 @@ ls D:/LyraStarterGame/doc/gas/gameplay_effect/ | wc -l
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/gameplay_effect/
+git add doc/gas_tranek/gameplay_effect/
 git commit -m "docs: gameplay_effect 스캐폴딩 (4.5)"
 ```
 
@@ -641,15 +641,15 @@ git commit -m "docs: gameplay_effect 스캐폴딩 (4.5)"
 ## Task 8: gameplay_ability/ 생성 (GASDoc 4.6)
 
 **Files:**
-- Create: `doc/gas/gameplay_ability/README.md`
-- Create: `doc/gas/gameplay_ability/01_definition.md` ~ `09_advanced.md`
+- Create: `doc/gas_tranek/gameplay_ability/README.md`
+- Create: `doc/gas_tranek/gameplay_ability/01_definition.md` ~ `09_advanced.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/gameplay_ability
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/gameplay_ability
 
-cat > D:/LyraStarterGame/doc/gas/gameplay_ability/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/gameplay_ability/README.md << 'EOF'
 # Gameplay Ability (4.6)
 
 > **GASDoc**: 4.6 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -681,7 +681,7 @@ do
   FILE=$(echo $i | cut -d'|' -f1)
   SECTION=$(echo $i | cut -d'|' -f2)
   TITLE=$(echo $i | cut -d'|' -f3)
-  cat > D:/LyraStarterGame/doc/gas/gameplay_ability/${FILE}.md << EOF
+  cat > D:/LyraStarterGame/doc/gas_tranek/gameplay_ability/${FILE}.md << EOF
 # ${TITLE}
 
 > **GASDoc**: ${SECTION} · [원문 참조](../cache/GASDocument_Readme.md)
@@ -702,7 +702,7 @@ done
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/gameplay_ability/
+git add doc/gas_tranek/gameplay_ability/
 git commit -m "docs: gameplay_ability 스캐폴딩 (4.6)"
 ```
 
@@ -711,15 +711,15 @@ git commit -m "docs: gameplay_ability 스캐폴딩 (4.6)"
 ## Task 9: ability_task/ 생성 (GASDoc 4.7)
 
 **Files:**
-- Create: `doc/gas/ability_task/README.md`
-- Create: `doc/gas/ability_task/01_definition.md` ~ `04_root_motion.md`
+- Create: `doc/gas_tranek/ability_task/README.md`
+- Create: `doc/gas_tranek/ability_task/01_definition.md` ~ `04_root_motion.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/ability_task
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/ability_task
 
-cat > D:/LyraStarterGame/doc/gas/ability_task/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/ability_task/README.md << 'EOF'
 # Ability Task (4.7)
 
 > **GASDoc**: 4.7 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -741,7 +741,7 @@ do
   FILE=$(echo $i | cut -d'|' -f1)
   SECTION=$(echo $i | cut -d'|' -f2)
   TITLE=$(echo $i | cut -d'|' -f3)
-  cat > D:/LyraStarterGame/doc/gas/ability_task/${FILE}.md << EOF
+  cat > D:/LyraStarterGame/doc/gas_tranek/ability_task/${FILE}.md << EOF
 # ${TITLE}
 
 > **GASDoc**: ${SECTION} · [원문 참조](../cache/GASDocument_Readme.md)
@@ -762,7 +762,7 @@ done
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/ability_task/
+git add doc/gas_tranek/ability_task/
 git commit -m "docs: ability_task 스캐폴딩 (4.7)"
 ```
 
@@ -771,15 +771,15 @@ git commit -m "docs: ability_task 스캐폴딩 (4.7)"
 ## Task 10: gameplay_cue/ 생성 (GASDoc 4.8)
 
 **Files:**
-- Create: `doc/gas/gameplay_cue/README.md`
-- Create: `doc/gas/gameplay_cue/01_definition_trigger.md` ~ `05_events_reliability.md`
+- Create: `doc/gas_tranek/gameplay_cue/README.md`
+- Create: `doc/gas_tranek/gameplay_cue/01_definition_trigger.md` ~ `05_events_reliability.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/gameplay_cue
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/gameplay_cue
 
-cat > D:/LyraStarterGame/doc/gas/gameplay_cue/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/gameplay_cue/README.md << 'EOF'
 # Gameplay Cue (4.8)
 
 > **GASDoc**: 4.8 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -803,7 +803,7 @@ do
   FILE=$(echo $i | cut -d'|' -f1)
   SECTION=$(echo $i | cut -d'|' -f2)
   TITLE=$(echo $i | cut -d'|' -f3)
-  cat > D:/LyraStarterGame/doc/gas/gameplay_cue/${FILE}.md << EOF
+  cat > D:/LyraStarterGame/doc/gas_tranek/gameplay_cue/${FILE}.md << EOF
 # ${TITLE}
 
 > **GASDoc**: ${SECTION} · [원문 참조](../cache/GASDocument_Readme.md)
@@ -824,7 +824,7 @@ done
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/gameplay_cue/
+git add doc/gas_tranek/gameplay_cue/
 git commit -m "docs: gameplay_cue 스캐폴딩 (4.8)"
 ```
 
@@ -833,14 +833,14 @@ git commit -m "docs: gameplay_cue 스캐폴딩 (4.8)"
 ## Task 11: ability_system_globals/ 생성 (GASDoc 4.9)
 
 **Files:**
-- Create: `doc/gas/ability_system_globals/README.md`
+- Create: `doc/gas_tranek/ability_system_globals/README.md`
 
 - [ ] **Step 1: 폴더 및 파일 생성 (내용 포함 — 하위 섹션이 4.9.1 하나뿐)**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/ability_system_globals
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/ability_system_globals
 
-cat > D:/LyraStarterGame/doc/gas/ability_system_globals/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/ability_system_globals/README.md << 'EOF'
 # Ability System Globals (4.9)
 
 > **GASDoc**: 4.9 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -862,7 +862,7 @@ EOF
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/ability_system_globals/
+git add doc/gas_tranek/ability_system_globals/
 git commit -m "docs: ability_system_globals 스캐폴딩 (4.9)"
 ```
 
@@ -871,15 +871,15 @@ git commit -m "docs: ability_system_globals 스캐폴딩 (4.9)"
 ## Task 12: network_prediction/ 생성 (GASDoc 4.10)
 
 **Files:**
-- Create: `doc/gas/network_prediction/README.md`
-- Create: `doc/gas/network_prediction/01_prediction_key.md` ~ `03_future_npp.md`
+- Create: `doc/gas_tranek/network_prediction/README.md`
+- Create: `doc/gas_tranek/network_prediction/01_prediction_key.md` ~ `03_future_npp.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/network_prediction
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/network_prediction
 
-cat > D:/LyraStarterGame/doc/gas/network_prediction/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/network_prediction/README.md << 'EOF'
 # Network Prediction (4.10)
 
 > **GASDoc**: 4.10 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -899,7 +899,7 @@ do
   FILE=$(echo $i | cut -d'|' -f1)
   SECTION=$(echo $i | cut -d'|' -f2)
   TITLE=$(echo $i | cut -d'|' -f3)
-  cat > D:/LyraStarterGame/doc/gas/network_prediction/${FILE}.md << EOF
+  cat > D:/LyraStarterGame/doc/gas_tranek/network_prediction/${FILE}.md << EOF
 # ${TITLE}
 
 > **GASDoc**: ${SECTION} · [원문 참조](../cache/GASDocument_Readme.md)
@@ -920,7 +920,7 @@ done
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/network_prediction/
+git add doc/gas_tranek/network_prediction/
 git commit -m "docs: network_prediction 스캐폴딩 (4.10)"
 ```
 
@@ -929,15 +929,15 @@ git commit -m "docs: network_prediction 스캐폴딩 (4.10)"
 ## Task 13: targeting/ 생성 (GASDoc 4.11)
 
 **Files:**
-- Create: `doc/gas/targeting/README.md`
-- Create: `doc/gas/targeting/01_target_data.md` ~ `04_containers.md`
+- Create: `doc/gas_tranek/targeting/README.md`
+- Create: `doc/gas_tranek/targeting/01_target_data.md` ~ `04_containers.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/targeting
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/targeting
 
-cat > D:/LyraStarterGame/doc/gas/targeting/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/targeting/README.md << 'EOF'
 # Targeting (4.11)
 
 > **GASDoc**: 4.11 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -959,7 +959,7 @@ do
   FILE=$(echo $i | cut -d'|' -f1)
   SECTION=$(echo $i | cut -d'|' -f2)
   TITLE=$(echo $i | cut -d'|' -f3)
-  cat > D:/LyraStarterGame/doc/gas/targeting/${FILE}.md << EOF
+  cat > D:/LyraStarterGame/doc/gas_tranek/targeting/${FILE}.md << EOF
 # ${TITLE}
 
 > **GASDoc**: ${SECTION} · [원문 참조](../cache/GASDocument_Readme.md)
@@ -980,7 +980,7 @@ done
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/targeting/
+git add doc/gas_tranek/targeting/
 git commit -m "docs: targeting 스캐폴딩 (4.11)"
 ```
 
@@ -989,17 +989,17 @@ git commit -m "docs: targeting 스캐폴딩 (4.11)"
 ## Task 14: common_patterns/ 생성 (GASDoc 5)
 
 **Files:**
-- Create: `doc/gas/common_patterns/README.md`
-- Create: `doc/gas/common_patterns/01_stun_sprint_ads.md`
-- Create: `doc/gas/common_patterns/02_lifesteal_crit.md`
-- Create: `doc/gas/common_patterns/03_misc.md`
+- Create: `doc/gas_tranek/common_patterns/README.md`
+- Create: `doc/gas_tranek/common_patterns/01_stun_sprint_ads.md`
+- Create: `doc/gas_tranek/common_patterns/02_lifesteal_crit.md`
+- Create: `doc/gas_tranek/common_patterns/03_misc.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/common_patterns
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/common_patterns
 
-cat > D:/LyraStarterGame/doc/gas/common_patterns/README.md << 'EOF'
+cat > D:/LyraStarterGame/doc/gas_tranek/common_patterns/README.md << 'EOF'
 # 공통 구현 패턴 (5)
 
 > **GASDoc**: 5 · [원문 참조](../cache/GASDocument_Readme.md)
@@ -1019,7 +1019,7 @@ do
   FILE=$(echo $i | cut -d'|' -f1)
   SECTION=$(echo $i | cut -d'|' -f2)
   TITLE=$(echo $i | cut -d'|' -f3)
-  cat > D:/LyraStarterGame/doc/gas/common_patterns/${FILE}.md << EOF
+  cat > D:/LyraStarterGame/doc/gas_tranek/common_patterns/${FILE}.md << EOF
 # ${TITLE}
 
 > **GASDoc**: ${SECTION} · [원문 참조](../cache/GASDocument_Readme.md)
@@ -1040,7 +1040,7 @@ done
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/common_patterns/
+git add doc/gas_tranek/common_patterns/
 git commit -m "docs: common_patterns 스캐폴딩 (GASDoc 5)"
 ```
 
@@ -1049,16 +1049,16 @@ git commit -m "docs: common_patterns 스캐폴딩 (GASDoc 5)"
 ## Task 15: reference/ 생성 (GASDoc 6~11)
 
 **Files:**
-- Create: `doc/gas/reference/debugging.md`
-- Create: `doc/gas/reference/optimization.md`
-- Create: `doc/gas/reference/quality_of_life.md`
-- Create: `doc/gas/reference/troubleshooting.md`
-- Create: `doc/gas/reference/dave_ratti_qa.md`
+- Create: `doc/gas_tranek/reference/debugging.md`
+- Create: `doc/gas_tranek/reference/optimization.md`
+- Create: `doc/gas_tranek/reference/quality_of_life.md`
+- Create: `doc/gas_tranek/reference/troubleshooting.md`
+- Create: `doc/gas_tranek/reference/dave_ratti_qa.md`
 
 - [ ] **Step 1: 폴더 및 파일 일괄 생성**
 
 ```bash
-mkdir -p D:/LyraStarterGame/doc/gas/reference
+mkdir -p D:/LyraStarterGame/doc/gas_tranek/reference
 
 for i in \
   "debugging|6|GAS 디버깅" \
@@ -1070,7 +1070,7 @@ do
   FILE=$(echo $i | cut -d'|' -f1)
   SECTION=$(echo $i | cut -d'|' -f2)
   TITLE=$(echo $i | cut -d'|' -f3)
-  cat > D:/LyraStarterGame/doc/gas/reference/${FILE}.md << EOF
+  cat > D:/LyraStarterGame/doc/gas_tranek/reference/${FILE}.md << EOF
 # ${TITLE}
 
 > **GASDoc**: ${SECTION} · [원문 참조](../cache/GASDocument_Readme.md)
@@ -1090,7 +1090,7 @@ done
 - [ ] **Step 2: 파일 수 확인 (5개)**
 
 ```bash
-ls D:/LyraStarterGame/doc/gas/reference/
+ls D:/LyraStarterGame/doc/gas_tranek/reference/
 ```
 
 기대 결과: `dave_ratti_qa.md  debugging.md  optimization.md  quality_of_life.md  troubleshooting.md`
@@ -1099,7 +1099,7 @@ ls D:/LyraStarterGame/doc/gas/reference/
 
 ```bash
 cd D:/LyraStarterGame
-git add doc/gas/reference/
+git add doc/gas_tranek/reference/
 git commit -m "docs: reference 스캐폴딩 (GASDoc 6~11)"
 ```
 
@@ -1124,34 +1124,34 @@ find D:/LyraStarterGame/doc/gas -type d | sort
 기대 결과:
 ```
 doc/gas
-doc/gas/ability_system_component
-doc/gas/ability_system_globals
-doc/gas/ability_task
-doc/gas/attribute
-doc/gas/attribute_set
-doc/gas/cache
-doc/gas/common_patterns
-doc/gas/gameplay_ability
-doc/gas/gameplay_cue
-doc/gas/gameplay_effect
-doc/gas/gameplay_tag
-doc/gas/network_prediction
-doc/gas/reference
-doc/gas/targeting
+doc/gas_tranek/ability_system_component
+doc/gas_tranek/ability_system_globals
+doc/gas_tranek/ability_task
+doc/gas_tranek/attribute
+doc/gas_tranek/attribute_set
+doc/gas_tranek/cache
+doc/gas_tranek/common_patterns
+doc/gas_tranek/gameplay_ability
+doc/gas_tranek/gameplay_cue
+doc/gas_tranek/gameplay_effect
+doc/gas_tranek/gameplay_tag
+doc/gas_tranek/network_prediction
+doc/gas_tranek/reference
+doc/gas_tranek/targeting
 ```
 
 - [ ] **Step 3: 샘플 파일 내용 확인 (템플릿 형식 검증)**
 
 ```bash
-cat D:/LyraStarterGame/doc/gas/gameplay_effect/01_definition.md
+cat D:/LyraStarterGame/doc/gas_tranek/gameplay_effect/01_definition.md
 ```
 
 기대 결과: `# GE 정의` 헤더, GASDoc 섹션 레퍼런스, `## 개념 요약`, `## 내 분석` 섹션 존재
 
-- [ ] **Step 4: doc/gas/README.md 링크 확인**
+- [ ] **Step 4: doc/gas_tranek/README.md 링크 확인**
 
 ```bash
-cat D:/LyraStarterGame/doc/gas/README.md
+cat D:/LyraStarterGame/doc/gas_tranek/README.md
 ```
 
 - [ ] **Step 5: 최종 커밋 (필요 시 누락된 파일 추가)**
@@ -1159,6 +1159,6 @@ cat D:/LyraStarterGame/doc/gas/README.md
 ```bash
 cd D:/LyraStarterGame
 git status
-git add -A doc/gas/
+git add -A doc/gas_tranek/
 git commit -m "docs: doc/gas 전체 구조 재편 완료 — GASDoc 기반 스캐폴딩"
 ```

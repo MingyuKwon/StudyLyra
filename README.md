@@ -28,7 +28,7 @@ GAS 학습 분석
 
 | 폴더 | 내용 |
 |------|------|
-| [doc/gas/](doc/gas/) | GAS 개념 학습 노트 (원리, API, 동작 방식) |
+| [doc/gas_tranek/](doc/gas_tranek/) | GAS 개념 학습 노트 (원리, API, 동작 방식) |
 | [doc/unrealCore/](doc/unrealCore/) | 언리얼 엔진 코어 시스템 분석 (입력 파이프라인 등) |
 | [doc/unrealCpp/](doc/unrealCpp/) | Unreal C++ 유틸리티 — 컨테이너, 자료구조 |
 | [doc/LyraImpl/](doc/LyraImpl/) | Lyra 소스 코드 구현 분석 (입력, 시스템 흐름 등) |
@@ -38,22 +38,22 @@ GAS 학습 분석
 
 ## GAS 학습 문서
 
-> 상세 인덱스: [doc/gas/README.md](doc/gas/README.md)
+> 상세 인덱스: [doc/gas_tranek/README.md](doc/gas_tranek/README.md)
 
 | 폴더 | GASDoc | 내용 |
 |------|--------|------|
-| [AbilitySystemComponent](doc/gas/ability_system_component/README.md) | 4.1 | ASC 역할, Replication Mode, 초기화 |
-| [GameplayTag](doc/gas/gameplay_tag/README.md) | 4.2 | 태그 계층, 변화 감지 |
-| [Attribute](doc/gas/attribute/README.md) | 4.3 | Attribute 타입, Base/Current, Meta |
-| [AttributeSet](doc/gas/attribute_set/README.md) | 4.4 | AttributeSet 설계, 콜백 |
-| [GameplayEffect](doc/gas/gameplay_effect/README.md) | 4.5 | GE 타입, Modifier, MMC, ExecCalc |
-| [GameplayAbility](doc/gas/gameplay_ability/README.md) | 4.6 | GA 생명주기, 입력, 태그 |
-| [AbilityTask](doc/gas/ability_task/README.md) | 4.7 | Task 생명주기, 커스텀 |
-| [GameplayCue](doc/gas/gameplay_cue/README.md) | 4.8 | Cue 트리거, Manager |
-| [AbilitySystemGlobals](doc/gas/ability_system_globals/README.md) | 4.9 | 전역 설정, InitGlobalData |
-| [NetworkPrediction](doc/gas/network_prediction/README.md) | 4.10 | Prediction Key, Window |
-| [Targeting](doc/gas/targeting/README.md) | 4.11 | TargetData, TargetActor |
-| [공통 패턴](doc/gas/common_patterns/README.md) | 5 | Stun, Sprint, Lifesteal 등 구현 예시 |
+| [AbilitySystemComponent](doc/gas_tranek/ability_system_component/README.md) | 4.1 | ASC 역할, Replication Mode, 초기화 |
+| [GameplayTag](doc/gas_tranek/gameplay_tag/README.md) | 4.2 | 태그 계층, 변화 감지 |
+| [Attribute](doc/gas_tranek/attribute/README.md) | 4.3 | Attribute 타입, Base/Current, Meta |
+| [AttributeSet](doc/gas_tranek/attribute_set/README.md) | 4.4 | AttributeSet 설계, 콜백 |
+| [GameplayEffect](doc/gas_tranek/gameplay_effect/README.md) | 4.5 | GE 타입, Modifier, MMC, ExecCalc |
+| [GameplayAbility](doc/gas_tranek/gameplay_ability/README.md) | 4.6 | GA 생명주기, 입력, 태그 |
+| [AbilityTask](doc/gas_tranek/ability_task/README.md) | 4.7 | Task 생명주기, 커스텀 |
+| [GameplayCue](doc/gas_tranek/gameplay_cue/README.md) | 4.8 | Cue 트리거, Manager |
+| [AbilitySystemGlobals](doc/gas_tranek/ability_system_globals/README.md) | 4.9 | 전역 설정, InitGlobalData |
+| [NetworkPrediction](doc/gas_tranek/network_prediction/README.md) | 4.10 | Prediction Key, Window |
+| [Targeting](doc/gas_tranek/targeting/README.md) | 4.11 | TargetData, TargetActor |
+| [공통 패턴](doc/gas_tranek/common_patterns/README.md) | 5 | Stun, Sprint, Lifesteal 등 구현 예시 |
 
 ---
 
@@ -83,9 +83,9 @@ GAS 학습 분석
 
 | 문서 | 내용 |
 |------|------|
-| [디버깅](doc/gas/reference/debugging.md) | showdebug abilitysystem, GAS 로그, 콘솔 명령 |
-| [최적화](doc/gas/reference/optimization.md) | ASC Replication Mode, GC 최적화 패턴 |
-| [Quality of Life](doc/gas/reference/quality_of_life.md) | Batch GE, Generic Tag Response, FGameplayEffectContextHandle 확장 |
-| [ASC Replicated Containers](doc/gas/reference/asc_replicated_containers.md) | FActiveGameplayEffectsContainer, FGameplayAbilitySpecContainer 복제 구조 |
-| [Dave Ratti Q&A](doc/gas/reference/dave_ratti_qa.md) | GAS 개발자 Dave Ratti의 공식 Q&A 정리 |
-| [트러블슈팅](doc/gas/reference/troubleshooting.md) | 흔한 GAS 오류 및 해결책 |
+| [디버깅](doc/gas_tranek/reference/debugging.md) | showdebug abilitysystem, GAS 로그, 콘솔 명령 |
+| [최적화](doc/gas_tranek/reference/optimization.md) | ASC Replication Mode, GC 최적화 패턴 |
+| [Quality of Life](doc/gas_tranek/reference/quality_of_life.md) | Batch GE, Generic Tag Response, FGameplayEffectContextHandle 확장 |
+| [ASC Replicated Containers](doc/gas_tranek/reference/asc_replicated_containers.md) | FActiveGameplayEffectsContainer, FGameplayAbilitySpecContainer 복제 구조 |
+| [Dave Ratti Q&A](doc/gas_tranek/reference/dave_ratti_qa.md) | GAS 개발자 Dave Ratti의 공식 Q&A 정리 |
+| [트러블슈팅](doc/gas_tranek/reference/troubleshooting.md) | 흔한 GAS 오류 및 해결책 |

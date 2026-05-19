@@ -1,13 +1,13 @@
 # Design: doc/gas 폴더 구조 재설계
 
 **날짜**: 2026-04-23  
-**목적**: `doc/gas/` 폴더를 GASDocumentation(tranek) README를 뼈대로 삼아 완전히 새로 구성. 각 파일에 GASDoc 요약 + 개인 분석을 함께 담는 구조.
+**목적**: `doc/gas_tranek/` 폴더를 GASDocumentation(tranek) README를 뼈대로 삼아 완전히 새로 구성. 각 파일에 GASDoc 요약 + 개인 분석을 함께 담는 구조.
 
 ---
 
 ## 배경
 
-- 기존 `doc/gas/` 파일들은 삭제하고 새로 시작 (리셋)
+- 기존 `doc/gas_tranek/` 파일들은 삭제하고 새로 시작 (리셋)
 - `GASDocument_Readme.md` (3705줄, tranek 원문)가 기준
 - 원문 파일은 `cache/` 폴더로 이동 보관
 
@@ -16,7 +16,7 @@
 ## 전체 폴더 구조
 
 ```
-doc/gas/
+doc/gas_tranek/
 ├── README.md                        ← 전체 인덱스
 ├── cache/
 │   ├── GASDocument_Readme.md        ← 원문 (이동)
@@ -211,7 +211,7 @@ doc/gas/
 
 ## 기존 파일 처리
 
-- `doc/gas/` 내 기존 폴더/파일 전체 삭제 (리셋)
+- `doc/gas_tranek/` 내 기존 폴더/파일 전체 삭제 (리셋)
 - 예외: `cache/gas_doc_cache.md` 유지
 - `GASDocument_Readme.md` → `cache/GASDocument_Readme.md` 이동
 
@@ -224,5 +224,5 @@ doc/gas/
 3. 새 폴더 생성
 4. 각 폴더 README.md 생성
 5. 각 폴더 내 번호 파일 생성 (빈 템플릿으로)
-6. `doc/gas/README.md` (전체 인덱스) 생성
+6. `doc/gas_tranek/README.md` (전체 인덱스) 생성
 7. `00_intro_setup.md` 생성

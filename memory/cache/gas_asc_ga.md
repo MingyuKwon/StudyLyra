@@ -169,7 +169,7 @@ UAbilitySystemGlobals& Globals = UAbilitySystemGlobals::Get();
 ## 38. GA Tags — Source / Owner / Target 구분 & 두 실행 경로
 
 **출처**: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp:1786`
-**상세 문서**: `doc/gas/gameplay_ability/06_tags.md`
+**상세 문서**: `doc/gas_tranek/gameplay_ability/06_tags.md`
 
 ### Source / Owner / Target 구분
 
