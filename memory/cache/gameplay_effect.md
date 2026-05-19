@@ -211,3 +211,90 @@ Spec.Def->OnApplied(...)
 
 "GE에 로직을 넣지 말라" = `UGameplayEffect` 서브클래싱해서 훅을 오버라이드하지 말라는 의미.
 실제 로직은 `GEComponents` 안의 `UGameplayEffectComponent` 서브클래스에 넣는다.
+
+---
+
+## FGameplayEffectContext::SourceObject 복제 조건
+
+> 소스: `GameplayAbilities/Public/GameplayEffectTypes.h:339,467`, `Private/GameplayEffectTypes.cpp:269~325`
+
+`SourceObject`는 `NetSerialize`에 포함되어 있으나, `bReplicateSourceObject` 플래그가 `true`일 때만 실제로 직렬화된다.
+
+```cpp
+// 저장 시 (서버)
+if (bReplicateSourceObject && SourceObject.IsValid())
+    RepBits |= 1 << 3;
+
+if (RepBits & (1 << 3))
+    Ar << SourceObject;
+```
+
+`bReplicateSourceObject` 기본값은 `false`. `AddSourceObject()`를 통해서만 `true`로 설정된다:
+
+```cpp
+virtual void AddSourceObject(const UObject* NewSourceObject)
+{
+    SourceObject = MakeWeakObjectPtr(const_cast<UObject*>(NewSourceObject));
+    bReplicateSourceObject = NewSourceObject && NewSourceObject->IsSupportedForNetworking();
+}
+```
+
+| 상황 | 복제 여부 |
+|---|---|
+| `AddSourceObject(네트워크 지원 오브젝트)` | O |
+| `AddSourceObject(네트워크 미지원 오브젝트)` | X — `IsSupportedForNetworking()` 실패 |
+| `SourceObject = ...` 직접 할당 | X — `bReplicateSourceObject` false 그대로 |
+
+`TWeakObjectPtr` 타입은 복제 여부와 무관. 복제는 `bReplicateSourceObject` 플래그가 결정한다.
+
+---
+
+## 커스텀 FGameplayEffectContext 서브클래스에서 필드 복제하기
+
+> 소스: `Source/LyraGame/AbilitySystem/LyraGameplayEffectContext.h/.cpp`
+
+### 복제하려면 NetSerialize 오버라이드 필수
+
+```cpp
+bool FLyraGameplayEffectContext::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+{
+    FGameplayEffectContext::NetSerialize(Ar, Map, bOutSuccess);  // 부모 필드 먼저
+    // 추가 필드를 여기서 Ar << 로 직렬화
+    return true;
+}
+```
+
+### NetSerialize 외에 반드시 함께 구현해야 할 것들
+
+```cpp
+// 1. GAS 타입 식별
+virtual UScriptStruct* GetScriptStruct() const override
+{ return FLyraGameplayEffectContext::StaticStruct(); }
+
+// 2. 복사 시 커스텀 필드 포함
+virtual FGameplayEffectContext* Duplicate() const override { ... }
+
+// 3. TStructOpsTypeTraits 특수화
+template<>
+struct TStructOpsTypeTraits<FLyraGameplayEffectContext>
+    : public TStructOpsTypeTraitsBase2<FLyraGameplayEffectContext>
+{
+    enum { WithNetSerializer = true, WithCopy = true };
+};
+```
+
+### Lyra의 실제 선택 — 추가 필드 둘 다 복제 안 함
+
+- `CartridgeID (int32)`: "Not serialized for post-activation use" — 발사 시점에만 의미 있어 이후 불필요
+- `AbilitySourceObject (TWeakObjectPtr)`: "NOT replicated currently" — 서버 전용으로만 사용
+
+### Iris 복제 주의사항
+
+`NetSerialize()`에 실제로 추가 필드를 넣으면 Iris용 커스텀 NetSerializer도 별도 구현해야 한다.
+Lyra가 두 필드를 복제하지 않는 이유 중 하나가 이 Iris 부담을 피하기 위한 것으로 보인다.
+
+```cpp
+// NetSerialize를 기본 그대로 두면 이 포워딩 매크로로 Iris 지원 가능
+UE_NET_IMPLEMENT_FORWARDING_NETSERIALIZER_AND_REGISTRY_DELEGATES(LyraGameplayEffectContext, FGameplayEffectContextNetSerializer);
+// NetSerialize를 수정하면 위 매크로 대신 커스텀 Iris NetSerializer 직접 구현 필요
+```
