@@ -12,6 +12,7 @@ Lyra와 무관한 UE5 엔진 자체 시스템 분석 문서 모음.
 | [enhanced_input.md](enhanced_input.md) | UEnhancedInputLocalPlayerSubsystem(IMC 관리) vs UEnhancedInputComponent(Action 바인딩) 역할 분리 |
 | [plugin/](plugin/README.md) | 엔진 공식 플러그인 분석 (ModularGameplay 등) |
 | [replication/](replication/README.md) | 복제 시스템 — NetDriver 파이프라인, Actor 복제, Shadow Buffer, Relevancy |
+| [network/](network/README.md) | 네트워크 기초 — RPC vs Property Replication Owner 체인 차이, Controller 없는 NPC 제약 |
 | [string_types.md](string_types.md) | FString · FName · FText — 내부 구조, 비교 속도, 용도 구분, 타입 간 변환 |
 | [delegate/](delegate/README.md) | Delegate — Single/Multicast/Dynamic 종류, 선언·바인딩·실행, 내부 구현, 안전성 |
 | [world_framework.md](world_framework.md) | UWorld · AWorldSettings · GameMode · GameState — 역할 구분, 생성 체인, Lyra Experience 연결 |
