@@ -150,3 +150,28 @@ void ULabEffectContextTestExecution::Execute_Implementation(
 
 Epic의 프로젝트에서는 Context 내의 모든 객체 포인터를 `TWeakObjectPtr`로 선언해 이 사실을 명시한다.
 기반 클래스인 `FGameplayEffectContext`의 모든 객체 포인터도 `TWeakObjectPtr`이다.
+
+### GC가 도달하지 못하는 이유
+
+일반 `USTRUCT`에서 `UPROPERTY()` 포인터가 GC를 막는다는 것은 맞다.
+하지만 `FGameplayEffectContext`는 `FGameplayEffectContextHandle` 안에 `TSharedPtr`로 보관된다.
+
+```cpp
+// FGameplayEffectContextHandle 내부 (GameplayEffectTypes.h)
+TSharedPtr<FGameplayEffectContext> Data;  // UPROPERTY 없음
+```
+
+`TSharedPtr`에는 `UPROPERTY`를 붙일 수 없다.
+GC는 `UPROPERTY`로 표시된 경로만 따라가므로, `Data` 필드에서 경로가 끊겨 `FGameplayEffectContext` 내부까지 아예 도달하지 못한다.
+
+```
+GC 스캔 경로:
+FGameplayEffectSpec        (UPROPERTY)
+  → FGameplayEffectContextHandle  (UPROPERTY)
+    → TSharedPtr<FGameplayEffectContext>  ← 여기서 끊김 (UPROPERTY 아님)
+      → FGameplayEffectContext 내부 UPROPERTY  ← 스캔 안 됨
+```
+
+따라서 Context 내부 필드에 `UPROPERTY`를 붙여도 GC 보호 효과가 없다.
+Epic이 `TWeakObjectPtr`을 쓰는 것은 GC를 막을 수 없다는 사실을 코드로 명시하기 위해서다.
+`UPROPERTY()`로 강한 참조처럼 보이게 두는 것보다, `TWeakObjectPtr`로 "이 포인터는 GC 보호 안 됨"을 명확히 표현하는 것이다.
