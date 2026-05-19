@@ -24,3 +24,4 @@ GAS(Gameplay Ability System)는 게임플레이 관련 값과 동작을 체계�
 |------|------|
 | [01 Ability System Component](01_ability_system_component.md) | ASC를 붙일 수 있는 Actor, 복수 ASC 금지 이유 |
 | [02 Gameplay Effects](02_gameplay_effects.md) | HideFromModifiers, Instant vs Infinite GE, 추가 파라미터 전달, GE Context GC 주의사항 |
+| [03 Gameplay Abilities](gameplay_abilities/README.md) | 활성화 방법, 비용·쿨다운, 이벤트 기반 어빌리티, Input ID, 복제 주의사항 |
