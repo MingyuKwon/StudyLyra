@@ -72,6 +72,37 @@ Local Predicted 어빌리티는 클라이언트에서 호출하면 페이로드�
 GameplayEffectContext와 유사한 다형성 방식.
 프로젝트 전용 타겟팅 데이터를 담기 위한 용도.
 
+### ContextHandle / TargetDataHandle은 AbilitySpecHandle과 다르다
+
+이름에 "Handle"이 붙어 있어 `FGameplayAbilitySpecHandle`과 같은 방식으로 동작한다고 오해하기 쉽다.
+
+`FGameplayAbilitySpecHandle`은 `int32` ID 하나다. 양쪽에 이미 복제된 `ActivatableAbilities`가 있고, 그것을 가리키는 키만 RPC로 주고받는다.
+
+반면 이 둘은 **데이터를 직접 소유하는 래퍼**다.
+
+```cpp
+// FGameplayEffectContextHandle 내부
+TSharedPtr<FGameplayEffectContext> Data;
+
+// FGameplayAbilityTargetDataHandle 내부
+TArray<TSharedPtr<FGameplayAbilityTargetData>> Data;
+```
+
+`TSharedPtr` 복사는 레퍼런스 카운트만 올리고 같은 주소를 가리킨다. 그러나 RPC 전송 시에는 `NetSerialize`가 포인터가 아니라 **포인터가 가리키는 실제 데이터 내용**을 패킷에 직렬화한다.
+
+```cpp
+// 보내는 쪽: TSharedPtr에서 실제 데이터를 꺼내 패킷에 씀
+ScriptStruct->GetCppStructOps()->NetSerialize(Ar, Map, bOutSuccess, Data[i].Get());
+
+// 받는 쪽: 새 메모리를 할당하고 패킷에서 역직렬화해 채움
+FGameplayAbilityTargetData* NewData =
+    (FGameplayAbilityTargetData*)FMemory::Malloc(ScriptStruct->GetStructureSize());
+Data[i] = TSharedPtr<FGameplayAbilityTargetData>(NewData, ...);
+ScriptStruct->GetCppStructOps()->NetSerialize(Ar, Map, bOutSuccess, Data[i].Get());
+```
+
+받는 쪽은 어딘가에 저장된 원본을 찾는 게 아니라, 패킷에서 역직렬화해 새 인스턴스를 만든다. 따라서 사전 복제된 상태가 필요 없다. `TSharedPtr`은 네트워크 전송과 무관하고, 힙에 올라간 다형성 객체의 수명을 관리하는 도구일 뿐이다.
+
 ---
 
 ## 페이로드 전달 — Event 외의 방법
