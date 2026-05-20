@@ -220,6 +220,49 @@ const FGameplayTagContainer* TargetTags = TriggerEventData ? &TriggerEventData->
 
 ---
 
+## 39. FGameplayAbilitySpecHandle — 생성·복제·게임코드 저장
+
+> 출처:
+> - `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/GameplayAbilitySpecHandle.cpp:9`
+> - `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/GameplayAbilityTypes.cpp:327`
+> - `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp:280`
+> - `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent.cpp:1793`
+
+### 핸들 생성
+
+```cpp
+void FGameplayAbilitySpecHandle::GenerateNewHandle()
+{
+    static int32 GHandle = 1;  // 프로세스 로컬 정적 카운터
+    Handle = GHandle++;
+}
+```
+
+`FGameplayAbilitySpec` 생성자마다 호출. `GiveAbility()`는 서버 전용(`IsOwnerActorAuthoritative()` 체크) → **핸들은 서버 프로세스에서만 생성**.
+
+### 클라이언트가 핸들을 아는 방법 — ActivatableAbilities 복제
+
+```cpp
+DOREPLIFETIME_WITH_PARAMS_FAST(UAbilitySystemComponent, ActivatableAbilities, Params);
+```
+
+`ActivatableAbilities`(FGameplayAbilitySpecContainer) 전체 복제 → `FGameplayAbilitySpec.Handle` 포함 → **서버·클라이언트 핸들 값 항상 동일**.
+
+### "핸들을 복제 프로퍼티로 저장"의 의미
+
+GAS 내부 이야기가 아니라 **게임 코드 이야기**. `ActivatableAbilities`는 GAS가 자동 복제하지만, 게임 코드 변수는 그렇지 않음.
+
+```cpp
+// 서버: 핸들을 받아서 게임 코드 변수에 저장
+UPROPERTY(Replicated)
+FGameplayAbilitySpecHandle MyAbilityHandle;
+MyAbilityHandle = ASC->GiveAbility(Spec);
+```
+
+클라이언트에서 `TryActivateAbility(MyAbilityHandle)` 호출하려면 이 변수를 직접 복제해야 함. 대안: `ActivatableAbilities`에서 클래스/태그 검색으로 핸들을 꺼낼 수도 있음. Lyra `ULyraAbilitySet::FHandles`가 이 패턴의 실제 예.
+
+---
+
 ## 25. ULyraAbilityTagRelationshipMapping 전체 흐름
 
 > 출처: `AbilitySystem/LyraAbilityTagRelationshipMapping.h/cpp`, `LyraAbilitySystemComponent.cpp:356,379`, `Abilities/LyraGameplayAbility.cpp:316`, `Character/LyraPawnExtensionComponent.cpp:146`  
