@@ -7,7 +7,7 @@ GAS에서 복제되는 모든 정보는 `UAbilitySystemComponent` 멤버 변수�
 
 ---
 
-## 컨테이너 전체 목록
+## ASC에서 복제되는 컨테이너는 총 몇 개이며 각각 무엇을 담는가?
 
 ```cpp
 // 표준 복제 — UPROPERTY(Replicated), 서버→클라
@@ -37,7 +37,7 @@ FGameplayAbilityReplicatedDataContainer AbilityTargetDataMap; // TargetData + Ge
 
 ---
 
-## 한 눈에 비교
+## 6개 표준 복제 컨테이너와 AbilityTargetDataMap의 복제 방식·방향 차이는?
 
 | 컨테이너 | 담는 것 | 복제 방식 | 방향 |
 |---|---|---|---|
@@ -56,12 +56,12 @@ FGameplayAbilityReplicatedDataContainer AbilityTargetDataMap; // TargetData + Ge
 
 ---
 
-## AbilityTargetDataMap만 RPC를 쓰는 이유
+## AbilityTargetDataMap만 UPROPERTY(Replicated) 없이 RPC를 쓰는 이유는 무엇인가?
 
 나머지 6개는 **서버가 권위를 갖고 클라에 뿌리는** 단방향 데이터다.
 `AbilityTargetDataMap`은 다르다. 안에 담긴 두 종류의 데이터가 방향이 서로 다르다.
 
-### TargetData — 클라→서버 단방향
+### TargetData는 왜 클라→서버 단방향으로만 전송되는가?
 
 클라이언트가 로컬에서 레이캐스트·타게팅을 먼저 수행하고, 그 결과를 서버에 올려 검증받는다.
 

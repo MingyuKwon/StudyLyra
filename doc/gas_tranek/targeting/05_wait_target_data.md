@@ -340,7 +340,7 @@ void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCancelledCallback()
 
 ---
 
-## 전체 흐름 요약 (경로 A — 클래스 기반)
+## 클래스 기반 경로에서 클라이언트·서버 양쪽의 전체 흐름은 어떻게 되는가?
 
 ```
 [클라이언트]                                [서버]
@@ -371,7 +371,7 @@ TargetActor.TargetDataReadyDelegate 발화
 
 ---
 
-## Lyra가 WaitTargetData를 쓰지 않는 이유
+## Lyra의 히트스캔 무기가 WaitTargetData Task를 사용하지 않고 직접 구현하는 이유는?
 
 | | WaitTargetData | Lyra 히트스캔 |
 |--|----------------|---------------|
