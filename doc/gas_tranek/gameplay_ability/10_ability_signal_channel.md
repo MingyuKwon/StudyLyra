@@ -6,9 +6,7 @@
 
 ## EAbilityGenericReplicatedEvent란 무엇이며, 각 슬롯은 어떤 AbilityTask에 대응하는가?
 
-`EAbilityGenericReplicatedEvent`는 **활성화된 GA 인스턴스에 묶인 클라↔서버 양방향 신호 슬롯**이다.
-하나의 GA 인스턴스가 여러 이벤트를 동시에 기다릴 수 있도록 슬롯 배열(`GenericEvents[MAX]`)로 관리된다.
-슬롯은 고정 배열이라 미사용 슬롯도 항상 메모리에 존재하며, 동적 할당 오버헤드가 없다.
+활성화된 GA 인스턴스에 묶인 클라↔서버 양방향 신호 슬롯이다. 하나의 GA 인스턴스가 여러 이벤트를 동시에 기다릴 수 있도록 고정 배열(`GenericEvents[MAX]`)로 관리된다.
 
 ```cpp
 // GameplayAbilityTargetTypes.h:662
@@ -59,16 +57,11 @@ GA::ActivateAbility()
 
 ## GenericReplicatedEvent의 이벤트 상태는 어디에 어떻게 저장되는가?
 
-이벤트 상태는 ASC의 `AbilityTargetDataMap` (`FGameplayAbilityReplicatedDataContainer`)에 저장된다.
-이름과 달리 실제 구현은 `TArray<(Key, TSharedRef<Cache>)>` 기반 커스텀 컨테이너다.
+이벤트 상태는 ASC의 `AbilityTargetDataMap` (`FGameplayAbilityReplicatedDataContainer`)에 저장된다. 실제 구현은 `TArray<(Key, TSharedRef<Cache>)>` 기반 커스텀 컨테이너다.
 
-**키** — `AbilityHandle + PredictionKeyAtCreation(int32)`
+**키**: `AbilityHandle + PredictionKeyAtCreation(int32)` — 같은 GA를 빠르게 연타하면 각 활성화마다 PredictionKey가 다르므로, 인스턴스 간 이벤트가 충돌하지 않게 키에 포함한다.
 
-같은 GA를 빠르게 연타하면 각 활성화마다 PredictionKey가 다르다. 키에 포함시켜야 인스턴스 간 이벤트가 충돌하지 않는다.
-
-**값** — `FAbilityReplicatedDataCache`
-
-원래 `WaitTargetData`를 위해 설계됐고 나중에 GenericEvents가 합류했다. 이름이 "TargetDataMap"인 이유가 여기 있다.
+**값**: `FAbilityReplicatedDataCache`
 
 ```cpp
 struct FAbilityReplicatedDataCache
@@ -86,7 +79,7 @@ struct FAbilityReplicatedDataCache
 };
 ```
 
-**TMap 대신 TArray인 이유**: `Delegate.Broadcast()` 콜백 안에서 GA가 종료되면 `Remove()`가 호출된다. TMap이었다면 rehash로 메모리가 이동해 Broadcast 도중 포인터가 댕글링된다. `TSharedRef` + `TArray`로 관리하면 배열이 바뀌어도 참조는 안전하다.
+**TMap 대신 TArray인 이유**: `Delegate.Broadcast()` 콜백 안에서 GA가 종료되면 `Remove()`가 호출된다. TMap이었다면 rehash로 메모리가 이동해 Broadcast 도중 포인터가 댕글링된다. `TSharedRef` + `TArray`로 관리하면 배열이 바뀌어도 참조가 안전하다.
 
 ---
 
@@ -108,9 +101,7 @@ bool InvokeReplicatedEvent(EventType, Handle, PredKey, ...)
 }
 ```
 
-구독자가 없을 때 `bTriggered=true`만 저장하는 이유는 타이밍 레이스 방어다.
-서버에서 이벤트가 먼저 발동됐을 때 클라의 태스크가 아직 `Activate()`를 호출하지 않은 경우,
-나중에 `CallReplicatedEventDelegateIfSet()`으로 사후에 이벤트를 처리할 수 있다.
+구독자가 없을 때 `bTriggered=true`만 저장하는 이유는 타이밍 레이스 방어다. 서버에서 이벤트가 먼저 발동됐을 때 클라의 태스크가 아직 `Activate()`를 호출하지 않은 경우, 나중에 `CallReplicatedEventDelegateIfSet()`으로 사후에 이벤트를 처리할 수 있다.
 
 ### 각 GenericReplicatedEvent 슬롯은 누가 어떤 경로로 발동하는가?
 
@@ -130,7 +121,7 @@ ProcessAbilityInput() → AbilitySpecInputPressed()
 
 **GenericConfirm / GenericCancel의 특이한 경로**
 
-로컬 클라이언트는 `InvokeReplicatedEvent`를 거치지 않는다. `LocalInputConfirm()`이 별도의 `GenericLocalConfirmCallbacks` 델리게이트를 브로드캐스트하면 `WaitConfirmCancel`이 이를 받아 서버에 RPC를 보낸다. 서버 수신 경로에서만 `InvokeReplicatedEvent`가 발동된다.
+로컬 클라이언트는 `InvokeReplicatedEvent`를 거치지 않는다. `LocalInputConfirm()`이 별도의 `GenericLocalConfirmCallbacks` 델리게이트를 브로드캐스트하면 `WaitConfirmCancel`이 이를 받아 서버에 RPC를 보낸다.
 
 ```
 [클라] LocalInputConfirm()
@@ -160,7 +151,7 @@ ProcessAbilityInput() → AbilitySpecInputPressed()
 // 구독
 DelegateHandle = ASC->AbilityReplicatedEventDelegate(
     EAbilityGenericReplicatedEvent::InputPressed,
-    GetAbilitySpecHandle(),       // 이 GA 인스턴스에만 반응
+    GetAbilitySpecHandle(),
     GetActivationPredictionKey()
 ).AddUObject(this, &ThisClass::OnCallback);
 
@@ -191,9 +182,9 @@ ASC->AbilityReplicatedEventDelegate(InputPressed, Handle, PredKey).Remove(Delega
 
 ## GenericReplicatedEvent와 WaitGameplayEvent는 어떻게 다르며, 각각 언제 사용해야 하는가?
 
-GenericReplicatedEvent는 **이 GA 인스턴스와 클라/서버가 통신하는 전용 채널**이다. 키가 `(Handle + PredKey)`이므로 발동자가 GA의 핸들을 알아야 하고, 입력 처리 흐름은 해당 입력에 매핑된 GA의 핸들만 다루기 때문에 "GA_A 실행 중 B 입력 받기" 같은 크로스 신호에는 쓸 수 없다.
+`GenericReplicatedEvent`는 이 GA 인스턴스와 클라/서버가 통신하는 전용 채널이다. 키가 `(Handle + PredKey)`이므로 발동자가 GA의 핸들을 알아야 하고, 입력 처리 흐름은 해당 입력에 매핑된 GA의 핸들만 다루기 때문에 "GA_A 실행 중 B 입력 받기" 같은 크로스 신호에는 쓸 수 없다.
 
-`WaitGameplayEvent`는 Tag 기반이라 누가 발동하든 수신할 수 있지만, `HandleGameplayEvent`는 **로컬 전용**이다. RPC 메커니즘이 없어서 서버·클라 양쪽에서 발동하려면 개발자가 직접 처리해야 한다.
+`WaitGameplayEvent`는 Tag 기반이라 누가 발동하든 수신할 수 있지만, `HandleGameplayEvent`는 로컬 전용이다. 서버·클라 양쪽에서 발동하려면 개발자가 직접 처리해야 한다.
 
 | | `GenericReplicatedEvent` | `WaitGameplayEvent` |
 |---|---|---|
