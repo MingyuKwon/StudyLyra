@@ -198,6 +198,26 @@ const FGameplayTagContainer* TargetTags = TriggerEventData ? &TriggerEventData->
 - Source/Target Required/Blocked Tags 검사 활성화
 - 외부 컨텍스트(발신자+대상)가 있는 경우 (처형기, 콤보 연계, 무기 히트 반응)
 
+### TriggerEventData가 InternalTryActivateAbility까지 전달되는 이유
+
+> 출처: `C:/Program Files/Epic Games/UE_5.7/Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp:1677`
+
+`InternalTryActivateAbility`는 직접 활성화(`nullptr`)와 이벤트 트리거(`&EventData`) 두 경로를 하나로 처리한다. `TriggerEventData` 유무로 분기.
+
+**사용처 4곳:**
+
+1. **`ShouldAbilityRespondToEvent` (L1773)** — GA가 이벤트 내용을 보고 발동 거부 가능 (같은 태그라도 Instigator가 자신이면 무시 등)
+
+2. **`CanActivateAbility` Source/Target 태그 검사 (L1786)** — `nullptr`이면 검사 자체 생략. EventData 있을 때만 InstigatorTags/TargetTags 검사 활성화
+   ```cpp
+   const FGameplayTagContainer* SourceTags = TriggerEventData ? &TriggerEventData->InstigatorTags : nullptr;
+   const FGameplayTagContainer* TargetTags  = TriggerEventData ? &TriggerEventData->TargetTags  : nullptr;
+   ```
+
+3. **클라이언트 통보 RPC 분기 (L1870)** — EventData 있으면 `ClientActivateAbilitySucceedWithEventData`, 없으면 `ClientActivateAbilitySucceed`. 클라이언트도 동일 EventData로 실행해야 결과 일치
+
+4. **`CallActivateAbility`까지 전달 (L1891)** — GA 내부 `ActivateAbility`에서 `GetCurrentEventData()`로 꺼내 사용 가능. "어떤 이벤트로 활성화됐는지" GA 로직에서 참조
+
 ---
 
 ## 25. ULyraAbilityTagRelationshipMapping 전체 흐름
