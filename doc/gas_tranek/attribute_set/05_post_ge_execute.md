@@ -7,14 +7,20 @@
 <a name="concepts-as-postgameplayeffectexecute"></a>
 #### PostGameplayEffectExecute()는 언제 호출되며, PreAttributeChange()와 어떻게 역할이 나뉘는가?
 
-`PostGameplayEffectExecute(const FGameplayEffectModCallbackData & Data)`는 인스턴트 `GameplayEffect`에 의해 `Attribute`의 `BaseValue`가 변경된 **이후에만** 발동된다. `GameplayEffect`로 인한 `Attribute` 변경 시 추가적인 `Attribute` 조작을 수행하기에 적합한 위치다.
+`PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)`는 **Instant GE가 Attribute의 `BaseValue`를 변경한 직후**에만 호출된다.
 
-예를 들어, 샘플 프로젝트에서는 이 함수에서 최종 피해 `Meta Attribute`를 Health `Attribute`에서 차감한다. 방어막(Shield) `Attribute`가 있다면 먼저 방어막에서 피해를 차감하고 나머지를 Health에서 차감한다. 또한 샘플 프로젝트는 이 위치를 피격 반응 애니메이션 재생, 부유 피해 숫자(Floating Damage Numbers) 표시, 처치자에게 경험치와 골드 보상 지급에도 활용한다. 설계상 피해 `Meta Attribute`는 항상 인스턴트 `GameplayEffect`를 통해 전달되며, `Attribute` setter를 통해 직접 설정되지 않는다.
+| 함수 | 호출 시점 | 주요 용도 |
+|------|-----------|-----------|
+| `PreAttributeChange()` | `CurrentValue` 변경 직전 | 클램핑 |
+| `PostGameplayEffectExecute()` | Instant GE로 `BaseValue` 변경 직후 | 파생 로직, 게임플레이 이벤트 |
 
-Mana나 Stamina처럼 인스턴트 `GameplayEffect`로만 `BaseValue`가 변경되는 다른 `Attribute`들도 이 시점에 최대값에 해당하는 `Attribute`에 맞춰 클램핑할 수 있다.
+GE로 인한 Attribute 변경 후 추가 조작에 적합하다. 샘플 프로젝트의 사용 예시:
+- 피해 Meta Attribute를 Health에서 차감 (Shield가 있다면 Shield 먼저 차감)
+- 피격 반응 애니메이션 재생
+- 부유 피해 숫자(Floating Damage Numbers) 표시
+- 처치자에게 경험치/골드 지급
+- Mana, Stamina 등을 최대값 Attribute에 맞춰 클램핑
 
-> **참고**  
-> `PostGameplayEffectExecute()`가 호출될 때, `Attribute`의 변경은 이미 이루어진 상태이지만 아직 클라이언트에 복제되지 않은 상태다. 따라서 여기서 값을 클램핑해도 클라이언트에 두 번의 네트워크 업데이트가 발생하지 않는다. 클라이언트는 클램핑 이후의 값만 받게 된다.
+**중요**: `PostGameplayEffectExecute()` 호출 시점에 Attribute 변경은 이미 완료됐지만 아직 클라이언트에 복제되지 않은 상태다. 따라서 이 시점에 값을 클램핑해도 클라이언트에 두 번의 네트워크 업데이트가 발생하지 않는다. 클라이언트는 클램핑 이후의 최종값만 받는다.
 
 ---
-

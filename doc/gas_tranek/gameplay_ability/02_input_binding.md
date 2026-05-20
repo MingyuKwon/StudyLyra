@@ -10,8 +10,7 @@
 
 ### GASDoc의 레거시 입력 방식과 Lyra의 Enhanced Input 방식은 어떻게 다른가?
 
-GASDoc의 `enum`+`BindAbilityActivationToInputComponent()` 패턴은 **UE4 레거시 입력 시스템** 기반이다.
-Lyra는 **Enhanced Input System**으로 완전히 대체했으며, 입력 식별자도 정수 enum 대신 `GameplayTag`를 쓴다.
+GASDoc의 `enum`+`BindAbilityActivationToInputComponent()` 패턴은 UE4 레거시 입력 시스템 기반이다. Lyra는 Enhanced Input System으로 완전히 대체했으며, 입력 식별자도 정수 enum 대신 `GameplayTag`를 사용한다.
 
 | | GASDoc 방식 | Lyra 방식 |
 |---|---|---|
@@ -26,8 +25,7 @@ Lyra는 **Enhanced Input System**으로 완전히 대체했으며, 입력 식별
 
 ### Lyra는 어떻게 입력을 ASC에 바인딩하는가?
 
-`ULyraHeroComponent::InitializePlayerInput()`에서 Enhanced Input에 콜백을 등록한다.
-`ULyraInputConfig`(DataAsset)가 `InputAction → GameplayTag` 매핑 테이블 역할을 한다.
+`ULyraHeroComponent::InitializePlayerInput()`에서 Enhanced Input에 콜백을 등록한다. `ULyraInputConfig`(DataAsset)가 `InputAction → GameplayTag` 매핑 테이블 역할을 한다.
 
 ```cpp
 // LyraHeroComponent.cpp:283
@@ -60,8 +58,7 @@ PostProcessInput()   ← LyraPlayerController.cpp:376
 [프레임 끝]
 ```
 
-`AbilityInputTagPressed`는 Enhanced Input 단계에서 **큐에 쌓기만** 한다.
-`PostProcessInput`에서 이 프레임의 모든 입력이 수집된 뒤 일괄 처리하는 이유는, 같은 프레임에 Hold와 Press가 동시에 들어왔을 때 Hold가 어빌리티를 먼저 활성화하고 Press가 또 InputPressed 이벤트를 쏘는 중복을 방지하기 위해서다.
+`AbilityInputTagPressed`는 Enhanced Input 단계에서 큐에 쌓기만 한다. `PostProcessInput`에서 이 프레임의 모든 입력이 수집된 뒤 일괄 처리하는 이유는, 같은 프레임에 Hold와 Press가 동시에 들어왔을 때 Hold가 어빌리티를 먼저 활성화하고 Press가 또 InputPressed 이벤트를 쏘는 중복을 방지하기 위해서다.
 
 ---
 
@@ -127,13 +124,9 @@ enum class ELyraAbilityActivationPolicy : uint8
 
 ### 이미 실행 중인 GA에 추가 입력을 어떻게 전달하는가?
 
-GA가 실행 중일 때 입력을 추가로 받아야 하는 경우는 두 가지 메커니즘으로 나뉜다.
-
 #### GA 실행 중 같은 입력이 다시 들어올 때 WaitInputPress/WaitInputRelease는 어떻게 동작하는가?
 
-`ProcessAbilityInput`에서 이미 활성화된 스펙에 같은 입력이 들어오면 `AbilitySpecInputPressed()`를 호출한다.
-내부적으로 `GenericReplicatedEvent` 시스템을 통해 `WaitInputPress` AbilityTask로 신호가 전달된다.
-→ 상세 동작은 [10 GA 인스턴스 신호 채널](10_ability_signal_channel.md) 참조.
+`ProcessAbilityInput`에서 이미 활성화된 스펙에 같은 입력이 들어오면 `AbilitySpecInputPressed()`를 호출한다. 내부적으로 `GenericReplicatedEvent` 시스템을 통해 `WaitInputPress` AbilityTask로 신호가 전달된다. 상세 동작은 [10 GA 인스턴스 신호 채널](10_ability_signal_channel.md) 참조.
 
 ```
 ProcessAbilityInput()
@@ -143,7 +136,7 @@ ProcessAbilityInput()
               → WaitInputPress::OnPressCallback() → OnPress.Broadcast()
 ```
 
-**제약**: `GetAbilitySpecHandle()`로 바인딩하므로 **이 GA를 활성화한 바로 그 입력**에만 반응한다.
+**제약**: `GetAbilitySpecHandle()`로 바인딩하므로 이 GA를 활성화한 바로 그 입력에만 반응한다.
 
 #### GA 실행 중 다른 입력을 받아야 할 때 WaitGameplayEvent를 어떻게 활용하는가?
 
@@ -182,6 +175,4 @@ Task->ReadyForActivation();
 
 ### 입력 태그가 GameplayAbilitySpec에 어떻게 등록되어 매칭에 사용되는가?
 
-`DynamicSpecSourceTags`에 InputTag가 있어야 `AbilityInputTagPressed`의 매칭이 된다.
-어빌리티 부여 시 `FGameplayAbilitySpec`을 생성하면서 `DynamicSpecSourceTags.AddTag(InputTag)`를 호출해야 한다.
-`ULyraAbilitySet::GiveToAbilitySystem()`에서 이 작업을 처리한다.
+`DynamicSpecSourceTags`에 InputTag가 있어야 `AbilityInputTagPressed`의 매칭이 된다. 어빌리티 부여 시 `FGameplayAbilitySpec`을 생성하면서 `DynamicSpecSourceTags.AddTag(InputTag)`를 호출해야 하며, `ULyraAbilitySet::GiveToAbilitySystem()`에서 이 작업을 처리한다.

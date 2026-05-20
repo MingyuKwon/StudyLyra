@@ -7,14 +7,14 @@
 <a name="concepts-gc-local"></a>
 #### 로컬 GameplayCue를 쓰는 이유는 무엇이고 어떤 상황에서 써야 하는가?
 
-`GameplayAbility`와 ASC에서 `GameplayCue`를 발동하는 노출된 함수들은 기본적으로 복제된다. 각 `GameplayCue` 이벤트는 멀티캐스트 RPC로 전송된다. 이로 인해 대량의 RPC가 발생할 수 있다. GAS는 또한 네트 업데이트당 동일한 `GameplayCue` RPC를 최대 두 개로 제한한다. 가능한 경우 로컬 `GameplayCue`를 사용하여 이를 방지한다. 로컬 `GameplayCue`는 개별 클라이언트에서만 `Execute`, `Add`, `Remove`가 실행된다.
+기본 `GameplayCue` 함수는 멀티캐스트 RPC로 전송되어 대량의 RPC를 유발할 수 있다. GAS는 네트 업데이트당 동일한 GameplayCue RPC를 최대 두 개로 제한한다. **로컬 GameplayCue**는 개별 클라이언트에서만 실행되므로 이 RPC 비용을 없앤다.
 
-로컬 `GameplayCue`를 사용할 수 있는 상황:
-* 발사체 임팩트
-* 근접 충돌 임팩트
-* 애니메이션 몽타주에서 발동하는 `GameplayCue`
+로컬 GameplayCue가 적합한 상황:
+- 발사체 임팩트
+- 근접 충돌 임팩트
+- 애니메이션 몽타주에서 발동하는 GameplayCue
 
-ASC 서브클래스에 추가해야 하는 로컬 `GameplayCue` 함수:
+ASC 서브클래스에 추가해야 하는 함수 선언:
 
 ```c++
 UFUNCTION(BlueprintCallable, Category = "GameplayCue", Meta = (AutoCreateRefTerm = "GameplayCueParameters", GameplayTagFilter = "GameplayCue"))
@@ -28,50 +28,45 @@ void RemoveGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCu
 ```
 
 ```c++
-void UPAAbilitySystemComponent::ExecuteGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters & GameplayCueParameters)
+void UPAAbilitySystemComponent::ExecuteGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters)
 {
-	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Type::Executed, GameplayCueParameters);
+    UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Type::Executed, GameplayCueParameters);
 }
 
-void UPAAbilitySystemComponent::AddGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters & GameplayCueParameters)
+void UPAAbilitySystemComponent::AddGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters)
 {
-	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Type::OnActive, GameplayCueParameters);
-	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Type::WhileActive, GameplayCueParameters);
+    UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Type::OnActive, GameplayCueParameters);
+    UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Type::WhileActive, GameplayCueParameters);
 }
 
-void UPAAbilitySystemComponent::RemoveGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters & GameplayCueParameters)
+void UPAAbilitySystemComponent::RemoveGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters)
 {
-	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Type::Removed, GameplayCueParameters);
+    UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Type::Removed, GameplayCueParameters);
 }
 ```
 
-`GameplayCue`가 로컬로 `Added`되었다면 반드시 로컬로 `Removed`해야 한다. 복제를 통해 `Added`되었다면 복제를 통해 `Removed`해야 한다.
+> 로컬로 `Added`된 GameplayCue는 반드시 로컬로 `Removed`해야 한다. 복제로 추가된 것은 복제로 제거해야 한다.
 
 <a name="concepts-gc-parameters"></a>
 #### FGameplayCueParameters 구조체는 어떤 정보를 담으며 GE 트리거 시 자동으로 채워지는 필드는?
 
-`GameplayCue`는 파라미터로 `FGameplayCueParameters` 구조체를 받아 `GameplayCue`에 필요한 추가 정보를 전달한다. `GameplayAbility` 또는 ASC의 함수를 통해 `GameplayCue`를 수동으로 트리거하는 경우 `GameplayCue`에 전달되는 `GameplayCueParameters` 구조체를 직접 채워야 한다. `GameplayCue`가 `GameplayEffect`에 의해 트리거되는 경우에는 `GameplayCueParameters` 구조체의 다음 변수들이 자동으로 채워진다:
+`FGameplayCueParameters`는 GameplayCue가 필요로 하는 추가 정보를 전달하는 구조체다. GameplayAbility 또는 ASC 함수로 수동 트리거할 때는 직접 채워야 하지만, **GameplayEffect로 트리거될 때는 아래 필드가 자동으로 채워진다**:
 
-* AggregatedSourceTags
-* AggregatedTargetTags
-* GameplayEffectLevel
-* AbilityLevel
-* EffectContext
-* Magnitude (`GameplayEffect`에 드롭다운에서 선택한 Magnitude용 `Attribute`가 있고, 해당 `Attribute`에 영향을 주는 `Modifier`가 있는 경우)
+- `AggregatedSourceTags`
+- `AggregatedTargetTags`
+- `GameplayEffectLevel`
+- `AbilityLevel`
+- `EffectContext`
+- `Magnitude` (GE에 Magnitude용 Attribute와 해당 Attribute에 영향을 주는 Modifier가 있는 경우)
 
-`GameplayCue`를 수동으로 트리거할 때 임의 데이터를 `GameplayCue`에 전달하기에 `GameplayCueParameters` 구조체의 `SourceObject` 변수가 적합한 위치가 될 수 있다.
+수동 트리거 시 임의 데이터를 전달하려면 `SourceObject` 필드를 활용하면 된다.
 
-> **참고**  
-> 파라미터 구조체의 `Instigator` 같은 일부 변수는 이미 `EffectContext`에 존재할 수 있다. `EffectContext`는 `GameplayCue`가 월드에서 스폰될 위치 정보로 `FHitResult`를 포함할 수도 있다. `EffectContext`를 서브클래싱하는 것은 특히 `GameplayEffect`에 의해 트리거되는 `GameplayCue`에 더 많은 데이터를 전달하는 좋은 방법이 될 수 있다.
-
-`GameplayCueParameters` 구조체를 채우는 `UAbilitySystemGlobals`의 세 가지 함수를 참고하라. 이 함수들은 virtual이므로 더 많은 정보를 자동으로 채우도록 오버라이드할 수 있다.
+> `EffectContext`를 서브클래싱하면 GE로 트리거되는 GameplayCue에 더 많은 데이터를 전달할 수 있다. `UAbilitySystemGlobals`의 아래 virtual 함수들을 오버라이드하면 자동 채움 항목을 확장할 수 있다:
 
 ```c++
-/** Initialize GameplayCue Parameters */
-virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectSpecForRPC &Spec);
-virtual void InitGameplayCueParameters_GESpec(FGameplayCueParameters& CueParameters, const FGameplayEffectSpec &Spec);
+virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectSpecForRPC& Spec);
+virtual void InitGameplayCueParameters_GESpec(FGameplayCueParameters& CueParameters, const FGameplayEffectSpec& Spec);
 virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectContextHandle& EffectContext);
 ```
 
 ---
-
