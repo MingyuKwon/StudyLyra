@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-asc"></a>
-### 4.1 Ability System Component
+### ASC란 무엇이며, 어떤 역할을 하는가?
 
 `AbilitySystemComponent`(`ASC`)는 GAS의 핵심이다.
 `UActorComponent`([`UAbilitySystemComponent`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UAbilitySystemComponent/index.html))로서
@@ -50,7 +50,7 @@
 ---
 
 <a name="concepts-asc-rm"></a>
-### 4.1.1 Replication Mode
+### ASC의 세 가지 Replication Mode는 각각 언제 사용해야 하는가?
 
 `ASC`는 `GameplayEffect`, `GameplayTag`, `GameplayCue`를 복제하는 세 가지 모드를 정의한다.
 `Attribute`의 복제는 `AttributeSet`이 담당한다.
