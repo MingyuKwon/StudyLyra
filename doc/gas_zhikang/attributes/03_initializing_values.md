@@ -50,9 +50,52 @@ Attribute 초기값을 GE Modifier로 적용하는 방식이다. Modifier 값은
 
 ## 방법 4 — AttributeSetInitter + CurveTable ⭐ 가장 유연
 
-전역 UCurveTable 에셋 목록을 설정하는 방식이다. Project Settings에서 `GlobalAttributeSetDefaultsTables`를 검색해 설정할 수 있다.
+### 개념
 
-대형 프로젝트에서는 `AbilitySystemGlobals` 서브클래스에서 `GetGlobalAttributeSetDefaultsTablePaths()`를 오버라이드하거나 `Add/RemoveAttributeDefaultTables()`를 호출해 런타임에 테이블 목록을 변경할 수도 있다.
+`FAttributeSetInitter`는 CurveTable 스프레드시트에서 읽은 초기값으로 ASC의 AttributeSet들을 일괄 초기화하는 시스템이다. 핵심은 **GroupName + Level** 두 축으로 값을 조회한다는 것이다.
+
+CurveTable은 아래 형태의 표다.
+
+```
+Row 이름 (GroupName.AttributeSetName.Attribute)    |  Level1  Level2  Level3  ...
+-----------------------------------------------------------------------
+Default.Health.MaxHealth                           |  100     200     300
+Default.Health.HealthRegenRate                     |  1       1       1
+Hero1.Health.MaxHealth                             |  150     250     350
+Hero1.Move.MaxMoveSpeed                            |  500     520     540
+```
+
+- **열(Column)**: 레벨. `InitAttributeSetDefaults` 호출 시 Level 인수로 어느 열을 읽을지 결정
+- **행(Row)**: `GroupName.AttributeSetName.Attribute` 형식
+
+Row 이름 매핑 규칙:
+- `GroupName` — 호출 시 전달하는 식별자 (예: `"Hero1"`). 정확히 일치해야 함
+- `AttributeSetName` — **부분 일치** 허용 (`"Health"` → `"LabHealthAttributeSet"` 매핑됨)
+- `AttributeName` — 정확히 일치해야 함
+
+### 동작 흐름
+
+```
+게임 시작
+  └── AbilitySystemGlobals가 CurveTable들을 PreloadAttributeSetData()로 로드
+        └── TMap<GroupName, LevelData[]> 형태의 내부 캐시로 변환
+
+Actor 스폰 / 레벨업
+  └── InitAttributeSetDefaults(ASC, "Hero1", Level=3)
+        └── "Hero1" 그룹의 Level 3 컬럼 데이터 조회
+              └── ASC가 보유한 AttributeSet들을 순회
+                    └── 매칭되는 Row 값으로 InitFoo() 호출
+```
+
+"Default"는 예약된 폴백 GroupName이다. 호출한 GroupName이 테이블에 없으면 "Default" 그룹으로 대신 초기화한다.
+
+### 설정 방법
+
+Project Settings에서 `GlobalAttributeSetDefaultsTables`를 검색해 CurveTable 에셋 목록을 추가한다.
+
+대형 프로젝트에서는 `AbilitySystemGlobals` 서브클래스에서 `GetGlobalAttributeSetDefaultsTablePaths()`를 오버라이드하거나, `Add/RemoveAttributeDefaultTables()`로 런타임에 테이블 목록을 동적으로 변경할 수 있다. Fortnite는 이 방식을 플러그인 기반 추가 테이블과 함께 사용한다.
+
+### 호출 예시
 
 ```cpp
 void AAbilitiesLabCharacter::PostInitializeComponents()
@@ -61,19 +104,11 @@ void AAbilitiesLabCharacter::PostInitializeComponents()
     LabAbilitySystemComp->InitAbilityActorInfo(this, this);
     IGameplayAbilitiesModule::Get().GetAbilitySystemGlobals()
         ->GetAttributeSetInitter()
-        ->InitAttributeSetDefaults(LabAbilitySystemComp, "MyCharacter", /*Level=*/1, /*IsInitialLoad=*/true);
+        ->InitAttributeSetDefaults(LabAbilitySystemComp, "MyCharacter", /*Level=*/1, /*bInitialInit=*/true);
 }
 ```
 
-CurveTable Row 이름 형식: `GroupName.AttributeSetName.AttributeName`
-
-- `GroupName`: 호출 시 전달하는 식별자 (예: `"MyCharacter"`). 정확히 일치해야 함
-- `AttributeSetName`: 부분 일치로도 동작 (예: `"Health"` → `"LabHealthAttributeSet"` 매핑됨)
-- `AttributeName`: 정확히 일치해야 함
-
-Level 파라미터에 따라 CurveTable의 컬럼이 선택된다. `"Default"` 그룹 이름을 추가해두면 매핑되지 않는 그룹에 대한 폴백으로 사용된다.
-
-Fortnite는 이 방식에 커스텀 서브클래스와 플러그인 기반 추가 CurveTable 에셋을 더해 사용한다.
+레벨업 시 Level만 바꿔서 재호출하면 Attribute 값이 새 레벨에 맞게 업데이트된다. `bInitialInit=false`로 호출하면 이미 적용된 GE Modifier를 보존한 채 Base 값만 갱신한다.
 
 ---
 
