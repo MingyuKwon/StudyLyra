@@ -71,3 +71,36 @@ Local Predicted 어빌리티는 클라이언트에서 호출하면 페이로드�
 
 GameplayEffectContext와 유사한 다형성 방식.
 프로젝트 전용 타겟팅 데이터를 담기 위한 용도.
+
+---
+
+## 페이로드 전달 — Event 외의 방법
+
+Event가 유일한 방법은 아니지만, **예측 파이프라인을 타면서 활성화마다 다른 데이터를 안전하게 넘길 수 있는 유일한 내장 방법**이 Event다.
+
+### 왜 Event가 기본 정답인가
+
+클라이언트가 `LocalPredicted` 어빌리티를 활성화하면 GAS가 서버로 RPC를 보낸다.
+페이로드 유무에 따라 RPC가 분기되며, `FGameplayEventData` 슬롯이 딱 하나다.
+
+```
+ServerTryActivateAbility(Handle, InputPressed, PredictionKey)
+ServerTryActivateAbilityWithEventData(Handle, InputPressed, PredictionKey, EventData)
+```
+
+이 슬롯 밖으로 나가면 예측 파이프라인에서 이탈한다.
+
+### 대안 방법과 제약
+
+| 방법 | 네트워크 예측 | 활성화마다 다른 데이터 |
+|---|---|---|
+| GameplayEvent | 완전 지원 | 가능 |
+| 복제된 상태 읽기 | 가능 (이미 복제됨) | 타이밍 주의 |
+| `SourceObject` (Spec) | 지원 안 함 | 불가 — 부여 시점에 고정 |
+| 멤버 변수 (`InstancedPerActor`) | 직접 처리 필요 | 경쟁 조건 주의 |
+
+**복제된 상태 읽기**: 어빌리티가 액터의 복제 프로퍼티나 Attribute를 활성화 시점에 직접 읽는 방식. 데이터를 "넘기는" 게 아니라 어빌리티가 꺼내 쓴다. 활성화 순간의 스냅샷이 아닌 현재 상태를 읽으므로 타이밍 이슈에 주의해야 한다.
+
+**`SourceObject`**: `GiveAbility` 시 `FGameplayAbilitySpec`에 `UObject*`를 넣어두고 `GetCurrentSourceObject()`로 꺼내 쓴다. 부여 시점에 고정되므로 활성화마다 다른 데이터를 넘기는 용도에는 맞지 않는다.
+
+**멤버 변수**: `InstancedPerActor` 어빌리티에서 `Spec.GetPrimaryInstance()`로 인스턴스를 꺼낸 뒤 멤버를 설정하고 활성화하는 방식. `ServerOnly` 어빌리티가 아니면 그 멤버를 별도 복제해야 하고, 설정과 활성화 사이에 경쟁 조건이 생긴다.
