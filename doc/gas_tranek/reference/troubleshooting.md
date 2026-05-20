@@ -10,116 +10,98 @@
 <a name="troubleshooting-notlocal"></a>
 ### "Can't activate LocalOnly or LocalPredicted ability when not local" 경고는 무엇이 원인인가?
 
-클라이언트에서 ASC 초기화가 누락된 경우에 발생한다. 클라이언트 측 ASC 셋업을 확인한다.
+클라이언트 측 ASC 초기화가 누락된 경우다. 클라이언트 측 ASC 셋업 코드를 확인한다.
 
 <a name="troubleshooting-scriptstructcache"></a>
 ### ScriptStructCache 오류로 클라이언트 연결이 끊기는 원인과 해결책은?
 
-`UAbilitySystemGlobals::InitGlobalData()`가 호출되지 않아서 발생한다. 프로젝트 초기화 시 반드시 호출해야 한다.
+`UAbilitySystemGlobals::InitGlobalData()`가 호출되지 않은 경우다. 프로젝트 초기화 시 반드시 호출해야 한다.
 
 <a name="troubleshooting-replicatinganimmontages"></a>
 ### GA 내에서 PlayMontage 노드를 써도 몽타주가 클라이언트에 복제되지 않는 이유는?
 
-GameplayAbility 내부에서 `PlayMontage` 노드 대신 `PlayMontageAndWait` Blueprint 노드를 사용해야 한다. 이 AbilityTask는 ASC를 통해 몽타주를 자동으로 복제하지만, `PlayMontage` 노드는 그렇지 않다.
+`PlayMontage` 노드는 ASC를 통한 복제를 하지 않는다. GameplayAbility 내부에서는 반드시 `PlayMontageAndWait` AbilityTask를 사용해야 한다. 이 노드는 ASC를 통해 몽타주를 자동으로 복제한다.
 
 <a name="troubleshooting-duplicatingblueprintactors"></a>
 ### 블루프린트 액터를 Duplicate하면 AttributeSet 포인터가 nullptr이 되는 버그는 어떻게 해결하는가?
 
-기존 블루프린트 액터 클래스를 복제(Duplicate)하면 해당 클래스의 AttributeSet 포인터가 nullptr로 설정되는 [언리얼 엔진 버그](https://issues.unrealengine.com/issue/UE-81109)가 있다. 몇 가지 해결 방법이 있는데, 필자가 효과를 확인한 방법은 클래스에 별도의 AttributeSet 포인터를 선언하지 않는 것이다(.h에 포인터 선언 없음, 생성자에서 `CreateDefaultSubobject` 미호출). 대신 `PostInitializeComponents()`에서 AttributeSet을 ASC에 직접 추가한다(샘플 프로젝트에는 나와 있지 않음). 복제된 AttributeSet은 ASC의 `SpawnedAttributes` 배열에 계속 유지된다. 코드 예시는 다음과 같다:
+기존 블루프린트 액터를 복제(Duplicate)하면 AttributeSet 포인터가 nullptr로 설정되는 언리얼 엔진 버그다. 해결 방법은 헤더에 AttributeSet 포인터를 선언하지 않고 생성자에서 `CreateDefaultSubobject`도 호출하지 않는 것이다. 대신 `PostInitializeComponents()`에서 ASC에 직접 추가한다.
 
 ```c++
 void AGDPlayerState::PostInitializeComponents()
 {
-	Super::PostInitializeComponents();
+    Super::PostInitializeComponents();
 
-	if (AbilitySystemComponent)
-	{
-		AbilitySystemComponent->AddSet<UGDAttributeSetBase>();
-		// ... any other AttributeSets that you may have
-	}
+    if (AbilitySystemComponent)
+    {
+        AbilitySystemComponent->AddSet<UGDAttributeSetBase>();
+    }
 }
 ```
 
-이 방식에서는 매크로로 생성된 AttributeSet의 함수를 사용하는 대신, ASC의 함수를 통해 AttributeSet의 값을 읽고 쓴다.
+이 방식에서는 ASC의 함수를 통해 Attribute 값을 읽고 쓴다.
 
 ```c++
-/** Returns current (final) value of an attribute */
+// 읽기
 float GetNumericAttribute(const FGameplayAttribute &Attribute) const;
 
-/** Sets the base value of an attribute. Existing active modifiers are NOT cleared and will act upon the new base value. */
+// 쓰기 (기존 Modifier는 유지됨)
 void SetNumericAttributeBase(const FGameplayAttribute &Attribute, float NewBaseValue);
 ```
 
-예를 들어 `GetHealth()`는 다음과 같이 구현할 수 있다:
+사용 예시:
 
 ```c++
 float AGDPlayerState::GetHealth() const
 {
-	if (AbilitySystemComponent)
-	{
-		return AbilitySystemComponent->GetNumericAttribute(UGDAttributeSetBase::GetHealthAttribute());
-	}
-
-	return 0.0f;
+    if (AbilitySystemComponent)
+    {
+        return AbilitySystemComponent->GetNumericAttribute(UGDAttributeSetBase::GetHealthAttribute());
+    }
+    return 0.0f;
 }
 ```
 
-체력 Attribute를 설정(초기화)하는 코드는 다음과 같다:
-
-```c++
-const float NewHealth = 100.0f;
-if (AbilitySystemComponent)
-{
-	AbilitySystemComponent->SetNumericAttributeBase(UGDAttributeSetBase::GetHealthAttribute(), NewHealth);
-}
-```
-
-참고로 ASC는 AttributeSet 클래스당 최대 하나의 객체만 허용한다.
+ASC는 AttributeSet 클래스당 최대 하나의 객체만 허용한다.
 
 <a name="troubleshooting-unresolvedexternalsymbolmarkpropertydirty"></a>
 ### MarkPropertyDirty unresolved external symbol 링커 오류는 왜 발생하며 어떻게 수정하는가?
 
-다음과 같은 컴파일 오류가 발생하는 경우:
-
 ```
-error LNK2019: unresolved external symbol "__declspec(dllimport) void __cdecl UEPushModelPrivate::MarkPropertyDirty(int,int)" (__imp_?MarkPropertyDirty@UEPushModelPrivate@@YAXHH@Z) referenced in function "public: void __cdecl FFastArraySerializer::IncrementArrayReplicationKey(void)" (?IncrementArrayReplicationKey@FFastArraySerializer@@QEAAXXZ)
+error LNK2019: unresolved external symbol "__declspec(dllimport) void __cdecl UEPushModelPrivate::MarkPropertyDirty(int,int)"
 ```
 
-이 오류는 `FFastArraySerializer`에서 `MarkItemDirty()`를 호출할 때 발생한다. 쿨다운 지속 시간 업데이트 등 `ActiveGameplayEffect`를 갱신하는 경우에 주로 나타난다.
+`FFastArraySerializer::MarkItemDirty()`를 호출할 때 발생한다. `WITH_PUSH_MODEL` 매크로가 파일마다 서로 다른 값으로 정의되어 링커 불일치가 생기는 것이 원인이다.
 
-```c++
-ActiveGameplayEffects.MarkItemDirty(*AGE);
-```
-
-원인은 `WITH_PUSH_MODEL` 매크로가 여러 곳에서 서로 다른 값으로 정의되는 것이다. `PushModelMacros.h`에서는 0으로 정의하지만, 다른 여러 곳에서는 1로 정의한다. `PushModel.h`는 1로 인식하지만 `PushModel.cpp`는 0으로 인식한다.
-
-해결책은 프로젝트의 `Build.cs`에서 `PublicDependencyModuleNames`에 `NetCore`를 추가하는 것이다.
+해결: 프로젝트 `Build.cs`의 `PublicDependencyModuleNames`에 `NetCore`를 추가한다.
 
 <a name="troubleshooting-enumnamesarenowpathnames"></a>
 ### UE 5.1 이상에서 Enum 이름 경로명 deprecated 경고가 발생하면 어떻게 코드를 수정해야 하는가?
 
-다음과 같은 컴파일 경고가 발생하는 경우:
-
 ```
-warning C4996: 'FGameplayAbilityInputBinds::FGameplayAbilityInputBinds': Enum names are now represented by path names. Please use a version of FGameplayAbilityInputBinds constructor that accepts FTopLevelAssetPath. Please update your code to the new API before upgrading to the next release, otherwise your project will no longer compile.
+warning C4996: Enum names are now represented by path names. Please use a version of FGameplayAbilityInputBinds constructor that accepts FTopLevelAssetPath.
 ```
 
-UE 5.1부터 `BindAbilityActivationToInputComponent()`의 생성자에서 `FString`을 사용하는 방식이 deprecated되었다. 대신 `FTopLevelAssetPath`를 사용해야 한다.
+UE 5.1부터 `BindAbilityActivationToInputComponent()`에서 `FString` 기반 생성자가 deprecated됐다. `FTopLevelAssetPath`로 교체해야 한다.
 
-기존 방식 (deprecated):
+기존 (deprecated):
 ```c++
-AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent, FGameplayAbilityInputBinds(FString("ConfirmTarget"),
-	FString("CancelTarget"), FString("EGDAbilityInputID"), static_cast<int32>(EGDAbilityInputID::Confirm), static_cast<int32>(EGDAbilityInputID::Cancel)));
+AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent,
+    FGameplayAbilityInputBinds(FString("ConfirmTarget"), FString("CancelTarget"),
+        FString("EGDAbilityInputID"),
+        static_cast<int32>(EGDAbilityInputID::Confirm),
+        static_cast<int32>(EGDAbilityInputID::Cancel)));
 ```
 
-신규 방식:
+신규:
 ```c++
-FTopLevelAssetPath AbilityEnumAssetPath = FTopLevelAssetPath(FName("/Script/GASDocumentation"), FName("EGDAbilityInputID"));
-AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent, FGameplayAbilityInputBinds(FString("ConfirmTarget"),
-	FString("CancelTarget"), AbilityEnumAssetPath, static_cast<int32>(EGDAbilityInputID::Confirm), static_cast<int32>(EGDAbilityInputID::Cancel)));
+FTopLevelAssetPath AbilityEnumAssetPath =
+    FTopLevelAssetPath(FName("/Script/GASDocumentation"), FName("EGDAbilityInputID"));
+AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent,
+    FGameplayAbilityInputBinds(FString("ConfirmTarget"), FString("CancelTarget"),
+        AbilityEnumAssetPath,
+        static_cast<int32>(EGDAbilityInputID::Confirm),
+        static_cast<int32>(EGDAbilityInputID::Cancel)));
 ```
-
-자세한 내용은 `Engine\Source\Runtime\CoreUObject\Public\UObject\TopLevelAssetPath.h`를 참조한다.
 
 ---
-

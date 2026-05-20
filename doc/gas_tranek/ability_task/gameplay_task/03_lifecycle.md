@@ -44,7 +44,7 @@ OnDestroy(bOwnerFinished)
     │      ├─ KnownTasks에서 제거
     │      ├─ TickingTasks에서 제거
     │      └─ SimulatedTasks에서 제거
-    └─ MarkAsGarbage()         ← GC 대상 등록
+    └─ MarkAsGarbage()
 ```
 
 ---
@@ -53,8 +53,6 @@ OnDestroy(bOwnerFinished)
 
 ### NewTask\<T\>()의 내부 구현은 어떻게 되는가?
 > `GameplayTask.h` — 정적 템플릿 헬퍼
-
-태스크를 생성하는 표준 진입점이다. `NewObject<T>()`를 호출한 뒤 곧바로 `InitTask()`까지 처리한다.
 
 ```cpp
 template <class T>
@@ -66,22 +64,18 @@ static T* NewTask(IGameplayTaskOwnerInterface& TaskOwner, uint8 Priority = FGame
 }
 ```
 
-`UAbilityTask`에서는 이 대신 `NewAbilityTask<T>()`를 사용한다.
-내부적으로 동일한 패턴이지만 GA 컨텍스트를 추가로 설정한다.
+`UAbilityTask`에서는 이 대신 `NewAbilityTask<T>()`를 사용한다. 동일한 패턴이지만 GA 컨텍스트를 추가로 설정한다.
 
 ### InitTask()는 어떤 상태로 태스크를 초기화하는가?
 > `GameplayTask.cpp`
 
-`NewTask<T>()` 내부에서 자동 호출된다.
-
 ```cpp
 void UGameplayTask::InitTask(IGameplayTaskOwnerInterface& InTaskOwner, uint8 InPriority)
 {
-    Priority = InPriority;
+    Priority  = InPriority;
     TaskOwner = &InTaskOwner;
     TaskState = EGameplayTaskState::AwaitingActivation;
 
-    // TasksComponent 연결
     if (UGameplayTasksComponent* TasksComp = InTaskOwner.GetGameplayTasksComponent(*this))
     {
         TasksComponent = TasksComp;
@@ -96,28 +90,21 @@ void UGameplayTask::InitTask(IGameplayTaskOwnerInterface& InTaskOwner, uint8 InP
 ### RF_StrongRefOnFrame 플래그는 왜 필요하며 태스크를 언제까지 GC로부터 보호하는가?
 > `GameplayTask.h` 생성자
 
-`NewObject<T>()`로 생성된 태스크는 기본적으로 강한 참조가 없으면 다음 GC 사이클에서 수집될 수 있다.
-생성자에서 `RF_StrongRefOnFrame` 플래그를 설정해 **현재 프레임 동안은 살아있음을 보장**한다.
+`NewObject<T>()`로 생성된 태스크는 강한 참조가 없으면 다음 GC 사이클에서 수집될 수 있다. 생성자에서 `RF_StrongRefOnFrame` 플래그를 설정해 `ReadyForActivation()`으로 `TasksComponent`가 소유하기 전까지 현재 프레임 동안 GC로부터 보호한다.
 
 ```cpp
 UGameplayTask::UGameplayTask(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
 {
     SetFlags(RF_StrongRefOnFrame);
-    // ...
 }
 ```
-
-`ReadyForActivation()`을 호출해 `TasksComponent`가 태스크를 소유하기 전까지 GC로부터 보호된다.
 
 ---
 
 ## ReadyForActivation() 호출 후 태스크 활성화는 어떤 두 경로로 분기되는가?
 
 ### 즉시 실행 경로와 큐 대기 경로는 각각 어떤 조건에서 선택되는가?
-> 상세 설명: [02 핵심 API](02_api.md#readyforactivation)
-
-`ReadyForActivation()` 호출 시 두 경로로 분기된다.
 
 **경로 A — 즉시 실행** (`RequiresPriorityOrResourceManagement() == false`):
 ```
@@ -132,7 +119,7 @@ ReadyForActivation() → TasksComponent->AddTaskReadyForActivation()
                                → 조건 충족 시 PerformActivation() → Activate()
 ```
 
-`PerformActivation()` 안에서 상태가 `Active`로 바뀐 뒤 `Activate()`가 호출된다.
+`PerformActivation()` 안에서 `TaskState`가 `Active`로 바뀐 뒤 `Activate()`가 호출된다.
 
 ---
 
@@ -140,19 +127,11 @@ ReadyForActivation() → TasksComponent->AddTaskReadyForActivation()
 
 ### TickTask()는 어떤 경로로 호출되며 순회 중 자기 파괴 문제를 어떻게 방어하는가?
 
-`bTickingTask = true`로 설정한 태스크는 `TasksComponent->TickComponent()`에서 매 프레임 `TickTask(DeltaTime)`을 받는다.
-
-```
-UGameplayTasksComponent::TickComponent()
-    → for each task in TickingTasks
-        → task->TickTask(DeltaTime)
-```
-
-`TasksComponent`는 틱 중에 태스크가 자신을 파괴할 수 있으므로, `TickingTasks`를 **로컬 배열로 복사한 뒤** 순회한다.
+`bTickingTask = true`인 태스크는 `TasksComponent->TickComponent()`에서 매 프레임 `TickTask(DeltaTime)`을 받는다. 틱 중에 태스크가 자신을 파괴할 수 있으므로 `TasksComponent`는 `TickingTasks`를 **로컬 배열로 복사한 뒤** 순회한다.
 
 ### PauseTask()와 ResumeTask()는 어떻게 작동하는가?
 
-`PauseTask()` — `Active → Paused`  
+`PauseTask()` — `Active → Paused`
 `ResumeTask()` — `Paused → Active`
 
 일시 중단 중에는 `TickTask()` 호출이 없다.
@@ -163,16 +142,12 @@ UGameplayTasksComponent::TickComponent()
 
 ### EndTask()와 TaskOwnerEnded()의 차이를 bOwnerFinished 파라미터로 어떻게 구분하는가?
 
-두 종료 경로는 `OnDestroy()`의 `bOwnerFinished` 파라미터로 구분된다.
-
 | 경로 | 호출자 | `bOwnerFinished` | 의미 |
 |---|---|---|---|
 | `EndTask()` | 태스크 자신 | `false` | 태스크가 스스로 완료됨 |
 | `TaskOwnerEnded()` | GA 등 소유자 | `true` | 소유자가 종료되며 태스크도 정리 |
 
 ### OnDestroy() 내부에서 어떤 정리 작업이 일어나는가?
-
-두 경로 모두 `OnDestroy()`로 수렴한다. 개발자가 오버라이드하는 실제 정리 함수다.
 
 ```cpp
 void UGameplayTask::OnDestroy(bool bInOwnerFinished)
@@ -183,10 +158,8 @@ void UGameplayTask::OnDestroy(bool bInOwnerFinished)
 }
 ```
 
-> `Super::OnDestroy()`는 항상 **마지막**에 호출한다.
-> `MarkAsGarbage()` 이후에는 BP 내부 메커니즘이 동작하지 않을 수 있다.
+`Super::OnDestroy()`는 항상 **마지막**에 호출한다.
 
 ### MarkAsGarbage() 호출 후 태스크 포인터를 사용하면 왜 위험한가?
 
-`MarkAsGarbage()` 호출 직후 객체가 파괴되는 것이 아니라, GC가 다음 사이클에 수집한다.
-그 사이에 객체에 접근하면 dangling pointer가 될 수 있으므로, `OnDestroy()` 이후 태스크 포인터를 사용하면 안 된다.
+`MarkAsGarbage()` 직후 객체가 즉시 파괴되는 것이 아니라 GC가 다음 사이클에 수집한다. 그 사이에 포인터를 사용하면 dangling pointer가 될 수 있으므로, `OnDestroy()` 이후에는 태스크 포인터를 사용하면 안 된다.

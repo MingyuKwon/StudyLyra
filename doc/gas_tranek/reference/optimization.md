@@ -10,29 +10,39 @@
 <a name="optimizations-abilitybatching"></a>
 ### 단일 프레임에서 활성화·종료가 이루어지는 GA의 RPC를 어떻게 배칭하는가?
 
-단일 프레임 안에서 활성화, 선택적으로 TargetData 서버 전송, 종료가 모두 이루어지는 GameplayAbility는 두세 개의 RPC를 하나의 RPC로 묶어(batch) 처리할 수 있다. 이런 유형의 GameplayAbility는 히트스캔 총기류에 주로 활용된다.
+활성화 → TargetData 전송 → 종료가 단일 프레임 내에 모두 완료되는 GA는 2~3개의 RPC를 1개로 묶을 수 있다. 히트스캔 총기류가 대표적인 적용 사례다.
 
 <a name="optimizations-gameplaycuebatching"></a>
 ### 여러 GameplayCue가 동시에 발생할 때 RPC를 줄이는 방법은?
 
-동시에 여러 GameplayCue를 발생시키는 경우, 하나의 RPC로 묶는 배칭을 고려한다. GameplayCue는 unreliable NetMulticast로 전송되므로, RPC 수를 줄이고 전송 데이터를 최소화하는 것이 목표다.
+동시에 여러 GameplayCue를 발생시킨다면 하나의 RPC로 배칭한다. GameplayCue는 unreliable NetMulticast로 전송되므로 RPC 수와 전송 데이터를 최소화하는 것이 목표다.
 
 <a name="optimizations-ascreplicationmode"></a>
 ### 플레이어 ASC와 AI ASC에 각각 어떤 Replication Mode를 설정해야 하며 그 이유는?
 
-ASC의 기본 설정은 `Full Replication Mode`로, 모든 GameplayEffect를 모든 클라이언트에 복제한다(싱글플레이어 게임에서는 문제없다). 멀티플레이어 게임에서는 플레이어 소유 ASC를 `Mixed Replication Mode`로, AI 제어 캐릭터의 ASC를 `Minimal Replication Mode`로 설정하는 것을 권장한다. 이렇게 하면 플레이어 캐릭터에 적용된 GE는 해당 플레이어의 오너 클라이언트에만 복제되고, AI 제어 캐릭터에 적용된 GE는 클라이언트에 전혀 복제되지 않는다. GameplayTag는 여전히 복제되고, GameplayCue는 Replication Mode에 관계없이 모든 클라이언트에 unreliable NetMulticast로 전달된다. 이 설정으로 모든 클라이언트가 볼 필요 없는 GE 복제로 인한 네트워크 데이터를 크게 줄일 수 있다.
+| 대상 | 권장 모드 | 효과 |
+|---|---|---|
+| 플레이어 소유 ASC | Mixed | GE를 해당 플레이어의 오너 클라이언트에만 복제 |
+| AI 제어 캐릭터 ASC | Minimal | GE를 클라이언트에 전혀 복제하지 않음 |
+
+GameplayTag 복제와 GameplayCue의 unreliable NetMulticast 전달은 Replication Mode와 무관하게 동작한다. 기본값인 `Full` 모드는 모든 GE를 모든 클라이언트에 복제하므로 멀티플레이어에서 불필요한 네트워크 데이터를 유발한다. 프로젝트 초기에 설정할수록 좋다.
 
 <a name="optimizations-attributeproxyreplication"></a>
 ### Fortnite는 대규모 플레이어의 Attribute 복제 병목을 어떻게 Proxy Struct로 해결했는가?
 
-Fortnite Battle Royale(FNBR)처럼 플레이어 수가 많은 대규모 게임에서는 PlayerState가 항상 relevant이므로, 많은 수의 ASC가 Attribute를 복제하는 병목이 발생한다. 이를 최적화하기 위해 Fortnite는 `PlayerState::ReplicateSubobjects()`에서 **simulated player-controlled proxy**의 ASC와 AttributeSet을 복제 대상에서 완전히 제외한다. Autonomous proxy와 AI 제어 Pawn은 각자의 Replication Mode에 따라 정상적으로 복제된다. 항상 relevant한 PlayerState의 ASC에서 Attribute를 복제하는 대신, FNBR은 플레이어 Pawn에 복제되는 proxy struct를 별도로 두고, 서버의 ASC에서 Attribute가 변경될 때 proxy struct에도 동기화한다. 클라이언트는 proxy struct에서 복제된 Attribute를 수신해 로컬 ASC에 반영한다. 이를 통해 Attribute 복제가 Pawn의 relevancy와 NetUpdateFrequency를 따르게 되며, 네트워크 전송 데이터를 줄이면서 Pawn relevancy의 이점을 활용할 수 있다. 이 proxy struct는 소량의 화이트리스트 GameplayTag도 bitmask로 복제한다. AI 제어 Pawn은 ASC가 Pawn에 직접 존재하여 이미 Pawn relevancy를 활용하고 있으므로 이 최적화가 필요 없다.
+PlayerState는 항상 relevant이므로 100명 규모에서 모든 ASC가 Attribute를 직접 복제하면 병목이 된다. Fortnite의 해결 방법:
 
-> 이후 추가된 서버 측 최적화(Replication Graph 등)로 인해 여전히 필요한지는 불확실하며, 유지보수 측면에서도 최선의 패턴은 아니다. — Dave Ratti (Epic Games)
+1. `PlayerState::ReplicateSubobjects()`에서 simulated proxy의 ASC와 AttributeSet을 복제 대상에서 완전히 제외한다.
+2. 플레이어 Pawn에 별도의 proxy struct를 두고, 서버 ASC의 Attribute가 변경될 때 proxy struct에도 동기화한다.
+3. 클라이언트는 proxy struct에서 Attribute를 수신해 로컬 ASC에 반영한다.
+
+이를 통해 Attribute 복제가 PlayerState의 relevancy 대신 Pawn의 relevancy와 NetUpdateFrequency를 따르게 된다.
+
+> Replication Graph 등 이후 서버 최적화로 인해 여전히 필요한지는 불확실하며, 유지보수 측면에서도 최선의 패턴은 아니다. — Dave Ratti (Epic Games)
 
 <a name="optimizations-asclazyloading"></a>
 ### 월드에 대량의 ASC 보유 오브젝트가 있을 때 메모리를 줄이려면 어떻게 지연 로드하는가?
 
-Fortnite Battle Royale(FNBR)의 월드에는 ASC를 가진 파괴 가능한 오브젝트(나무, 건물 등)가 대량으로 존재하여 메모리 비용이 상당하다. FNBR은 이를 해결하기 위해 처음 플레이어에게 데미지를 받는 시점에만 ASC를 지연 로드(lazy loading)한다. 이를 통해 한 매치에서 데미지를 입지 않는 오브젝트의 ASC는 아예 생성되지 않으므로 전체 메모리 사용량이 크게 줄어든다.
+Fortnite의 파괴 가능한 오브젝트(나무, 건물 등)처럼 ASC가 대량으로 존재하는 경우, 처음 플레이어에게 데미지를 받는 시점에 ASC를 생성한다. 한 매치에서 데미지를 입지 않는 오브젝트의 ASC는 아예 생성되지 않으므로 전체 메모리 사용량이 크게 줄어든다.
 
 ---
-

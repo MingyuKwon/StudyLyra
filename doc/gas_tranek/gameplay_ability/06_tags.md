@@ -7,20 +7,20 @@
 <a name="concepts-ga-tags"></a>
 #### GA의 여러 GameplayTag 컨테이너(AbilityTags, CancelWith, BlockWith, ActivationRequired 등)는 각각 어떤 역할을 하는가?
 
-`GameplayAbility`에는 내장 로직을 가진 `GameplayTagContainer`가 여러 개 포함되어 있다. 이 `GameplayTag`들은 복제되지 않는다.
+`GameplayAbility`에 내장된 `GameplayTagContainer`들이다. 이 태그들은 복제되지 않는다.
 
-| `GameplayTag Container`     | 설명                                                                                                                                                                                                                              |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Ability Tags`              | `GameplayAbility`가 소유하는 `GameplayTag`. 해당 GameplayAbility를 설명하는 용도의 태그다.                                                                                                                                        |
-| `Cancel Abilities with Tag` | `Ability Tags`에 이 태그를 가진 다른 `GameplayAbility`는, 이 GameplayAbility가 활성화될 때 취소된다.                                                                                                                              |
-| `Block Abilities with Tag`  | `Ability Tags`에 이 태그를 가진 다른 `GameplayAbility`는, 이 GameplayAbility가 활성화 중인 동안 활성화가 차단된다.                                                                                                                |
-| `Activation Owned Tags`     | 이 `GameplayAbility`가 활성화 중인 동안, 해당 GameplayAbility의 Owner에게 부여되는 `GameplayTag`. 이 태그들은 복제되지 않는다는 점에 유의할 것.                                                                                    |
-| `Activation Required Tags`  | Owner가 이 태그를 **모두** 보유하고 있을 때만 이 `GameplayAbility`를 활성화할 수 있다.                                                                                                                                             |
-| `Activation Blocked Tags`   | Owner가 이 태그 중 **하나라도** 보유하고 있으면 이 `GameplayAbility`를 활성화할 수 없다.                                                                                                                                           |
-| `Source Required Tags`      | `Source`가 이 태그를 **모두** 보유하고 있을 때만 이 `GameplayAbility`를 활성화할 수 있다. `Source` GameplayTag는 GameplayAbility가 이벤트로 트리거된 경우에만 설정된다.                                                             |
-| `Source Blocked Tags`       | `Source`가 이 태그 중 **하나라도** 보유하고 있으면 이 `GameplayAbility`를 활성화할 수 없다. `Source` GameplayTag는 GameplayAbility가 이벤트로 트리거된 경우에만 설정된다.                                                          |
-| `Target Required Tags`      | `Target`이 이 태그를 **모두** 보유하고 있을 때만 이 `GameplayAbility`를 활성화할 수 있다. `Target` GameplayTag는 GameplayAbility가 이벤트로 트리거된 경우에만 설정된다.                                                             |
-| `Target Blocked Tags`       | `Target`이 이 태그 중 **하나라도** 보유하고 있으면 이 `GameplayAbility`를 활성화할 수 없다. `Target` GameplayTag는 GameplayAbility가 이벤트로 트리거된 경우에만 설정된다.                                                          |
+| GameplayTag Container | 역할 |
+|---|---|
+| `Ability Tags` | 이 GA를 설명하는 태그. 다른 컨테이너의 검색 대상이 된다. |
+| `Cancel Abilities with Tag` | 이 GA가 활성화될 때, `Ability Tags`에 해당 태그를 가진 다른 GA를 취소한다. |
+| `Block Abilities with Tag` | 이 GA가 활성 중인 동안, `Ability Tags`에 해당 태그를 가진 다른 GA의 활성화를 차단한다. |
+| `Activation Owned Tags` | 이 GA가 활성 중인 동안 Owner에게 부여되는 태그. 복제되지 않는다. |
+| `Activation Required Tags` | Owner가 이 태그를 **모두** 보유할 때만 활성화 가능. |
+| `Activation Blocked Tags` | Owner가 이 태그 중 **하나라도** 보유하면 활성화 불가. |
+| `Source Required Tags` | Source가 이 태그를 **모두** 보유할 때만 활성화 가능. 이벤트 트리거 경우에만 설정된다. |
+| `Source Blocked Tags` | Source가 이 태그 중 **하나라도** 보유하면 활성화 불가. 이벤트 트리거 경우에만 설정된다. |
+| `Target Required Tags` | Target이 이 태그를 **모두** 보유할 때만 활성화 가능. 이벤트 트리거 경우에만 설정된다. |
+| `Target Blocked Tags` | Target이 이 태그 중 **하나라도** 보유하면 활성화 불가. 이벤트 트리거 경우에만 설정된다. |
 
 ---
 
@@ -31,11 +31,9 @@
 
 ### GA를 직접 활성화하는 경로와 이벤트로 트리거하는 경로는 어떻게 다른가?
 
-GA를 활성화하는 경로는 크게 두 가지다. Source/Target이 이벤트에서만 존재하는 이유는 이 두 경로의 차이에서 비롯된다.
-
 **경로 1 — 직접 활성화 (`TryActivateAbility`)**
 
-입력 바인딩이나 코드에서 직접 호출하는 방식. 발동 주체는 자기 자신이고 외부 컨텍스트가 없다.
+입력 바인딩이나 코드에서 직접 호출하는 방식. 외부 컨텍스트가 없으므로 `TriggerEventData`가 nullptr로 전달된다.
 
 ```
 (입력 or 코드)
@@ -51,17 +49,11 @@ GA의 `Triggers` 배열에 특정 GameplayTag와 `TriggerSource = GameplayEvent`
 
 ```
 SendGameplayEventToActor(TargetActor, EventTag, FGameplayEventData{
-    Instigator,      ← 이벤트를 보낸 액터
-    Target,          ← 이벤트 대상 액터
-    InstigatorTags,  ← → Source
-    TargetTags,      ← → Target
-    TargetData,      ← HitResult 등 추가 데이터
+    Instigator, Target, InstigatorTags, TargetTags, TargetData
 })
   └─ ASC::HandleGameplayEvent
         └─ TriggerAbilityFromGameplayEvent
-              └─ InternalTryActivateAbility(Handle, ActorInfo, ActivationMode,
-                                             nullptr,
-                                             &TriggerEventData)  ← 이벤트 데이터 전달
+              └─ InternalTryActivateAbility(..., &TriggerEventData)  ← 이벤트 데이터 전달
 ```
 
 두 경로 모두 최종적으로 `InternalTryActivateAbility`에 도달하지만, `TriggerEventData`의 존재 여부가 갈린다.
@@ -69,8 +61,6 @@ SendGameplayEventToActor(TargetActor, EventTag, FGameplayEventData{
 ---
 
 ### GA 태그 검사에서 Source / Owner / Target이 각각 가리키는 대상은 무엇인가?
-
-`InternalTryActivateAbility` 내부의 이 한 줄이 전부를 설명한다.
 
 ```cpp
 const FGameplayTagContainer* SourceTags = TriggerEventData ? &TriggerEventData->InstigatorTags : nullptr;
@@ -83,38 +73,16 @@ const FGameplayTagContainer* TargetTags = TriggerEventData ? &TriggerEventData->
 | **Source** | `FGameplayEventData::InstigatorTags` | 이벤트를 보낸 쪽의 태그 |
 | **Target** | `FGameplayEventData::TargetTags` | 이벤트의 대상 쪽 태그 |
 
-`DoesAbilitySatisfyTagRequirements` 내부에서 각각 다른 컨테이너를 검사한다:
-
-```cpp
-// Owner 태그 검사 — 항상 실행
-CheckForBlocked(AbilitySystemComponent.GetOwnedGameplayTags(), ActivationBlockedTags);
-CheckForRequired(AbilitySystemComponent.GetOwnedGameplayTags(), ActivationRequiredTags);
-
-// Source 태그 검사 — TriggerEventData가 있을 때만
-if (SourceTags != nullptr)
-{
-    CheckForBlocked(*SourceTags, SourceBlockedTags);
-    CheckForRequired(*SourceTags, SourceRequiredTags);
-}
-
-// Target 태그 검사 — TriggerEventData가 있을 때만
-if (TargetTags != nullptr)
-{
-    CheckForBlocked(*TargetTags, TargetBlockedTags);
-    CheckForRequired(*TargetTags, TargetRequiredTags);
-}
-```
+Owner 태그 검사는 항상 실행되지만, Source/Target 태그 검사는 `TriggerEventData`가 있을 때만 실행된다.
 
 ---
 
 ### Source/TargetRequired/BlockedTags가 이벤트 트리거에서만 동작하는 이유는 무엇인가?
 
-설계 의도에서 비롯된다.
+- **직접 실행**: 발동 주체가 자기 자신 하나뿐이다. 외부에서 온 컨텍스트가 없으므로 Source/Target 자체가 성립하지 않는다.
+- **이벤트 트리거**: 반드시 발신자(X)와 대상(Y)이 존재한다. `FGameplayEventData`가 이 컨텍스트를 담아 전달된다.
 
-- **직접 실행**: "이 캐릭터가 이 능력을 쓰겠다" — 관련 주체가 자기 자신 하나뿐. 외부에서 온 컨텍스트가 없으므로 Source/Target 자체가 성립하지 않는다.
-- **이벤트 트리거**: "X가 Y에게 무언가를 했을 때" — 반드시 발신자(X)와 대상(Y)이 존재한다. `FGameplayEventData`가 이 컨텍스트를 담아 전달된다.
-
-`Source/TargetRequired/BlockedTags`는 이 이벤트 컨텍스트를 활용해 **어떤 조건에서 온 이벤트일 때만 반응할지**를 필터링하는 수단이다. 직접 실행에서는 그런 외부 컨텍스트 자체가 없기 때문에 검사도 생략된다.
+`Source/TargetRequired/BlockedTags`는 어떤 조건에서 온 이벤트일 때만 반응할지를 필터링하는 수단이다. 직접 실행에서는 그런 외부 컨텍스트 자체가 없기 때문에 검사도 생략된다.
 
 ---
 
