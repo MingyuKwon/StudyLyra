@@ -23,8 +23,8 @@ UAbilityTask_WaitTargetData* WaitTargetDataUsingActor(
     AGameplayAbilityTargetActor* InTargetActor);
 ```
 
-- **경로 A**: `TargetClass != null`, `TargetActor = null`. `Activate()`는 아무것도 안 하고, BP 노드가 `BeginSpawningActor` → `FinishSpawningActor` 순서로 수동 호출한다.
-- **경로 B**: `TargetClass = null`, `TargetActor != null`. `Activate()`가 직접 처리한다.
+- **경로 A**: `Activate()`에서 아무것도 하지 않는다. BP 노드가 `BeginSpawningActor` → `FinishSpawningActor` 순서로 수동 호출한다.
+- **경로 B**: `Activate()`가 직접 TargetActor를 초기화하고 시작한다.
 
 ---
 
@@ -33,38 +33,30 @@ UAbilityTask_WaitTargetData* WaitTargetDataUsingActor(
 ```cpp
 void UAbilityTask_WaitTargetData::Activate()
 {
-    // TargetClass가 없을 때만 진입 — 경로 A(클래스 기반)에서는 호출되지 않음
     if (Ability && (TargetClass == nullptr))
     {
         if (TargetActor)
         {
-            AGameplayAbilityTargetActor* SpawnedActor = TargetActor;
-            TargetClass = SpawnedActor->GetClass();  // ShouldSpawnTargetActor에서 check() 통과용
-
-            RegisterTargetDataCallbacks();  // 서버: 클라 RPC 대기 등록
-
-            if (!IsValidChecked(this))
-                return;
+            TargetClass = SpawnedActor->GetClass();
+            RegisterTargetDataCallbacks();
 
             if (ShouldSpawnTargetActor())
             {
-                // 로컬 클라이언트 → Actor 초기화 + 시작
                 InitializeTargetActor(SpawnedActor);
                 FinalizeTargetActor(SpawnedActor);
             }
             else
             {
-                // 서버인데 Actor가 이미 넘어온 경우 → 파괴
+                // 서버이면 Actor 파괴
                 TargetActor = nullptr;
                 SpawnedActor->Destroy();
             }
         }
         else
         {
-            EndTask();  // TargetActor도 없으면 즉시 종료
+            EndTask();
         }
     }
-    // TargetClass != null (경로 A)이면 Activate에서 아무것도 하지 않는다
 }
 ```
 
@@ -80,53 +72,9 @@ Blueprint의 latent 실행 핀 구조:
   └─ FinishSpawningActor ─────► [실제 스폰 완료 + 활성화]
 ```
 
-```cpp
-bool UAbilityTask_WaitTargetData::BeginSpawningActor(
-    UGameplayAbility* OwningAbility,
-    TSubclassOf<AGameplayAbilityTargetActor> InTargetClass,
-    AGameplayAbilityTargetActor*& SpawnedActor)
-{
-    SpawnedActor = nullptr;
+`BeginSpawningActor`: Deferred Spawn(`SpawnActorDeferred`)으로 Actor를 생성한다. `BeginPlay`는 아직 호출되지 않으므로, 두 함수 사이에서 Blueprint가 속성을 설정할 수 있다. 서버는 스폰하지 않고 `RegisterTargetDataCallbacks()`만 호출한다.
 
-    if (Ability)
-    {
-        if (ShouldSpawnTargetActor())
-        {
-            // Deferred Spawn — FinishSpawning 전까지 BeginPlay 호출 안 됨
-            SpawnedActor = World->SpawnActorDeferred<AGameplayAbilityTargetActor>(
-                Class, FTransform::Identity, nullptr, nullptr,
-                ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-
-            if (SpawnedActor)
-            {
-                TargetActor = SpawnedActor;
-                InitializeTargetActor(SpawnedActor);  // PlayerController + 콜백 등록
-            }
-        }
-
-        RegisterTargetDataCallbacks();  // 서버: RPC 대기 등록 (항상 호출)
-    }
-
-    return (SpawnedActor != nullptr);
-}
-```
-
-```cpp
-void UAbilityTask_WaitTargetData::FinishSpawningActor(
-    UGameplayAbility* OwningAbility,
-    AGameplayAbilityTargetActor* SpawnedActor)
-{
-    if (ASC && IsValid(SpawnedActor))
-    {
-        const FTransform SpawnTransform = ASC->GetOwner()->GetTransform();
-        SpawnedActor->FinishSpawning(SpawnTransform);  // BeginPlay 호출
-
-        FinalizeTargetActor(SpawnedActor);  // SpawnedTargetActors 등록 + 시작
-    }
-}
-```
-
-두 함수 사이에서 Blueprint가 SpawnedActor의 속성(범위, 채널 등)을 설정할 수 있다.
+`FinishSpawningActor`: `FinishSpawning()`으로 `BeginPlay`를 호출하고, `FinalizeTargetActor()`로 조준을 시작한다.
 
 ---
 
@@ -135,8 +83,6 @@ void UAbilityTask_WaitTargetData::FinishSpawningActor(
 ```cpp
 bool UAbilityTask_WaitTargetData::ShouldSpawnTargetActor() const
 {
-    const AGameplayAbilityTargetActor* CDO = CastChecked<AGameplayAbilityTargetActor>(TargetClass->GetDefaultObject());
-
     const bool bReplicates = CDO->GetIsReplicated();
     const bool bIsLocallyControlled = Ability->GetCurrentActorInfo()->IsLocallyControlled();
     const bool bShouldProduceTargetDataOnServer = CDO->ShouldProduceTargetDataOnServer;
@@ -145,7 +91,7 @@ bool UAbilityTask_WaitTargetData::ShouldSpawnTargetActor() const
 }
 ```
 
-기본값(`bIsReplicated=false`, `ShouldProduceTargetDataOnServer=false`):
+기본값(`bIsReplicated=false`, `ShouldProduceTargetDataOnServer=false`) 기준:
 
 | 실행 위치 | bIsLocallyControlled | 결과 |
 |-----------|----------------------|------|
@@ -161,7 +107,6 @@ void UAbilityTask_WaitTargetData::InitializeTargetActor(AGameplayAbilityTargetAc
 {
     SpawnedActor->PrimaryPC = Ability->GetCurrentActorInfo()->PlayerController.Get();
 
-    // TargetActor → Task 콜백 연결
     SpawnedActor->TargetDataReadyDelegate.AddUObject(this, &OnTargetDataReadyCallback);
     SpawnedActor->CanceledDelegate.AddUObject(this, &OnTargetDataCancelledCallback);
 }
@@ -176,23 +121,15 @@ void UAbilityTask_WaitTargetData::InitializeTargetActor(AGameplayAbilityTargetAc
 ```cpp
 void UAbilityTask_WaitTargetData::FinalizeTargetActor(AGameplayAbilityTargetActor* SpawnedActor) const
 {
-    // SpawnedTargetActors에 등록 — GA가 끝날 때 일괄 정리
     ASC->SpawnedTargetActors.Push(SpawnedActor);
-
-    SpawnedActor->StartTargeting(Ability);  // 조준 로직 시작
+    SpawnedActor->StartTargeting(Ability);
 
     if (SpawnedActor->ShouldProduceTargetData())
     {
         if (ConfirmationType == EGameplayTargetingConfirmation::Instant)
-        {
-            // 즉시 확정 — 조준 대기 없이 바로 TargetData 반환
-            SpawnedActor->ConfirmTargeting();
-        }
+            SpawnedActor->ConfirmTargeting();  // 즉시 확정
         else if (ConfirmationType == EGameplayTargetingConfirmation::UserConfirmed)
-        {
-            // 플레이어 입력(GA_Confirm) 대기
-            SpawnedActor->BindToConfirmCancelInputs();
-        }
+            SpawnedActor->BindToConfirmCancelInputs();  // 입력 대기
     }
 }
 ```
@@ -204,58 +141,39 @@ void UAbilityTask_WaitTargetData::FinalizeTargetActor(AGameplayAbilityTargetActo
 ```cpp
 void UAbilityTask_WaitTargetData::RegisterTargetDataCallbacks()
 {
-    const bool bIsLocallyControlled = Ability->GetCurrentActorInfo()->IsLocallyControlled();
-    const bool bShouldProduceTargetDataOnServer = CDO->ShouldProduceTargetDataOnServer;
-
-    if (!bIsLocallyControlled)
+    if (!bIsLocallyControlled && !bShouldProduceTargetDataOnServer)
     {
-        if (!bShouldProduceTargetDataOnServer)
-        {
-            // 서버: 클라이언트 RPC 수신 콜백 등록
-            ASC->AbilityTargetDataSetDelegate(SpecHandle, ActivationPredictionKey)
-               .AddUObject(this, &OnTargetDataReplicatedCallback);
-            ASC->AbilityTargetDataCancelledDelegate(SpecHandle, ActivationPredictionKey)
-               .AddUObject(this, &OnTargetDataReplicatedCancelledCallback);
+        ASC->AbilityTargetDataSetDelegate(SpecHandle, ActivationPredictionKey)
+           .AddUObject(this, &OnTargetDataReplicatedCallback);
+        ASC->AbilityTargetDataCancelledDelegate(SpecHandle, ActivationPredictionKey)
+           .AddUObject(this, &OnTargetDataReplicatedCancelledCallback);
 
-            // RPC가 이미 도착해 있으면 즉시 처리 (타이밍 경쟁 방지)
-            ASC->CallReplicatedTargetDataDelegatesIfSet(SpecHandle, ActivationPredictionKey);
-
-            SetWaitingOnRemotePlayerData();
-        }
+        // RPC가 이미 도착해 있으면 즉시 처리
+        ASC->CallReplicatedTargetDataDelegatesIfSet(SpecHandle, ActivationPredictionKey);
+        SetWaitingOnRemotePlayerData();
     }
 }
 ```
-
-`AbilityTargetDataCancelledDelegate`도 등록한다 — 클라이언트가 취소를 RPC로 보낼 경우.
 
 ---
 
 ## OnTargetDataReadyCallback()에서 클라이언트는 TargetData를 서버로 어떻게 전송하는가?
 
 ```cpp
-void UAbilityTask_WaitTargetData::OnTargetDataReadyCallback(
-    const FGameplayAbilityTargetDataHandle& Data)
+void UAbilityTask_WaitTargetData::OnTargetDataReadyCallback(const FGameplayAbilityTargetDataHandle& Data)
 {
     FScopedPredictionWindow ScopedPrediction(ASC, ShouldReplicateDataToServer());
 
     if (IsPredictingClient())
     {
         if (!TargetActor->ShouldProduceTargetDataOnServer)
-        {
-            // 일반 경우: TargetData 전체를 서버에 RPC 전송
+            // TargetData 전체를 서버에 RPC 전송
             ASC->CallServerSetReplicatedTargetData(
                 GetAbilitySpecHandle(), GetActivationPredictionKey(),
                 Data, ApplicationTag, ASC->ScopedPredictionKey);
-        }
         else if (ConfirmationType == EGameplayTargetingConfirmation::UserConfirmed)
-        {
-            // 서버가 직접 TargetData 생성하는 경우:
-            // TargetData 대신 "확인했음" 신호만 전송
-            ASC->ServerSetReplicatedEvent(
-                EAbilityGenericReplicatedEvent::GenericConfirm,
-                GetAbilitySpecHandle(), GetActivationPredictionKey(),
-                ASC->ScopedPredictionKey);
-        }
+            // 서버가 직접 생성하는 경우: "확인했음" 신호만 전송
+            ASC->ServerSetReplicatedEvent(EAbilityGenericReplicatedEvent::GenericConfirm, ...);
     }
 
     if (ShouldBroadcastAbilityTaskDelegates())
@@ -266,32 +184,7 @@ void UAbilityTask_WaitTargetData::OnTargetDataReadyCallback(
 }
 ```
 
-`ShouldProduceTargetDataOnServer=true`면 TargetData를 보내지 않고 **GenericConfirm 이벤트만** 보낸다.  
-서버가 직접 트레이스/검증해서 TargetData를 만들기 때문이다.
-
----
-
-## 클라이언트가 타게팅을 취소했을 때 서버에는 어떻게 통보되는가?
-
-```cpp
-void UAbilityTask_WaitTargetData::OnTargetDataCancelledCallback(
-    const FGameplayAbilityTargetDataHandle& Data)
-{
-    FScopedPredictionWindow ScopedPrediction(ASC, IsPredictingClient());
-
-    if (IsPredictingClient())
-    {
-        if (!TargetActor->ShouldProduceTargetDataOnServer)
-            ASC->ServerSetReplicatedTargetDataCancelled(
-                GetAbilitySpecHandle(), GetActivationPredictionKey(), ASC->ScopedPredictionKey);
-        else
-            ASC->ServerSetReplicatedEvent(EAbilityGenericReplicatedEvent::GenericCancel, ...);
-    }
-
-    Cancelled.Broadcast(Data);
-    EndTask();
-}
-```
+`ShouldProduceTargetDataOnServer=true`면 TargetData를 보내지 않고 `GenericConfirm` 이벤트만 보낸다. 서버가 직접 트레이스·검증해서 TargetData를 만들기 때문이다.
 
 ---
 
@@ -301,8 +194,6 @@ void UAbilityTask_WaitTargetData::OnTargetDataCancelledCallback(
 void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCallback(
     const FGameplayAbilityTargetDataHandle& Data, FGameplayTag ActivationTag)
 {
-    FGameplayAbilityTargetDataHandle MutableData = Data;
-
     ASC->ConsumeClientReplicatedTargetData(GetAbilitySpecHandle(), GetActivationPredictionKey());
 
     // TargetActor가 있으면 서버 측 검증 기회 부여
@@ -316,17 +207,6 @@ void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCallback(
 }
 ```
 
-## 서버가 클라이언트 취소 신호를 수신했을 때 어떻게 처리하는가?
-
-```cpp
-void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCancelledCallback()
-{
-    if (ShouldBroadcastAbilityTaskDelegates())
-        Cancelled.Broadcast(FGameplayAbilityTargetDataHandle());
-    EndTask();
-}
-```
-
 ---
 
 ## ConfirmationType에 따라 WaitTargetData Task의 동작과 종료 조건은 어떻게 달라지는가?
@@ -336,7 +216,7 @@ void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCancelledCallback()
 | `Instant` | `ConfirmTargeting()` 즉시 호출 | OnTargetDataReadyCallback 후 |
 | `UserConfirmed` | `BindToConfirmCancelInputs()` | 플레이어 확인 입력 후 |
 | `CustomTargeting` | 아무것도 하지 않음 (TargetActor가 직접 결정) | OnTargetDataReadyCallback 후 |
-| `CustomMulti` | — | **자동 종료 없음** (여러 번 ValidData 가능) |
+| `CustomMulti` | — | 자동 종료 없음 (여러 번 ValidData 가능) |
 
 ---
 
@@ -349,7 +229,6 @@ BeginSpawningActor()                        BeginSpawningActor()
   ShouldSpawnTargetActor() → true             ShouldSpawnTargetActor() → false
   SpawnActorDeferred()                        RegisterTargetDataCallbacks()
   InitializeTargetActor()                       AbilityTargetDataSetDelegate 등록
-    TargetDataReady/Cancelled 콜백 연결
 
 (BP에서 TargetActor 속성 설정)
 
@@ -380,6 +259,4 @@ TargetActor.TargetDataReadyDelegate 발화
 | TargetData 전송 방식 | `CallServerSetReplicatedTargetData` | 동일 (직접 호출) |
 | 콜백 등록 | Task 내부에서 TargetActor에 등록 | `AbilityTargetDataSetDelegate`에 직접 등록 |
 
-Lyra는 발사 즉시 라인 트레이스가 완료되기 때문에 TargetActor 스폰이 불필요하다.  
-`OnTargetDataReadyCallback`을 직접 `AbilityTargetDataSetDelegate`에 등록하고,  
-`StartRangedWeaponTargeting()`에서 트레이스 후 콜백을 직접 호출하는 방식으로 같은 흐름을 구현한다.
+발사 즉시 라인 트레이스가 완료되므로 TargetActor 스폰이 불필요하다. `OnTargetDataReadyCallback`을 직접 `AbilityTargetDataSetDelegate`에 등록하고, `StartRangedWeaponTargeting()`에서 트레이스 후 콜백을 직접 호출해 같은 흐름을 구현한다.
