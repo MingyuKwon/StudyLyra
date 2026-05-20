@@ -74,7 +74,7 @@ FGameplayAbilityReplicatedDataContainer AbilityTargetDataMap; // TargetData + Ge
                                                 → GE Apply
 ```
 
-### GenericReplicatedEvent — 양방향
+### GenericReplicatedEvent는 왜 양방향이며 각 슬롯의 방향은 어떻게 나뉘는가?
 
 신호 슬롯마다 방향이 다르다. 서버→클라 방향도 존재한다.
 

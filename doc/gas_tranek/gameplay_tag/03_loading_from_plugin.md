@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-gt-loadfromplugin"></a>
-### 4.2.2 플러그인 .ini 파일에서 GameplayTag 로드하기
+### 플러그인 자체 .ini 파일에 정의된 GameplayTag를 엔진 시작 시 자동으로 로드하는 방법은?
 
 자체 .ini 파일에 GameplayTag를 포함하는 플러그인을 만든다면, 플러그인의 `StartupModule()` 함수에서 해당 플러그인의 GameplayTag .ini 디렉터리를 로드할 수 있다.
 

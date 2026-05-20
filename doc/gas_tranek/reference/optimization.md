@@ -5,10 +5,10 @@
 ---
 
 <a name="optimizations"></a>
-## 7. 최적화
+## GAS 멀티플레이어 프로젝트에서 네트워크 비용을 줄이는 주요 최적화 기법은?
 
 <a name="optimizations-abilitybatching"></a>
-### 7.1 Ability Batching
+### 단일 프레임에서 활성화·종료가 이루어지는 GA의 RPC를 어떻게 배칭하는가?
 
 단일 프레임 안에서 활성화, 선택적으로 TargetData 서버 전송, 종료가 모두 이루어지는 GameplayAbility는 두세 개의 RPC를 하나의 RPC로 묶어(batch) 처리할 수 있다. 이런 유형의 GameplayAbility는 히트스캔 총기류에 주로 활용된다.
 

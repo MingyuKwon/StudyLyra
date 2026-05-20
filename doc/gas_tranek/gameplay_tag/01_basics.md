@@ -97,7 +97,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_Ability_Jump, "Ability.Jump");
 
 Lyra의 GameFeature 플러그인들이 각자의 태그를 플러그인 로드/언로드와 함께 관리하는 것이 이 메커니즘이다.
 
-### FGameplayTagCountContainer — TagMapCount가 0인데 태그가 남는 이유
+### FGameplayTagCountContainer가 보유 여부가 아닌 카운트로 태그를 관리하는 이유와 디버깅 시 주의점은?
 
 `FGameplayTagCountContainer`는 태그를 단순 보유 여부가 아니라 **카운트**로 관리한다.
 GE가 같은 태그를 두 번 부여하면 `TagMapCount = 2`가 되고, GE 하나가 제거되면 `1`이 된다.
@@ -108,7 +108,7 @@ GE가 같은 태그를 두 번 부여하면 `TagMapCount = 2`가 되고, GE 하�
 `LooseGameplayTag`를 쓸 때 `Add` / `Remove` 짝을 맞추지 않으면 이 상태가 된다.
 `TagMapCount`를 직접 건드리지 말고 `AddLooseGameplayTag()` / `RemoveLooseGameplayTag()`를 써야 한다.
 
-### LooseGameplayTag vs GE 태그 — 왜 복제 동작이 다른가
+### LooseGameplayTag는 왜 기본적으로 복제되지 않으며, 복제가 필요할 때 어떤 방법을 사용해야 하는가?
 
 `AddLooseGameplayTag()`는 기본값이 **복제 안 함**이다.
 
@@ -140,4 +140,5 @@ GE를 통한 태그 부여는 복제가 묶음으로 처리되는 반면, LooseG
 ASC->AddLooseGameplayTag(Tag, 1, EGameplayTagReplicationState::AllClients);
 
 // Minimal 모드 전용 헬퍼 (MinimalReplicationTags 채널)
-ASC->AddM
+ASC->AddMinimalReplicationGameplayTag(Tag);
+```

@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-gt-change"></a>
-### 4.2.1 GameplayTag 변화에 응답하기
+### GameplayTag가 추가/제거될 때 이벤트를 감지하려면 어떻게 해야 하는가?
 
 ASC는 GameplayTag가 추가되거나 제거될 때 발동하는 델리게이트를 제공한다. `EGameplayTagEventType`을 통해 GameplayTag가 추가/제거될 때만 발동할지, 아니면 GameplayTag의 `TagMapCount`가 변경될 때마다 발동할지를 지정할 수 있다.
 

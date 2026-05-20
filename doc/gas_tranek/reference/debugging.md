@@ -5,7 +5,7 @@
 ---
 
 <a name="debugging"></a>
-## 6. GAS 디버깅
+## GAS 런타임 디버깅 시 어떤 정보를 확인해야 하며 사용할 수 있는 도구는?
 
 GAS 관련 문제를 디버깅할 때 주로 확인하고 싶은 정보는 다음과 같다:
 - Attribute의 현재 값이 무엇인가?
@@ -27,7 +27,7 @@ UE_ENABLE_OPTIMIZATION
 ```
 
 <a name="debugging-sd"></a>
-### 6.1 showdebug abilitysystem
+### showdebug abilitysystem 명령으로 볼 수 있는 정보는 무엇이며 페이지마다 무엇이 표시되는가?
 
 인게임 콘솔에 `showdebug abilitysystem`을 입력한다. 이 기능은 세 개의 "페이지"로 구성되며, 모든 페이지에서 현재 보유한 GameplayTag를 표시한다. 콘솔에 `AbilitySystem.Debug.NextCategory`를 입력하면 페이지를 전환할 수 있다.
 
@@ -48,14 +48,14 @@ bUseDebugTargetFromHud=true
 **주의:** `showdebug abilitysystem`이 정상 동작하려면 GameMode에 실제 HUD 클래스가 설정되어 있어야 한다. HUD 클래스가 없으면 명령을 찾지 못해 "Unknown Command"가 반환된다.
 
 <a name="debugging-gd"></a>
-### 6.2 Gameplay Debugger
+### Gameplay Debugger를 언제 쓰며 showdebug abilitysystem과 어떻게 다른가?
 
 Apostrophe(`'`) 키로 Gameplay Debugger를 열고, 넘패드 `3`을 눌러 Abilities 카테고리를 활성화한다. 플러그인 구성에 따라 키가 다를 수 있으며, 넘패드가 없는 노트북 키보드라면 프로젝트 설정에서 키 바인딩을 변경할 수 있다.
 
 **다른 캐릭터**의 GameplayTag, GameplayEffect, GameplayAbility를 확인하고 싶을 때 유용하다. 단, 대상의 Attribute CurrentValue는 표시되지 않는다. 화면 중앙에 위치한 캐릭터가 자동으로 대상이 되며, 에디터의 World Outliner에서 선택하거나 다른 캐릭터를 바라보며 Apostrophe(`'`)를 다시 누르면 대상을 변경할 수 있다. 현재 검사 중인 캐릭터 머리 위에는 가장 큰 빨간 원이 표시된다.
 
 <a name="debugging-log"></a>
-### 6.3 GAS 로그
+### GAS 로그 verbosity를 높여 상세 출력을 얻으려면 어떻게 해야 하는가?
 
 GAS 소스 코드에는 다양한 verbosity 레벨로 `ABILITY_LOG()` 형태의 로그 구문이 삽입되어 있다. 기본 verbosity 레벨은 `Display`이며, 그보다 높은 레벨은 기본적으로 콘솔에 표시되지 않는다.
 

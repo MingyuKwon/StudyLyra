@@ -5,10 +5,10 @@
 ---
 
 <a name=”resources-daveratti”></a>
-### 11.1 Epic Games Dave Ratti와의 Q&A
+### Epic Games Dave Ratti가 GAS 설계·예측·최적화에 대해 어떤 입장을 밝혔는가?
 
 <a name=”resources-daveratti-community1”></a>
-#### 11.1.1 커뮤니티 질문 1
+#### 커뮤니티 질문 1 — 예측·WaitNetSync 보안·Replication Mode·GE 제거·ASC 배치에 대한 Dave Ratti의 답변은?
 
 [Dave Ratti가 Unreal Slackers Discord 서버의 GAS 관련 커뮤니티 질문에 답변한 내용](https://epicgames.ent.box.com/s/m1egifkxv3he3u3xezb9hzbgroxyhx89):
 
@@ -98,7 +98,7 @@
 > 이것은 어디까지나 개인적인 의견이며 누구의 약속도 아닙니다. 현실적으로는 새로운 엔진 기술 이니셔티브(스크립팅, 네트워킹, 물리/캐릭터 이동 관련)가 나올 때 Ability System도 함께 업데이트하는 방식이 될 것 같습니다. 매우 장기적인 전망이므로 일정이나 타임라인에 대해 약속드릴 수는 없습니다.
 
 <a name=”resources-daveratti-community2”></a>
-#### 11.1.2 커뮤니티 질문 2
+#### 커뮤니티 질문 2 — Network Prediction Plugin의 GAS 통합 계획과 비동기 물리 틱에 대한 Dave Ratti의 답변은?
 
 커뮤니티 멤버 [iniside](https://github.com/iniside)가 Dave Ratti와 나눈 Q&A:
 
