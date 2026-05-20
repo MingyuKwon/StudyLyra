@@ -58,3 +58,16 @@ public:
 | `SetFoo(Value)` | Base 값을 설정하고 활성 Modifier를 반영해 Current 값 재계산 |
 | `GetFoo()` | Current 값 반환. 마지막 변경 이후 캐시된 값 |
 | `UMySet::GetFooAttribute()` | `FGameplayAttribute` 프로퍼티 정의 반환. 정적 함수라 어디서든 호출 가능. AttributeSet 이벤트에서 어떤 Attribute가 변경됐는지 확인할 때 유용 |
+
+### Attribute에 직접 대입하면 안 되는 이유
+
+`Health.BaseValue = 100.0f`처럼 `=`로 직접 쓰면 GAS 내부 파이프라인 전체가 우회된다.
+
+| 우회되는 것 | 결과 |
+|---|---|
+| `PreAttributeChange` / `PostAttributeChange` | 클램핑, 변경 후 처리(MaxHealth 변경 시 Health 재클램핑 등)가 동작하지 않음 |
+| ASC Aggregator | Attribute별 GE Modifier 합산 구조를 모르는 상태가 됨 — Current 값 계산이 깨짐 |
+| 델리게이트 | `GetGameplayAttributeValueChangeDelegate` 바인딩된 UI·컴포넌트 콜백이 호출되지 않음 |
+| 복제 | dirty 마킹이 안 되어 클라이언트에 변경이 전달되지 않음 |
+
+`SetFoo()` / `InitFoo()` 또는 GE를 통해야 하는 이유가 이것이다.
