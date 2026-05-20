@@ -108,7 +108,9 @@ void AAbilitiesLabCharacter::PostInitializeComponents()
 }
 ```
 
-레벨업 시 Level만 바꿔서 재호출하면 Attribute 값이 새 레벨에 맞게 업데이트된다. `bInitialInit=false`로 호출하면 이미 적용된 GE Modifier를 보존한 채 Base 값만 갱신한다.
+내부적으로 `SetNumericAttributeBase()`를 호출하므로 **Base 값만 변경**된다. Current 값은 새 Base + 활성 GE Modifier로 자동 재계산되며, 기존 Modifier는 그대로 유지된다.
+
+`bInitialInit`은 `UAttributeSet::ShouldInitProperty(bInitialInit, Property)`에 전달된다. 이 가상 함수를 오버라이드하면 레벨업 시(`bInitialInit=false`) 특정 Attribute는 재초기화하지 않도록 선택적으로 제어할 수 있다. 기본 구현은 항상 `true`를 반환해 전부 초기화한다.
 
 ---
 
