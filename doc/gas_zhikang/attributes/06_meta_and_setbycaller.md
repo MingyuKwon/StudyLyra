@@ -104,4 +104,36 @@ void ULabEffectDamageExecution::Execute_Implementation(...) const
 
 Execution이 외부 GE의 에셋 태그를 확인해, 같은 데미지 타입 태그를 가진 GE의 Modifier만 고려한다.
 
+### 동작 흐름 상세
+
+상황: 캐릭터에 "Cold +30% DamageResistance" GE와 "Fire +30% DamageResistance" GE가 활성화되어 있다.
+
+**Aggregator의 관점**
+
+GAS Aggregator는 `DamageResistance` Attribute에 붙은 모든 Modifier를 합산해 Current 값을 계산한다.
+```
+DamageResistance Current = Base(0) + Cold(+30%) + Fire(+30%) = 60%
+```
+`GetDamageResistance()`를 호출하면 60%가 반환된다.
+
+**Execution Calculation의 관점**
+
+Fire 데미지 GE가 적용될 때 Execution이 실행된다. 이 때 단순히 `GetDamageResistance()` 60%를 쓰지 않는다. `FAggregatorEvaluateParameters`에 태그 필터를 걸어 **Aggregator에게 "Fire 태그가 붙은 GE의 Modifier만 합산해서 줘"** 라고 요청한다.
+
+```cpp
+FAggregatorEvaluateParameters EvalParams;
+EvalParams.AppliedSourceTagFilter = FireTag;  // Fire 태그 GE만 포함
+
+float FireResistance = 0.f;
+ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
+    DamageResistanceDef, EvalParams, FireResistance);
+// → 30% 반환 (Cold GE는 필터링됨)
+```
+
+결과적으로 Fire 데미지에는 30%만 적용되고, Cold +30%는 무시된다.
+
+**합산값이 의미 없다는 것의 의미**
+
+`GetDamageResistance()`가 반환하는 60%는 어떤 실제 계산에도 직접 쓰이지 않는다. Execution이 항상 태그 필터로 실효 저항값을 그때그때 뽑아 쓰기 때문이다. 60%라는 숫자는 GAS 디버거나 UI에 노출될 뿐 게임플레이 계산의 입력으로는 의미가 없다.
+
 > **주의**: 이 방식에서 Attribute의 합산값은 의미를 잃는다. Cold +30% + Fire +30% = 합산 +60%이지만 이 값 자체는 의미가 없다.
