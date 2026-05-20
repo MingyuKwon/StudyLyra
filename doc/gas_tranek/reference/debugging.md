@@ -7,21 +7,17 @@
 <a name="debugging"></a>
 ## GAS 런타임 디버깅 시 어떤 정보를 확인해야 하며 사용할 수 있는 도구는?
 
-GAS 관련 문제를 디버깅할 때 주로 확인하고 싶은 정보는 다음과 같다:
-- Attribute의 현재 값이 무엇인가?
-- 현재 어떤 GameplayTag를 보유하고 있는가?
-- 현재 어떤 GameplayEffect가 적용되어 있는가?
-- 어떤 GameplayAbility가 부여되어 있고, 어떤 것이 실행 중이며, 어떤 것이 활성화 차단 상태인가?
+런타임에 확인할 핵심 정보: Attribute 현재 값, 보유 중인 GameplayTag, 적용된 GameplayEffect, 부여·실행·차단 상태인 GameplayAbility.
 
-GAS는 런타임에 이 질문들에 답할 수 있는 두 가지 기술을 제공한다: `showdebug abilitysystem`과 Gameplay Debugger의 훅이다.
+GAS는 이를 위해 두 가지 도구를 제공한다: `showdebug abilitysystem`과 Gameplay Debugger.
 
-**팁:** 언리얼 엔진은 C++ 코드를 최적화하기 때문에 일부 함수를 디버깅하기 어려울 수 있다. Visual Studio 솔루션 구성을 `DebugGame Editor`로 설정해도 코드 추적이나 변수 검사가 어렵다면, `UE_DISABLE_OPTIMIZATION`과 `UE_ENABLE_OPTIMIZATION` 매크로(또는 CoreMiscDefines.h에 정의된 ship 변형 버전)로 해당 함수의 최적화를 일시 비활성화할 수 있다. 플러그인 코드는 소스에서 직접 빌드하지 않는 한 이 매크로를 사용할 수 없다. 인라인 함수에는 동작하지 않을 수도 있다. 디버깅이 끝나면 반드시 매크로를 제거해야 한다.
+최적화로 인해 특정 함수 디버깅이 어려우면 `UE_DISABLE_OPTIMIZATION` / `UE_ENABLE_OPTIMIZATION` 매크로로 해당 함수만 최적화를 일시 해제할 수 있다.
 
 ```c++
 UE_DISABLE_OPTIMIZATION
 void MyClass::MyFunction(int32 MyIntParameter)
 {
-	// My code
+    // My code
 }
 UE_ENABLE_OPTIMIZATION
 ```
@@ -29,61 +25,53 @@ UE_ENABLE_OPTIMIZATION
 <a name="debugging-sd"></a>
 ### showdebug abilitysystem 명령으로 볼 수 있는 정보는 무엇이며 페이지마다 무엇이 표시되는가?
 
-인게임 콘솔에 `showdebug abilitysystem`을 입력한다. 이 기능은 세 개의 "페이지"로 구성되며, 모든 페이지에서 현재 보유한 GameplayTag를 표시한다. 콘솔에 `AbilitySystem.Debug.NextCategory`를 입력하면 페이지를 전환할 수 있다.
+인게임 콘솔에 `showdebug abilitysystem` 입력. `AbilitySystem.Debug.NextCategory`로 페이지 전환.
 
-**1페이지**에서는 모든 Attribute의 CurrentValue를 표시한다.
+| 페이지 | 표시 내용 |
+|---|---|
+| 공통 | 현재 보유한 GameplayTag 전체 |
+| 1페이지 | 모든 Attribute의 CurrentValue |
+| 2페이지 | 적용 중인 Duration·Infinite GE 목록 (스택 수, 부여 태그, 적용 Modifier 포함) |
+| 3페이지 | 부여된 GA 목록 (실행 중·차단 여부, 현재 AbilityTask 상태 포함) |
 
-**2페이지**에서는 현재 적용 중인 모든 Duration 및 Infinite GameplayEffect 목록을 보여주며, 스택 수, 부여하는 GameplayTag, 적용하는 Modifier가 포함된다.
+대상 전환: `PageUp` / `NextDebugTarget` → 다음 대상, `PageDown` / `PreviousDebugTarget` → 이전 대상. 선택된 Actor는 녹색 직육면체로 표시된다.
 
-**3페이지**에서는 부여된 모든 GameplayAbility 목록을 보여주며, 현재 실행 중인지 여부, 활성화 차단 여부, 현재 실행 중인 AbilityTask의 상태가 포함된다.
-
-대상을 전환하려면(선택된 Actor는 녹색 직육면체로 표시됨) `PageUp` 키 또는 `NextDebugTarget` 콘솔 명령으로 다음 대상으로, `PageDown` 키 또는 `PreviousDebugTarget` 콘솔 명령으로 이전 대상으로 이동한다.
-
-**주의:** 현재 선택된 debug Actor에 따라 Ability System 정보가 갱신되려면, `DefaultGame.ini`의 AbilitySystemGlobals 설정에 다음을 추가해야 한다:
-```
-[/Script/GameplayAbilities.AbilitySystemGlobals]
-bUseDebugTargetFromHud=true
-```
-
-**주의:** `showdebug abilitysystem`이 정상 동작하려면 GameMode에 실제 HUD 클래스가 설정되어 있어야 한다. HUD 클래스가 없으면 명령을 찾지 못해 "Unknown Command"가 반환된다.
+주의사항:
+- `DefaultGame.ini`에 `bUseDebugTargetFromHud=true` 추가 필요:
+  ```
+  [/Script/GameplayAbilities.AbilitySystemGlobals]
+  bUseDebugTargetFromHud=true
+  ```
+- GameMode에 실제 HUD 클래스가 설정되어 있어야 한다. 없으면 "Unknown Command"가 반환된다.
 
 <a name="debugging-gd"></a>
 ### Gameplay Debugger를 언제 쓰며 showdebug abilitysystem과 어떻게 다른가?
 
-Apostrophe(`'`) 키로 Gameplay Debugger를 열고, 넘패드 `3`을 눌러 Abilities 카테고리를 활성화한다. 플러그인 구성에 따라 키가 다를 수 있으며, 넘패드가 없는 노트북 키보드라면 프로젝트 설정에서 키 바인딩을 변경할 수 있다.
+Apostrophe(`'`) 키로 열고, 넘패드 `3`으로 Abilities 카테고리 활성화.
 
-**다른 캐릭터**의 GameplayTag, GameplayEffect, GameplayAbility를 확인하고 싶을 때 유용하다. 단, 대상의 Attribute CurrentValue는 표시되지 않는다. 화면 중앙에 위치한 캐릭터가 자동으로 대상이 되며, 에디터의 World Outliner에서 선택하거나 다른 캐릭터를 바라보며 Apostrophe(`'`)를 다시 누르면 대상을 변경할 수 있다. 현재 검사 중인 캐릭터 머리 위에는 가장 큰 빨간 원이 표시된다.
+**다른 캐릭터**의 GameplayTag·GE·GA를 확인할 때 유용하다. Attribute CurrentValue는 표시되지 않는다. 화면 중앙의 캐릭터가 자동으로 대상이 되며, 검사 중인 캐릭터 머리 위에 가장 큰 빨간 원이 표시된다.
+
+| 항목 | showdebug abilitysystem | Gameplay Debugger |
+|---|---|---|
+| 대상 | 로컬 플레이어 위주 | 다른 캐릭터도 가능 |
+| Attribute CurrentValue | 표시됨 | 표시 안 됨 |
+| 진입 방법 | 콘솔 명령 | `'` 키 |
 
 <a name="debugging-log"></a>
 ### GAS 로그 verbosity를 높여 상세 출력을 얻으려면 어떻게 해야 하는가?
 
-GAS 소스 코드에는 다양한 verbosity 레벨로 `ABILITY_LOG()` 형태의 로그 구문이 삽입되어 있다. 기본 verbosity 레벨은 `Display`이며, 그보다 높은 레벨은 기본적으로 콘솔에 표시되지 않는다.
-
-로그 카테고리의 verbosity 레벨을 변경하려면 콘솔에 다음을 입력한다:
+콘솔에서 `log [category] [verbosity]` 형식으로 변경한다.
 
 ```
-log [category] [verbosity]
+log LogAbilitySystem VeryVerbose   ← 상세 출력 활성화
+log LogAbilitySystem Display       ← 기본값으로 복원
+log list                           ← 전체 카테고리 목록 확인
 ```
 
-예를 들어 `ABILITY_LOG()` 구문을 활성화하려면 콘솔에 다음과 같이 입력한다:
-```
-log LogAbilitySystem VeryVerbose
-```
-
-기본값으로 되돌리려면:
-```
-log LogAbilitySystem Display
-```
-
-모든 로그 카테고리를 표시하려면:
-```
-log list
-```
-
-주요 GAS 관련 로그 카테고리:
+주요 GAS 로그 카테고리:
 
 | 로그 카테고리 | 기본 Verbosity |
-| ----------- | -------------- |
+|---|---|
 | LogAbilitySystem | Display |
 | LogAbilitySystemComponent | Log |
 | LogGameplayCueDetails | Log |
@@ -94,7 +82,4 @@ log list
 | LogGameplayTasks | Log |
 | VLogAbilitySystem | Display |
 
-자세한 내용은 [Wiki의 로깅 문서](https://unrealcommunity.wiki/logging-lgpidy6i)를 참조한다.
-
 ---
-
