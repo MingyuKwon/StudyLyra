@@ -5,7 +5,7 @@
 ---
 
 <a name="cae-stun"></a>
-### 5.1 Stun
+### Stun 구현 시 GA 취소·활성화 차단·이동 제한을 각각 어떻게 처리하는가?
 
 일반적으로 Stun 구현 시에는 Stun 지속 시간 동안 캐릭터의 모든 활성 GameplayAbility를 취소하고, 새로운 GameplayAbility 활성화를 막으며, 이동을 차단하는 세 가지 처리가 필요하다. 샘플 프로젝트의 Meteor GameplayAbility는 피격 대상에 Stun을 적용하는 예시를 보여준다.
 
@@ -16,7 +16,7 @@ Stun 상태에서 새로운 GameplayAbility 활성화를 막으려면, 각 Gamep
 Stun 중 이동을 차단하려면, `CharacterMovementComponent`의 `GetMaxSpeed()` 함수를 오버라이드하여, 소유자에게 Stun GameplayTag가 존재할 경우 0을 반환하도록 한다.
 
 <a name="cae-sprint"></a>
-### 5.2 Sprint
+### 달리기(Sprint) 중 이동 속도 증가를 예측적으로 적용하려면 어떻게 구현하는가?
 
 샘플 프로젝트는 `Left Shift`를 누르는 동안 더 빠르게 달리는 Sprint 구현 예시를 제공한다.
 
@@ -25,7 +25,7 @@ Stun 중 이동을 차단하려면, `CharacterMovementComponent`의 `GetMaxSpeed
 GameplayAbility(`GA_Sprint_BP`)는 `Left Shift` 입력에 반응하고, CMC에 Sprint 시작·종료를 지시하며, `Left Shift`가 눌려 있는 동안 스태미나를 예측 소모하는 역할을 담당한다. 상세 내용은 `GA_Sprint_BP`를 참조한다.
 
 <a name="cae-ads"></a>
-### 5.3 ADS (Aim Down Sights)
+### ADS(조준 사격) 중 이동 속도 감소는 Sprint와 어떻게 동일한 방식으로 구현되는가?
 
 샘플 프로젝트는 Sprint와 동일한 방식으로 ADS를 처리하되, 이동 속도를 높이는 대신 **감소**시킨다.
 

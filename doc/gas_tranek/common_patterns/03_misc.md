@@ -5,7 +5,7 @@
 ---
 
 <a name="cae-random"></a>
-### 5.5 클라이언트와 서버에서 동일한 난수 생성
+### GA 내에서 클라이언트와 서버가 동일한 난수를 생성해야 할 때 어떤 방법을 쓰는가?
 
 총기 반동이나 탄퍼짐처럼 GameplayAbility 내부에서 "무작위" 값이 필요한 경우가 있다. 클라이언트와 서버 모두 동일한 난수를 생성해야 한다. 이를 위해 GameplayAbility 활성화 시점에 random seed를 동일하게 설정해야 한다. 클라이언트가 활성화를 예측 실패(mispredict)하면 난수 시퀀스가 서버와 어긋날 수 있으므로, 활성화마다 seed를 재설정해야 한다.
 
@@ -17,17 +17,17 @@
 난수 편차가 크지 않다면 activation prediction key 방식으로 충분하다. 해킹 방지가 필요하고 더 복잡한 구현이 필요한 경우, Server Initiated GameplayAbility를 활용하여 서버가 seed를 생성하고 이벤트 페이로드로 전달하는 방식을 고려한다.
 
 <a name="cae-nonstackingge"></a>
-### 5.7 Non-Stacking GameplayEffect — 가장 강한 크기만 실제로 적용
+### 여러 슬로우 효과 중 가장 강한 것만 실제로 적용되는 Non-Stacking 패턴은 어떻게 구현하는가?
 
 Paragon의 슬로우 효과는 중첩되지 않았다. 각 슬로우 인스턴스는 고유한 수명을 유지하며 정상적으로 추적되지만, 실제로 캐릭터에 적용되는 것은 크기가 가장 큰 슬로우 효과 하나뿐이었다. GAS는 `AggregatorEvaluateMetaData`를 통해 이 시나리오를 기본적으로 지원한다. 상세 구현은 `AggregatorEvaluateMetaData()`를 참조한다.
 
 <a name="cae-paused"></a>
-### 5.8 게임 일시 정지 중 TargetData 생성
+### WaitTargetData 실행 중 게임을 일시 정지하려면 pause 대신 어떤 방법을 써야 하는가?
 
 플레이어의 `WaitTargetData` AbilityTask가 실행 중인 상태에서 게임을 일시 정지해야 한다면, pause 대신 **`slomo 0`** 사용을 권장한다.
 
 <a name="cae-onebuttoninteractionsystem"></a>
-### 5.9 원버튼 상호작용 시스템
+### 원버튼으로 여러 오브젝트와 상호작용하는 시스템은 GAS에서 어떻게 구현하는가?
 
 GASShooter에는 'E' 키를 누르거나 길게 눌러 상호작용 가능한 오브젝트(플레이어 소생, 무기 상자 열기, 슬라이딩 도어 개폐 등)와 상호작용하는 원버튼 인터랙션 시스템이 구현되어 있다.
 

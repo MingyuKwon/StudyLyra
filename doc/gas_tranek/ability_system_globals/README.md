@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-asg"></a>
-### 4.9 Ability System Globals
+### AbilitySystemGlobals는 어떤 역할을 하며 서브클래싱이 필요한 경우는 언제인가?
 
 [`AbilitySystemGlobals`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UAbilitySystemGlobals/index.html) 클래스는 GAS에 관한 전역 정보를 보관한다. 대부분의 변수는 `DefaultGame.ini`에서 설정할 수 있다. 일반적으로 이 클래스를 직접 다룰 일은 없지만, 그 존재는 반드시 알고 있어야 한다. `GameplayCueManager`나 `GameplayEffectContext`를 서브클래싱해야 할 경우, 반드시 `AbilitySystemGlobals`를 통해야 한다.
 
@@ -17,7 +17,7 @@ AbilitySystemGlobalsClassName="/Script/ParagonAssets.PAAbilitySystemGlobals"
 ```
 
 <a name="concepts-asg-initglobaldata"></a>
-#### 4.9.1 InitGlobalData()
+#### InitGlobalData()는 왜 반드시 호출해야 하며 UE 버전별 요구사항은 어떻게 다른가?
 
 UE 4.24에서 5.2 사이에서는 `TargetData`를 사용하기 위해 반드시 `UAbilitySystemGlobals::Get().InitGlobalData()`를 호출해야 한다. 이를 호출하지 않으면 `ScriptStructCache` 관련 오류가 발생하고 클라이언트가 서버에서 끊긴다. 이 함수는 프로젝트 내에서 단 한 번만 호출하면 된다. Fortnite는 `UAssetManager::StartInitialLoading()`에서, Paragon은 `UEngine::Init()`에서 호출한다. 샘플 프로젝트에서 보여주듯 `UAssetManager::StartInitialLoading()`에 두는 것이 좋은 위치다. `TargetData` 관련 문제를 방지하기 위해 프로젝트에 반드시 복사해야 하는 보일러플레이트 코드로 간주한다. **UE 5.3부터는 자동으로 호출**된다.
 
@@ -25,12 +25,12 @@ UE 4.24에서 5.2 사이에서는 `TargetData`를 사용하기 위해 반드시 
 
 ---
 
-### 왜 필요한가 — 세 가지 역할
+### AbilitySystemGlobals가 GAS에서 수행하는 세 가지 핵심 역할은 무엇인가?
 
 **출처**: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Public/AbilitySystemGlobals.h`  
 **출처**: `Source/LyraGame/AbilitySystem/LyraAbilitySystemGlobals.cpp`
 
-#### 1. 프로젝트 전용 타입 주입 (가장 중요)
+#### 커스텀 EffectContext나 ActorInfo 타입을 GAS 내부에 주입하려면 AbilitySystemGlobals에서 무엇을 오버라이드해야 하는가?
 
 GAS 내부는 `FGameplayEffectContext`, `FGameplayAbilityActorInfo` 같은 구조체를 전부 가상함수(`AllocXxx`)를 통해 `new`로 할당한다. 프로젝트 전용 서브클래스로 교체하려면 이 팩토리 함수들을 오버라이드할 창구가 필요한데, 그게 `AbilitySystemGlobals`다.
 
@@ -55,7 +55,7 @@ FGameplayEffectContext* ULyraAbilitySystemGlobals::AllocGameplayEffectContext() 
 
 `FLyraGameplayEffectContext`는 `CartridgeID`(어떤 탄약 데이터로 히트했는지) 등 Lyra 전용 데이터를 담으며, ExecCalc / TargetData 콜백에서 캐스트해 꺼낸다.
 
-#### 2. GAS 공유 리소스 허브
+#### AbilitySystemGlobals는 GAS의 어떤 공유 리소스에 대한 접근 허브 역할을 하는가?
 
 ```cpp
 GetGameplayCueManager()       // GameplayCue 싱글톤
@@ -65,7 +65,7 @@ TargetDataStructCache         // TargetData 네트워크 직렬화 캐시
 EffectContextStructCache      // EffectContext 네트워크 직렬화 캐시
 ```
 
-#### 3. 전역 실패 태그
+#### GA 활성화 실패 시 AbilitySystemGlobals가 관리하는 전역 실패 태그는 어떤 것들인가?
 
 ```cpp
 ActivateFailCooldownTag     // GA 쿨다운 실패
@@ -77,7 +77,7 @@ ActivateFailNetworkingTag   // 네트워크 설정 오류
 
 ---
 
-### 접근 방법
+### 코드에서 AbilitySystemGlobals 싱글톤에 접근하는 방법은?
 
 ```cpp
 // 어디서나 이 한 줄로 접근
@@ -97,7 +97,7 @@ static UAbilitySystemGlobals& Get()
 
 ---
 
-### 서브클래싱 등록 방법
+### 커스텀 AbilitySystemGlobals 서브클래스를 UE 버전에 따라 어떻게 등록하는가?
 
 **UE 5.4 이하** — `DefaultGame.ini`:
 ```ini
@@ -110,7 +110,7 @@ AbilitySystemGlobalsClassName="/Script/LyraGame.LyraAbilitySystemGlobals"
 
 ---
 
-### InitGlobalData() 주의사항
+### InitGlobalData()를 호출하지 않으면 어떤 문제가 발생하며 버전별 차이는?
 
 - **UE 5.2 이하**: `TargetData` 사용 시 `UAbilitySystemGlobals::Get().InitGlobalData()`를 수동 호출해야 함. 미호출 시 `ScriptStructCache` 오류로 클라이언트 연결 끊김.
 - **UE 5.3+**: 자동 호출되므로 신경 쓸 필요 없음.

@@ -5,25 +5,25 @@
 ---
 
 <a name="troubleshooting"></a>
-## 9. 트러블슈팅
+## GAS 개발 중 자주 만나는 오류와 해결 방법은 무엇인가?
 
 <a name="troubleshooting-notlocal"></a>
-### 9.1 `LogAbilitySystem: Warning: Can't activate LocalOnly or LocalPredicted ability %s when not local!`
+### "Can't activate LocalOnly or LocalPredicted ability when not local" 경고는 무엇이 원인인가?
 
 클라이언트에서 ASC 초기화가 누락된 경우에 발생한다. 클라이언트 측 ASC 셋업을 확인한다.
 
 <a name="troubleshooting-scriptstructcache"></a>
-### 9.2 `ScriptStructCache` 오류
+### ScriptStructCache 오류로 클라이언트 연결이 끊기는 원인과 해결책은?
 
 `UAbilitySystemGlobals::InitGlobalData()`가 호출되지 않아서 발생한다. 프로젝트 초기화 시 반드시 호출해야 한다.
 
 <a name="troubleshooting-replicatinganimmontages"></a>
-### 9.3 애니메이션 몽타주가 클라이언트에 복제되지 않음
+### GA 내에서 PlayMontage 노드를 써도 몽타주가 클라이언트에 복제되지 않는 이유는?
 
 GameplayAbility 내부에서 `PlayMontage` 노드 대신 `PlayMontageAndWait` Blueprint 노드를 사용해야 한다. 이 AbilityTask는 ASC를 통해 몽타주를 자동으로 복제하지만, `PlayMontage` 노드는 그렇지 않다.
 
 <a name="troubleshooting-duplicatingblueprintactors"></a>
-### 9.4 블루프린트 액터 복제 시 AttributeSet 포인터가 nullptr이 되는 문제
+### 블루프린트 액터를 Duplicate하면 AttributeSet 포인터가 nullptr이 되는 버그는 어떻게 해결하는가?
 
 기존 블루프린트 액터 클래스를 복제(Duplicate)하면 해당 클래스의 AttributeSet 포인터가 nullptr로 설정되는 [언리얼 엔진 버그](https://issues.unrealengine.com/issue/UE-81109)가 있다. 몇 가지 해결 방법이 있는데, 필자가 효과를 확인한 방법은 클래스에 별도의 AttributeSet 포인터를 선언하지 않는 것이다(.h에 포인터 선언 없음, 생성자에서 `CreateDefaultSubobject` 미호출). 대신 `PostInitializeComponents()`에서 AttributeSet을 ASC에 직접 추가한다(샘플 프로젝트에는 나와 있지 않음). 복제된 AttributeSet은 ASC의 `SpawnedAttributes` 배열에 계속 유지된다. 코드 예시는 다음과 같다:
 
@@ -77,7 +77,7 @@ if (AbilitySystemComponent)
 참고로 ASC는 AttributeSet 클래스당 최대 하나의 객체만 허용한다.
 
 <a name="troubleshooting-unresolvedexternalsymbolmarkpropertydirty"></a>
-### 9.5 링커 오류: `UEPushModelPrivate::MarkPropertyDirty(int,int)` unresolved external symbol
+### MarkPropertyDirty unresolved external symbol 링커 오류는 왜 발생하며 어떻게 수정하는가?
 
 다음과 같은 컴파일 오류가 발생하는 경우:
 
@@ -96,7 +96,7 @@ ActiveGameplayEffects.MarkItemDirty(*AGE);
 해결책은 프로젝트의 `Build.cs`에서 `PublicDependencyModuleNames`에 `NetCore`를 추가하는 것이다.
 
 <a name="troubleshooting-enumnamesarenowpathnames"></a>
-### 9.6 Enum 이름이 이제 경로명으로 표현됨 (UE 5.1+)
+### UE 5.1 이상에서 Enum 이름 경로명 deprecated 경고가 발생하면 어떻게 코드를 수정해야 하는가?
 
 다음과 같은 컴파일 경고가 발생하는 경우:
 
