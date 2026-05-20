@@ -72,6 +72,25 @@ Local Predicted 어빌리티는 클라이언트에서 호출하면 페이로드�
 GameplayEffectContext와 유사한 다형성 방식.
 프로젝트 전용 타겟팅 데이터를 담기 위한 용도.
 
+### 복제 방식 — RPC에 값으로 직렬화
+
+`ContextHandle`과 `TargetDataHandle`은 `FGameplayAbilitySpecHandle`과 근본적으로 다르다.
+
+`FGameplayAbilitySpecHandle`은 사전에 복제된 `ActivatableAbilities`를 가리키는 ID다. 원본이 양쪽에 이미 있으므로 키만 주고받는다.
+
+반면 이 둘은 **원본 자체를 RPC 패킷에 값으로 직렬화해서 전송한다.**
+
+```cpp
+ServerTryActivateAbilityWithEventData(
+    Handle,           // ID — ActivatableAbilities 조회용
+    InputPressed,
+    PredictionKey,
+    FGameplayEventData TriggerEventData  // ContextHandle/TargetData 포함, 값으로 전송
+)
+```
+
+각자 커스텀 `NetSerialize`를 구현하고 있으며, 내부적으로 `EffectContextStructCache` / `TargetDataStructCache`를 통해 타입을 식별한 뒤 콘크리트 타입의 `NetSerialize`를 호출한다. 커스텀 서브클래스를 만들었다면 `NetSerialize` 구현이 필수다. 없으면 Fatal 로그가 찍힌다.
+
 ---
 
 ## 페이로드 전달 — Event 외의 방법
