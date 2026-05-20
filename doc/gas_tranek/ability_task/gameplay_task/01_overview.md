@@ -4,7 +4,7 @@
 
 ---
 
-## 왜 존재하는가
+## GameplayTask 플러그인이 GAS와 분리된 이유는 무엇인가?
 
 "특정 조건까지 기다리거나, 시간에 걸쳐 작업을 수행하는" 비동기 태스크 패턴은 GAS만의 문제가 아니다.
 AI 에이전트, 인터랙션 시스템, 퀘스트 시스템 등 게임의 여러 곳에서 동일한 패턴이 필요하다.
@@ -30,7 +30,7 @@ AI 에이전트가 "목표 지점까지 이동 완료를 기다린다"는 비동
 
 ---
 
-## 클래스 구조
+## UGameplayTask, UAbilityTask, UGameplayTasksComponent, UAbilitySystemComponent의 계층 관계는?
 
 ```
 UObject
@@ -49,7 +49,7 @@ UActorComponent
 
 ---
 
-## 태스크 상태 머신
+## GameplayTask의 상태 머신은 어떻게 구성되며 각 상태는 언제 진입하는가?
 
 태스크는 항상 아래 상태 중 하나다. (`EGameplayTaskState`, `GameplayTask.h:24`)
 
@@ -68,7 +68,7 @@ Uninitialized → AwaitingActivation → Active ↔ Paused → Finished
 
 ---
 
-## GAS 밖에서의 사용
+## UGameplayTask를 GAS 없이도 쓸 수 있는가? GAS 프로젝트에서는 언제 직접 쓰는가?
 
 `UGameplayTask`는 GAS 없이도 사용할 수 있다.
 언리얼 AI 시스템의 `UBTTaskNode_GameplayTaskBase`가 대표적인 예로, BehaviorTree Task가 내부적으로 GameplayTask를 활용한다.

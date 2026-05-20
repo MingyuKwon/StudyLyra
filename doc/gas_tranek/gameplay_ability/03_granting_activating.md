@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ga-granting"></a>
-#### 4.6.3 GA 부여 (Granting)
+#### GA를 ASC에 부여(Grant)하는 방법과 서버에서만 해야 하는 이유는 무엇인가?
 
 GA를 ASC에 부여하면 ASC의 `ActivatableAbilities` 목록에 추가되어, 조건이 충족될 때 해당 GA를 활성화할 수 있게 된다.
 
@@ -34,7 +34,7 @@ void AGDCharacterBase::AddCharacterAbilities()
 GA를 부여할 때, `UGameplayAbility` 클래스, 어빌리티 레벨, 바인딩할 입력, 그리고 이 GA를 해당 ASC에 부여한 주체인 `SourceObject`를 담은 `GameplayAbilitySpec`을 생성하여 전달한다.
 
 <a name="concepts-ga-activating"></a>
-#### 4.6.4 GA 활성화 (Activating)
+#### GA를 활성화하는 방법에는 어떤 것들이 있으며, 로컬 예측 GA는 어떤 순서로 실행되는가?
 
 입력 액션이 할당된 GA는 해당 입력이 눌리고 GameplayTag 요건이 충족되면 자동으로 활성화된다. 하지만 이것이 항상 원하는 방식은 아닐 수 있다. ASC는 GA를 활성화하는 네 가지 추가 방법을 제공한다: GameplayTag, GameplayAbility 클래스, GameplayAbilitySpec 핸들, 그리고 이벤트. 이벤트로 GA를 활성화하면 이벤트와 함께 페이로드 데이터를 전달할 수 있다.
 
@@ -84,7 +84,7 @@ GA `Triggers`는 GameplayTag가 추가되거나 제거될 때 GA를 활성화하
 서버가 활성화에 실패하면 `ClientActivateAbilityFailed()`를 호출하여 클라이언트의 GA를 즉시 종료하고 예측으로 인한 변경 사항을 롤백한다.
 
 <a name="concepts-ga-activating-passive"></a>
-#### 4.6.4.1 패시브 GA
+#### 패시브 GA를 어떻게 구현하며, OnAvatarSet을 사용하는 이유는 무엇인가?
 
 자동으로 활성화되어 지속 실행되는 패시브 GA를 구현하려면, `UGameplayAbility::OnAvatarSet()`을 오버라이드한다. 이 함수는 GA가 부여되고 `AvatarActor`가 설정될 때 자동으로 호출되며, 여기서 `TryActivateAbility()`를 호출하면 된다.
 
@@ -107,7 +107,7 @@ void UGDGameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo * ActorInfo
 Epic은 이 함수를 패시브 어빌리티를 시작하고 `BeginPlay`에서 처리할 법한 작업을 수행하기에 적합한 위치로 설명한다.
 
 <a name="concepts-ga-activating-failedtags"></a>
-#### 4.6.4.2 활성화 실패 태그
+#### GA 활성화가 실패했을 때 어떤 GameplayTag로 실패 원인을 진단할 수 있는가?
 
 어빌리티에는 활성화 실패 원인을 알려주는 기본 로직이 내장되어 있다. 이를 활성화하려면 기본 실패 케이스에 대응하는 GameplayTag를 설정해야 한다.
 

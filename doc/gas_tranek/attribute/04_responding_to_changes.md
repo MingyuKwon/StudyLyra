@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-a-changes"></a>
-#### 4.3.4 Attribute 변화에 응답하기
+#### Attribute 변화를 UI나 게임플레이 로직에서 감지하려면 어떻게 해야 하는가?
 
 Attribute가 변경될 때 UI나 다른 게임플레이 요소를 업데이트하려면 `UAbilitySystemComponent::GetGameplayAttributeValueChangeDelegate(FGameplayAttribute Attribute)`를 사용한다. 이 함수는 Attribute가 변경될 때마다 자동으로 호출되는 델리게이트를 반환하며, 바인딩할 수 있다. 델리게이트는 `NewValue`, `OldValue`, `FGameplayEffectModCallbackData`를 담은 `FOnAttributeChangeData` 파라미터를 제공한다. > **참고**  
 > `FGameplayEffectModCallbackData`는 서버에서만 설정된다.
@@ -26,7 +26,7 @@ virtual void HealthChanged(const FOnAttributeChangeData& Data);
 
 ---
 
-### FOnAttributeChangeData — 델리게이트 콜백이 받는 인자
+### Attribute 변화 델리게이트 콜백에서 서버와 클라이언트가 받는 정보는 왜 다른가?
 
 `GetGameplayAttributeValueChangeDelegate()`에 바인딩한 함수가 받는 구조체다.
 
@@ -53,7 +53,7 @@ UI 업데이트처럼 값 변화만 필요하면 두 경로 모두 쓸 수 있�
 
 ---
 
-### FGameplayEffectModCallbackData — 구조와 두 가지 쓰임
+### FGameplayEffectModCallbackData는 어디서 사용되며, 어떤 정보를 제공하는가?
 
 ```cpp
 // GameplayEffectExtension.h
@@ -113,7 +113,7 @@ if (AttributeSet->PreGameplayEffectExecute(ExecuteData))  // 1. 적용 직전
 
 Duration/Infinite GE의 CurrentValue 변경 시점을 가로채려면 `PreAttributeChange`를 써야 한다.
 
-### PreGameplayEffectExecute vs PreAttributeChange — 왜 분리되어 있는가
+### PreGameplayEffectExecute와 PreAttributeChange는 어떻게 다르며 각각 언제 써야 하는가?
 
 BaseValue가 바뀌면 CurrentValue도 따라 바뀌고 `PreAttributeChange`도 불린다.
 그런데도 두 함수가 분리된 이유는 **제공하는 정보와 할 수 있는 일이 다르기 때문이다.**

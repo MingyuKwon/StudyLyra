@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-a-meta"></a>
-#### 4.3.3 Meta Attribute
+#### Meta Attribute란 무엇이며, 왜 Damage를 직접 Health에 적용하지 않는가?
 
 일부 Attribute는 다른 Attribute와 상호작용하기 위한 임시 값의 플레이스홀더로 취급된다. 이를 `Meta Attribute`라고 한다. 예를 들어 우리는 흔히 데미지를 Meta Attribute로 정의한다. GameplayEffect가 체력 Attribute를 직접 변경하는 대신, `Damage`라는 Meta Attribute를 플레이스홀더로 사용한다. 이렇게 하면 데미지 값을 `GameplayEffectExecutionCalculation`에서 버프와 디버프로 조정할 수 있고, 최종적으로 체력 Attribute에서 나머지를 차감하기 전에 현재 방어막 Attribute에서 데미지를 먼저 차감하는 등 AttributeSet에서 추가 조작이 가능하다. `Damage` Meta Attribute는 GameplayEffect 사이에서 값이 유지되지 않으며, 매번 덮어써진다. Meta Attribute는 일반적으로 복제되지 않는다.
 
@@ -15,7 +15,7 @@ Meta Attribute는 좋은 설계 패턴이지만 필수는 아니다. 모든 데�
 
 ---
 
-### "GE 사이에서 값이 유지되지 않으며 매번 덮어써진다"
+### Meta Attribute 값이 GE 사이에서 유지되지 않는 이유는 무엇인가?
 
 `Damage`는 `FGameplayAttributeData`로 선언된 Attribute지만, 실제로는 임시 수신함처럼 쓰인다.
 
@@ -27,7 +27,7 @@ GE B 적용 → Damage = 30 → PostGameplayEffectExecute() 실행 → 처리 �
 GE A가 끝난 뒤 Damage = 50이 남아있지 않다. GE B가 오면 30으로 덮어쓴다.
 이 값을 "누적"하거나 "기억"하는 용도로 쓰면 안 된다.
 
-### "AttributeSet에서 추가 조작이 가능하다"
+### Meta Attribute를 통해 AttributeSet에서 추가 조작을 하는 이유는?
 
 `PostGameplayEffectExecute()`가 그 조작 지점이다.
 
@@ -54,7 +54,7 @@ void ULyraHealthSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackD
 GE는 "데미지가 30이다"만 결정하고, "방어막에서 먼저 까고 체력에서 빼라"는 로직은 AttributeSet이 담당한다.
 GE가 캐릭터 내부 구조(방어막 유무 등)를 알 필요가 없다.
 
-### "Meta Attribute는 일반적으로 복제되지 않는다"
+### Meta Attribute를 복제하지 않는 이유는?
 
 값의 수명이 너무 짧기 때문이다.
 `PostGameplayEffectExecute()` 안에서 읽고 처리한 뒤 바로 0으로 리셋된다.

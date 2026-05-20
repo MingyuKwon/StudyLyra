@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-a-value"></a>
-#### 4.3.2 BaseValue vs CurrentValue
+#### BaseValue와 CurrentValue는 어떻게 다르며, GE 종류별로 어느 값이 바뀌는가?
 
 Attribute는 두 개의 값으로 구성된다. `BaseValue`는 Attribute의 영구적인 값이며, `CurrentValue`는 BaseValue에 GameplayEffect에 의한 임시 수정값을 더한 값이다. 예를 들어 캐릭터의 이동속도 Attribute의 BaseValue가 600 units/second라면, GameplayEffect가 이동속도를 수정하지 않는 한 CurrentValue도 600 u/s다. 여기에 임시 50 u/s 이동속도 버프를 받으면 BaseValue는 600 u/s로 유지되고 CurrentValue는 600 + 50으로 총 650 u/s가 된다. 이동속도 버프가 만료되면 CurrentValue는 다시 BaseValue인 600 u/s로 돌아간다.
 
@@ -15,7 +15,7 @@ GAS를 처음 접하는 사람들은 종종 BaseValue를 Attribute의 최대값�
 
 ---
 
-### FGameplayAttributeData — 구조체가 값을 두 개 갖는 이유
+### FGameplayAttributeData가 BaseValue와 CurrentValue를 분리해서 갖는 이유는?
 
 ```cpp
 struct FGameplayAttributeData
@@ -45,7 +45,7 @@ Periodic의 각 틱은 Instant GE를 주기적으로 터뜨리는 것과 동일�
 
 ---
 
-### GE 종류별로 바꾸는 값이 다르다
+### Instant, Duration, Infinite, Periodic GE는 각각 BaseValue와 CurrentValue 중 무엇을 변경하는가?
 
 "GE가 Attribute를 바꾼다"고 할 때, GE 종류에 따라 건드리는 값이 다르다.
 
@@ -81,7 +81,7 @@ GE 적용
   → GE는 적용 즉시 사라짐 (ActiveGameplayEffects에 남지 않음)
 ```
 
-### ATTRIBUTE_ACCESSORS 매크로 — 4개 함수의 역할 구분
+### ATTRIBUTE_ACCESSORS 매크로가 생성하는 4개 함수는 각각 어떤 역할을 하는가?
 
 ```cpp
 ATTRIBUTE_ACCESSORS(ULyraHealthSet, Health)

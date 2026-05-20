@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ga-cancelabilities"></a>
-#### 4.6.5 GA 취소 (Canceling)
+#### GA를 내부/외부에서 취소하는 방법과 Non-Instanced GA에서 CancelAllAbilities가 불안정한 이유는?
 
 GA 내부에서 취소하려면 `CancelAbility()`를 호출한다. 이 함수는 `EndAbility()`를 호출하면서 `WasCancelled` 파라미터를 true로 설정한다.
 
@@ -32,7 +32,7 @@ virtual void DestroyActiveState();
 > `CancelAllAbilities()`는 Non-Instanced GA가 있을 경우 제대로 동작하지 않는 것으로 확인된다. Non-Instanced GA를 만나면 처리를 포기하는 것으로 보인다. Non-Instanced GA가 포함된 경우 `CancelAbilities()`가 더 안정적으로 처리하며, 샘플 프로젝트에서도 이 함수를 사용한다(Jump는 Non-Instanced GA이다). 실제 동작은 상황에 따라 다를 수 있다.
 
 <a name="concepts-ga-definition-activeability"></a>
-#### 4.6.6 활성 GA 조회 (Getting Active Abilities)
+#### 현재 활성화된 GA를 어떻게 찾고, 단일한 "활성 GA" 개념이 없는 이유는 무엇인가?
 
 입문자들은 종종 "활성 GA를 어떻게 가져오나요?"라고 질문한다 — 변수를 설정하거나 취소하기 위해서다. 동시에 여러 GA가 활성화될 수 있으므로 단일한 "활성 GA"라는 개념은 존재하지 않는다. 대신 ASC의 `ActivatableAbilities` 목록(ASC가 소유한 부여된 GA 목록)을 순회하면서 찾고자 하는 `Asset 또는 Granted GameplayTag`와 일치하는 항목을 직접 탐색해야 한다.
 

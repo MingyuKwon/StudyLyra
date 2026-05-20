@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-as-postgameplayeffectexecute"></a>
-#### 4.4.6 PostGameplayEffectExecute()
+#### PostGameplayEffectExecute()는 언제 호출되며, PreAttributeChange()와 어떻게 역할이 나뉘는가?
 
 `PostGameplayEffectExecute(const FGameplayEffectModCallbackData & Data)`는 인스턴트 `GameplayEffect`에 의해 `Attribute`의 `BaseValue`가 변경된 **이후에만** 발동된다. `GameplayEffect`로 인한 `Attribute` 변경 시 추가적인 `Attribute` 조작을 수행하기에 적합한 위치다.
 

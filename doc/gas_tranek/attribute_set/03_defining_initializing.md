@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-as-attributes"></a>
-#### 4.4.3 Attribute 선언
+#### Attribute를 복제 가능하게 선언하려면 어떤 단계를 거쳐야 하는가?
 
 **`Attribute`는 `AttributeSet`의 헤더 파일에서 C++로만 정의할 수 있다.** 모든 `AttributeSet` 헤더 파일 상단에 다음 매크로 블록을 추가하는 것을 권장한다. 이 매크로는 각 `Attribute`에 대한 getter 및 setter 함수를 자동으로 생성해 준다.
 
@@ -55,7 +55,7 @@ void UGDAttributeSetBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 `Meta Attribute`처럼 복제가 필요 없는 `Attribute`라면 `OnRep`와 `GetLifetimeReplicatedProps` 단계는 생략해도 된다.
 
 <a name="concepts-as-init"></a>
-#### 4.4.4 Attribute 초기화
+#### Attribute의 초기값을 설정하는 권장 방식은 무엇이며, 왜 Instant GE를 사용하는가?
 
 `Attribute`를 초기화(즉, `BaseValue`와 그에 따른 `CurrentValue`를 초기값으로 설정)하는 방법은 여러 가지가 있다. Epic은 인스턴트 `GameplayEffect`를 사용하는 방식을 권장하며, 샘플 프로젝트에서도 이 방식을 사용한다.
 

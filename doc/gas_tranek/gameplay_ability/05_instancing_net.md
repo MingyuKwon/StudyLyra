@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ga-instancing"></a>
-#### 4.6.7 Instancing Policy
+#### GA의 세 가지 Instancing Policy(Non-Instanced / Per Actor / Per Execution)는 각각 어떤 상황에 적합한가?
 
 GA의 `Instancing Policy`는 GA가 활성화될 때 인스턴스를 생성하는지 여부와 방식을 결정한다.
 
@@ -16,7 +16,7 @@ GA의 `Instancing Policy`는 GA가 활성화될 때 인스턴스를 생성하는
 | Non-Instanced | GA가 `ClassDefaultObject`에서 직접 실행된다. 인스턴스가 생성되지 않는다. | 세 가지 중 성능이 가장 좋지만 사용 가능한 기능에 제약이 가장 많다. Non-Instanced GA는 상태를 저장할 수 없으며, 동적 변수를 가질 수 없고 AbilityTask 델리게이트에 바인딩할 수 없다. MOBA나 RTS의 미니언 기본 공격처럼 자주 사용되는 단순한 어빌리티에 적합하다. 샘플 프로젝트의 Jump GA는 Non-Instanced다. |
 
 <a name="concepts-ga-net"></a>
-#### 4.6.8 Net Execution Policy
+#### GA의 Net Execution Policy 네 가지는 어떻게 다르며, 언제 각각을 사용해야 하는가?
 
 GA의 `Net Execution Policy`는 GA를 어디서 실행하는지와 그 순서를 결정한다.
 
@@ -29,7 +29,7 @@ GA의 `Net Execution Policy`는 GA를 어디서 실행하는지와 그 순서를
 
 ---
 
-### FGameplayAbilitySpec과 GA 인스턴스의 관계
+### FGameplayAbilitySpec과 GA 인스턴스는 어떤 관계이며, Instancing Policy에 따라 어떻게 달라지는가?
 
 `GiveAbility()` 시점에 ASC의 `ActivatableAbilities` 배열에 **FGameplayAbilitySpec**이 추가된다.  
 이것이 "이 ASC에 이 어빌리티가 부여돼 있다"는 슬롯 역할을 한다. GA 인스턴스와는 별개 개념이다.
@@ -50,7 +50,7 @@ Activate 시점에 InstancingPolicy에 따라 이 포인터가 달라진다.
 
 ---
 
-### GE는 인스턴스가 존재하지 않는다
+### GE는 왜 GA와 달리 인스턴스가 생성되지 않으며, 적용 시 어떤 구조체가 생성되는가?
 
 GE는 데이터 에셋(CDO)으로만 존재하고 `new`/`Spawn`되지 않는다.  
 적용 시 **구조체**가 만들어진다.

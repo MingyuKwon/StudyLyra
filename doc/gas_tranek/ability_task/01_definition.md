@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-at-definition"></a>
-### 4.7.1 AbilityTask 정의
+### AbilityTask란 무엇이고, GameplayAbility 단일 프레임 한계를 어떻게 극복하는가?
 
 `GameplayAbility`는 단일 프레임에서만 실행된다. 이것만으로는 유연성이 크게 부족하다. 시간에 걸쳐 진행되는 동작이나, 나중에 발생하는 델리게이트에 응답해야 하는 동작을 처리하려면 **잠재적(latent) 액션**인 `AbilityTask`를 사용한다.
 
@@ -21,7 +21,7 @@ GAS는 다음과 같은 `AbilityTask`를 기본으로 제공한다:
 
 ---
 
-### AbilityTask = GameplayTask + GAS
+### UAbilityTask는 UGameplayTask 위에 무엇을 추가하는가?
 
 `UAbilityTask`는 범용 비동기 태스크 시스템인 `UGameplayTask`를 GAS에 통합한 클래스다.
 `UGameplayTask` 자체의 구조와 복제 메커니즘은 → [00 GameplayTask](gameplay_task/README.md) 참조.
@@ -48,7 +48,7 @@ Ability->GetActorInfo()                 // FGameplayAbilityActorInfo 전체
 
 ---
 
-### GameplayTask vs AbilityTask 비교
+### UGameplayTask와 UAbilityTask의 차이는 무엇이고, 언제 어느 것을 써야 하는가?
 
 | | `UGameplayTask` | `UAbilityTask` |
 |---|---|---|
@@ -64,9 +64,9 @@ Ability->GetActorInfo()                 // FGameplayAbilityActorInfo 전체
 
 ---
 
-### 코드로 보는 차이
+### 코드로 보면 두 태스크의 생성·수명·델리게이트 처리가 어떻게 다른가?
 
-#### 생성 방식
+#### 두 태스크의 생성 방식은 어떻게 다른가?
 
 ```cpp
 // GameplayTask — TaskOwner 인터페이스를 구현한 누구든 소유 가능
@@ -81,7 +81,7 @@ Task->ReadyForActivation();
 `NewAbilityTask<T>()` 내부에서 GA로부터 ASC를 찾아 `TasksComponent`에 연결한다.
 연결 대상이 항상 ASC이므로 GAS 컨텍스트 전체를 바로 쓸 수 있다.
 
-#### GA 수명 연동
+#### AbilityTask는 GA 종료 시 어떻게 자동으로 정리되는가?
 
 ```cpp
 // UAbilityTask::OnDestroy() 내부
@@ -99,7 +99,7 @@ void UAbilityTask::OnDestroy(bool bInOwnerFinished)
 
 `EndAbility()`가 호출되면 GA가 소유한 모든 AbilityTask에 `TaskOwnerEnded()`를 보내 전부 정리한다.
 
-#### 델리게이트 브로드캐스트 가드
+#### AbilityTask에서 델리게이트를 브로드캐스트하기 전 왜 ShouldBroadcastAbilityTaskDelegates()를 체크해야 하는가?
 
 ```cpp
 // AbilityTask에만 있는 패턴
@@ -117,7 +117,7 @@ void UMyAbilityTask::OnSomethingHappened()
 델리게이트 브로드캐스트 전에 이 체크를 넣지 않으면 종료된 GA를 향한 콜백이 실행될 수 있다.
 Lyra의 `AbilityTask_GrantNearbyInteraction`은 완료 델리게이트가 없는 지속형 태스크라 이 패턴이 필요 없지만, 일반적인 태스크에서는 필수다.
 
-#### AvatarActor 대기
+#### SetWaitingOnAvatar()는 언제, 왜 호출해야 하는가?
 
 ```cpp
 // AbilityTask에만 있는 유틸리티
@@ -133,7 +133,7 @@ Lyra의 두 Interaction 태스크가 모두 `Activate()` 첫 줄에 이 호출�
 
 ---
 
-### 언제 무엇을 쓰는가
+### GA 안에서 비동기 작업이 필요할 때 UGameplayTask와 UAbilityTask 중 무엇을 써야 하는가?
 
 | 상황 | 선택 |
 |---|---|

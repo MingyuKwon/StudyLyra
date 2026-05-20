@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-at-rms"></a>
-### 4.7.4 Root Motion Source AbilityTask
+### RootMotionSource AbilityTask는 어떤 동작을 처리하며, 멀티플레이어에서 Prediction 버그가 있는 버전은?
 
 GAS는 `CharacterMovementComponent`에 연결된 `Root Motion Source`를 활용해 넉백, 복잡한 점프, 끌어당기기, 대시 같은 동작을 위해 시간에 걸쳐 캐릭터를 이동시키는 `AbilityTask`를 기본으로 제공한다.
 

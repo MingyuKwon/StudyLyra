@@ -4,7 +4,7 @@
 
 ---
 
-## 전체 흐름 한눈에 보기
+## GameplayTask의 생성부터 소멸까지 전체 흐름은 어떻게 되는가?
 
 ```
 NewTask<T>(TaskOwner)
@@ -49,9 +49,9 @@ OnDestroy(bOwnerFinished)
 
 ---
 
-## 생성 단계
+## 태스크 생성 시 NewTask\<T\>()와 InitTask()는 각각 무슨 역할을 하는가?
 
-### NewTask\<T\>()
+### NewTask\<T\>()의 내부 구현은 어떻게 되는가?
 > `GameplayTask.h` — 정적 템플릿 헬퍼
 
 태스크를 생성하는 표준 진입점이다. `NewObject<T>()`를 호출한 뒤 곧바로 `InitTask()`까지 처리한다.
@@ -69,7 +69,7 @@ static T* NewTask(IGameplayTaskOwnerInterface& TaskOwner, uint8 Priority = FGame
 `UAbilityTask`에서는 이 대신 `NewAbilityTask<T>()`를 사용한다.
 내부적으로 동일한 패턴이지만 GA 컨텍스트를 추가로 설정한다.
 
-### InitTask()
+### InitTask()는 어떤 상태로 태스크를 초기화하는가?
 > `GameplayTask.cpp`
 
 `NewTask<T>()` 내부에서 자동 호출된다.
@@ -93,7 +93,7 @@ void UGameplayTask::InitTask(IGameplayTaskOwnerInterface& InTaskOwner, uint8 InP
 
 이 시점에서 태스크는 `AwaitingActivation` 상태다. 아직 실행되지 않는다.
 
-### RF_StrongRefOnFrame
+### RF_StrongRefOnFrame 플래그는 왜 필요하며 태스크를 언제까지 GC로부터 보호하는가?
 > `GameplayTask.h` 생성자
 
 `NewObject<T>()`로 생성된 태스크는 기본적으로 강한 참조가 없으면 다음 GC 사이클에서 수집될 수 있다.

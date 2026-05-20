@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-a-derived"></a>
-#### 4.3.5 Derived Attribute
+#### 다른 Attribute의 값으로 자동 계산되는 Derived Attribute는 어떻게 구현하는가?
 
 하나 이상의 다른 Attribute로부터 일부 또는 전체 값을 파생하는 Attribute를 만들려면 하나 이상의 `Attribute Based` 또는 `MMC` `Modifier`를 가진 `Infinite` GameplayEffect를 사용한다. Derived Attribute는 의존하는 Attribute가 업데이트되면 자동으로 갱신된다.
 

@@ -71,7 +71,7 @@
 
 ---
 
-### OwnerActor vs SetOwner의 Owner — 완전히 다른 개념
+### GAS의 OwnerActor와 언리얼의 SetOwner() Owner는 어떻게 다른가?
 
 문서 하단 주석("Mixed 모드는 OwnerActor의 Owner가 Controller여야 한다")을 보고 헷갈릴 수 있는 부분.
 

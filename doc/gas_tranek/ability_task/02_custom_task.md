@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-at-definition"></a>
-### 4.7.2 커스텀 AbilityTask
+### 커스텀 AbilityTask를 만들 때 어떤 구성 요소가 반드시 필요한가?
 
 대부분의 경우 C++로 커스텀 `AbilityTask`를 직접 작성하게 된다. 샘플 프로젝트에는 두 가지 커스텀 `AbilityTask`가 포함되어 있다:
 1. `PlayMontageAndWaitForEvent` — 기본 `AbilityTask`인 `PlayMontageAndWait`와 `WaitGameplayEvent`를 결합한 태스크다. 이를 통해 애니메이션 몽타주가 `AnimNotify`에서 해당 몽타주를 시작한 `GameplayAbility`로 게임플레이 이벤트를 역으로 전달할 수 있다. 애니메이션 몽타주의 특정 타이밍에 동작을 트리거할 때 활용한다.
@@ -28,7 +28,7 @@
 
 ---
 
-### 커스텀 AbilityTask 기본 골격
+### 커스텀 AbilityTask의 기본 구조는 어떻게 생겼는가?
 
 GASDoc이 나열한 요소를 코드로 보면 이렇다.
 
@@ -65,7 +65,7 @@ private:
 
 ---
 
-### Lyra 예시 1 — AbilityTask_GrantNearbyInteraction
+### 완료 신호 없이 GA가 살아있는 동안 계속 실행되는 지속형 AbilityTask는 어떻게 설계하는가?
 
 > `Source/LyraGame/Interaction/Tasks/`
 
@@ -114,7 +114,7 @@ void UAbilityTask_GrantNearbyInteraction::OnDestroy(bool AbilityEnded)
 
 ---
 
-### Lyra 예시 2 — AbilityTask_WaitForInteractableTargets_SingleLineTrace
+### 상속으로 트레이스 방식만 교체할 수 있는 AbilityTask 계층은 어떻게 설계하는가?
 
 > `Source/LyraGame/Interaction/Tasks/`
 
@@ -163,7 +163,7 @@ void UAbilityTask_WaitForInteractableTargets_SingleLineTrace::PerformTrace()
 
 ---
 
-### 두 패턴 비교
+### "완료 없는 지속 루프"와 "변화 감지 델리게이트" 패턴은 어떤 차이가 있는가?
 
 | | AbilityTask_GrantNearbyInteraction | AbilityTask_WaitForInteractableTargets |
 |---|---|---|

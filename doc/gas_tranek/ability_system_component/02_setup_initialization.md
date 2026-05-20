@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-asc-setup"></a>
-### 4.1.2 Setup and Initialization
+### ASC는 어디서, 어떻게 초기화해야 하는가?
 
 `ASC`는 일반적으로 `OwnerActor`의 생성자에서 생성하고 명시적으로 복제 대상으로 표시한다. **이 작업은 반드시 C++에서 해야 한다.**
 
@@ -99,13 +99,13 @@ void AGDHeroCharacter::OnRep_PlayerState()
 
 ---
 
-### 왜 서버와 클라이언트 양쪽에서 초기화해야 하는가
+## InitAbilityActorInfo()를 서버와 클라이언트 양쪽에서 각각 호출해야 하는 이유는?
 
 `InitAbilityActorInfo()`는 복제 함수가 아니다.
 서버가 호출해도 클라이언트에 전파되지 않고, 그냥 로컬 메모리에 `OwnerActor`·`AvatarActor` 포인터를 세팅할 뿐이다.
 그래서 서버와 클라이언트가 각자 독립적으로 호출해야 한다.
 
-### 왜 Controller 설정 이후에 초기화해야 하는가
+## InitAbilityActorInfo()를 반드시 Controller 설정(빙의) 이후에 호출해야 하는 이유는?
 
 `InitAbilityActorInfo()`는 네트워크 커넥션을 초기화하는 게 아니다.
 내부적으로 `InitFromActor()`를 호출해 **PlayerController 포인터를 `AbilityActorInfo`에 캐싱**한다.
@@ -153,7 +153,7 @@ bool FGameplayAbilityActorInfo::IsLocallyControlled() const
 맞다. `OnRep_PlayerState`나 `AcknowledgePossession`에서 `InitAbilityActorInfo`를 재호출하는 이유가 바로 이것이다.
 그 시점에는 `GetController()`가 유효하므로 `PlayerController` 캐시가 올바르게 채워진다.
 
-### 권장 초기화 시점들이 선택된 이유
+## ASC 초기화에 PossessedBy, AcknowledgePossession, OnRep_PlayerState를 각각 사용하는 이유는?
 
 **서버 — `PossessedBy()`**
 `PossessedBy()`는 서버에서 Controller가 Pawn을 소유하는 바로 그 순간 호출된다.

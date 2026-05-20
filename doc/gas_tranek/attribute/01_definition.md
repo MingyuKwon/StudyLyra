@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-a-definition"></a>
-#### 4.3.1 Attribute 정의
+#### Attribute란 무엇이며, 어떤 값을 표현하는 데 사용해야 하는가?
 
 `Attribute`는 [`FGameplayAttributeData`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/FGameplayAttributeData/index.html) 구조체로 정의되는 float 값이다. 캐릭터의 체력, 캐릭터의 레벨, 포션의 충전 횟수 등 무엇이든 표현할 수 있다. Actor에 속하는 게임플레이 관련 수치라면 Attribute 사용을 고려해야 한다. Attribute는 ASC가 변경 사항을 예측(predict)할 수 있도록 원칙적으로 `GameplayEffect`를 통해서만 수정해야 한다.
 
@@ -15,7 +15,7 @@ Attribute는 `AttributeSet` 안에 정의되고 소속된다. AttributeSet은 �
 
 ---
 
-### 왜 Attribute는 GE를 통해서만 수정해야 하는가 — 예측과 롤백
+### Attribute를 직접 수정하지 않고 반드시 GE를 통해야 하는 이유는?
 
 > PredictionKey 동작 원리 전체: [`network_prediction/01_prediction_key.md`](../network_prediction/01_prediction_key.md)
 
@@ -36,6 +36,6 @@ GE를 거쳐야 변경이 PredictionKey에 묶이고, 거부 시 엔진이 해�
 
 **한 줄 요약**: GE는 Attribute 변경에 PredictionKey를 붙여 추적 가능하게 만드는 장치이고, 그게 없으면 롤백 메커니즘이 작동하지 않는다.
 
-### FGameplayAttributeData 구조 및 ATTRIBUTE_ACCESSORS
+### FGameplayAttributeData 구조와 ATTRIBUTE_ACCESSORS 매크로는 어떻게 연결되는가?
 
 `FGameplayAttributeData`의 내부 구조와 접근자 매크로는 [`02_base_current_value.md`](02_base_current_value.md)에서 다룬다.

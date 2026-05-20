@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ga-spec"></a>
-#### 4.6.10 Gameplay Ability Spec
+#### GameplayAbilitySpec은 무엇이며 GA 클래스와 어떤 정보를 별도로 보관하는가?
 
 `GameplayAbility`가 부여된 이후에는 ASC 위에 `GameplayAbilitySpec`이 존재하게 된다. `GameplayAbilitySpec`은 활성화 가능한 `GameplayAbility`를 정의하며, GameplayAbility 클래스, 레벨, 입력 바인딩, 그리고 GameplayAbility 클래스와 분리하여 유지해야 하는 런타임 상태 정보를 담고 있다.
 
@@ -14,7 +14,7 @@
 `GameplayAbilitySpec`을 활성화하면 그 `Instancing Policy`에 따라 `GameplayAbility`의 인스턴스가 생성된다 (`Non-Instanced` GameplayAbility의 경우에는 인스턴스가 생성되지 않는다).
 
 <a name="concepts-ga-data"></a>
-#### 4.6.11 Abilities에 데이터 전달하기
+#### GA에 외부 데이터를 전달하는 방법에는 무엇이 있으며, 각 방법의 장단점은?
 
 `GameplayAbility`의 일반적인 패러다임은 `Activate → Generate Data → Apply → End`다. 때로는 기존 데이터를 기반으로 동작해야 하는 경우도 있다. GAS는 외부 데이터를 `GameplayAbility`로 전달하기 위한 몇 가지 방법을 제공한다.
 

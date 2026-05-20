@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-at-using"></a>
-### 4.7.3 AbilityTask 사용법
+### C++와 Blueprint에서 AbilityTask를 생성하고 활성화하는 방법은 어떻게 다른가?
 
 C++에서 `AbilityTask`를 생성하고 활성화하는 방법(`GDGA_FireGun.cpp` 예시):
 

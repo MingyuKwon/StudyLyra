@@ -4,7 +4,7 @@
 
 ---
 
-## ReadyForActivation()
+## ReadyForActivation()은 내부에서 어떻게 분기하며 왜 태스크가 즉시 실행되지 않을 수 있는가?
 > `GameplayTask.cpp:56`
 
 외부에서 태스크를 "시작시켜달라"고 요청하는 공개 진입점이다.
@@ -37,7 +37,7 @@ void UGameplayTask::ReadyForActivation()
 
 ---
 
-## Activate()
+## Activate()는 어느 시점에 호출되며, 동기 완료 패턴은 어떻게 처리되는가?
 > `GameplayTask.cpp:298`, `GameplayTask.h:162`
 
 `PerformActivation()` 내부에서 호출되는 가상 함수다.
@@ -72,7 +72,7 @@ void UGameplayTask::PerformActivation()
 
 ---
 
-## EndTask()
+## EndTask()와 TaskOwnerEnded()는 어떻게 다른가?
 > `GameplayTask.cpp:165`
 
 태스크가 **스스로** 종료할 때 호출한다.
@@ -99,7 +99,7 @@ void UGameplayTask::EndTask()
 
 ---
 
-## OnDestroy(bool bOwnerFinished)
+## OnDestroy()를 오버라이드할 때 Super::OnDestroy()를 반드시 마지막에 호출해야 하는 이유는?
 > `GameplayTask.cpp:206`
 
 `EndTask()`와 `TaskOwnerEnded()` 양쪽에서 수렴하는 **실제 종료 처리 함수**다.
@@ -126,7 +126,7 @@ void UGameplayTask::OnDestroy(bool bInOwnerFinished)
 
 ---
 
-## TickTask(float DeltaTime)
+## 태스크에서 매 틱 실행이 필요할 때 어떻게 활성화하는가?
 > `GameplayTask.h:171`
 
 매 틱 실행이 필요한 태스크를 위한 훅이다.

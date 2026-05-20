@@ -5,7 +5,7 @@
 ---
 
 <a name=”concepts-as-design-itemattributes”></a>
-##### 4.4.2.3 아이템 Attribute (무기 탄약 등)
+##### 장착형 아이템(무기 탄약 등)에 Attribute를 구현하는 세 가지 방법과 각각의 트레이드오프는?
 
 장착 가능한 아이템(무기 탄약, 방어구 내구도 등)에 `Attribute`를 구현하는 방법은 몇 가지가 있다. 이 접근 방식들은 모두 값을 아이템 자체에 직접 저장한다. 아이템은 생애 동안 여러 플레이어가 장착할 수 있기 때문에 이렇게 해야 한다.
 
@@ -14,7 +14,7 @@
 > 1. 아이템에 별도 `ASC` 사용
 
 <a name=”concepts-as-design-itemattributes-plainfloats”></a>
-###### 4.4.2.3.1 아이템에 plain float 저장
+###### 아이템 Attribute를 plain float으로 저장하는 방식의 장단점은?
 
 `Attribute` 대신, 최대 탄창 크기, 현재 탄약, 예비 탄약 등을 총기 클래스 인스턴스에 복제 가능한 float(`COND_OwnerOnly`)로 직접 저장한다. Fortnite와 [GASShooter](https://github.com/tranek/GASShooter)는 총기 탄약을 이 방식으로 처리한다. 무기끼리 예비 탄약을 공유해야 한다면, 예비 탄약은 캐릭터의 공유 탄약 `AttributeSet` 내 `Attribute`로 이동시키면 된다(재장전 GA는 `Cost GE`를 사용하여 예비 탄약에서 총기의 float 탄창 탄약으로 끌어올 수 있다). 현재 탄창 탄약에 `Attribute`를 사용하지 않으므로, `UGameplayAbility`의 일부 함수를 오버라이드하여 총기의 float를 기준으로 탄약 비용을 확인하고 적용해야 한다. GA 부여 시 [`GameplayAbilitySpec`](https://github.com/tranek/GASDocumentation#concepts-ga-spec)에서 총기를 `SourceObject`로 설정하면 GA 내부에서 해당 총기에 접근할 수 있다.
 
@@ -38,7 +38,7 @@ void AGSWeapon::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracke
 1. 총기의 float에 대해 탄약 비용을 확인하고 적용하기 위해 `UGameplayAbility`의 핵심 함수들을 오버라이드하는 작업이 필요하다.
 
 <a name=”concepts-as-design-itemattributes-attributeset”></a>
-###### 4.4.2.3.2 아이템에 AttributeSet 사용
+###### 아이템에 별도 AttributeSet을 붙이는 방식은 왜 한 종류당 하나만 인벤토리에 둘 수 있는가?
 
 아이템에 별도 `AttributeSet`을 두고, 플레이어의 인벤토리에 추가될 때 플레이어 ASC에 등록하는 방식은 작동은 하지만 몇 가지 중요한 제약이 있다. 초기 [GASShooter](https://github.com/tranek/GASShooter) 버전에서 무기 탄약에 이 방식을 사용한 적이 있다. 무기는 최대 탄창 크기, 현재 탄약, 예비 탄약 등을 무기 클래스에 있는 `AttributeSet`에 저장한다. 예비 탄약을 공유해야 한다면 캐릭터의 공유 탄약 `AttributeSet`에 두면 된다. 서버에서 무기가 인벤토리에 추가되면, 무기는 자신의 `AttributeSet`을 플레이어 `ASC::SpawnedAttributes`에 추가하고 서버는 이를 클라이언트에 복제한다. 무기가 인벤토리에서 제거되면 `ASC::SpawnedAttributes`에서도 제거된다.
 
@@ -67,7 +67,7 @@ void AGSWeapon::BeginPlay()
 1. `AttributeSet`을 제거하는 것은 위험하다. GASShooter에서 플레이어가 로켓으로 자멸했을 때, 플레이어는 즉시 인벤토리에서 로켓 런처를 제거했고(ASC에서 해당 `AttributeSet`도 제거), 서버가 로켓 런처의 탄약 `Attribute` 변경을 복제했을 때 클라이언트 `ASC`에는 해당 `AttributeSet`이 더 이상 존재하지 않아 게임이 크래시되었다.
 
 <a name=”concepts-as-design-itemattributes-asc”></a>
-###### 4.4.2.3.3 아이템에 ASC 사용
+###### 아이템마다 ASC를 두는 방식이 현실적으로 적용하기 어려운 이유는?
 
 각 아이템에 `AbilitySystemComponent` 전체를 두는 것은 극단적인 접근 방식이다. 필자는 직접 구현해본 적이 없고 실제로 사용된 사례도 본 적이 없다. 이를 동작하게 만들려면 상당한 엔지니어링 작업이 필요할 것이다.
 

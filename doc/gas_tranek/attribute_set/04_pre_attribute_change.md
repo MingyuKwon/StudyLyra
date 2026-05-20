@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-as-preattributechange"></a>
-#### 4.4.5 PreAttributeChange()
+#### PreAttributeChange()는 언제 호출되며, 어떤 용도로만 써야 하는가?
 
 `PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)`는 `AttributeSet`에서 `Attribute`의 `CurrentValue` 변경에 응답하는 주요 함수 중 하나로, 변경이 일어나기 **전에** 호출된다. 참조 파라미터 `NewValue`를 통해 들어오는 `CurrentValue` 변경을 클램핑하기에 이상적인 위치다.
 

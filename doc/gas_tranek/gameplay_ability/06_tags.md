@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ga-tags"></a>
-#### 4.6.9 Ability Tags
+#### GA의 여러 GameplayTag 컨테이너(AbilityTags, CancelWith, BlockWith, ActivationRequired 등)는 각각 어떤 역할을 하는가?
 
 `GameplayAbility`에는 내장 로직을 가진 `GameplayTagContainer`가 여러 개 포함되어 있다. 이 `GameplayTag`들은 복제되지 않는다.
 
@@ -29,7 +29,7 @@
 
 ---
 
-### 두 가지 GA 실행 경로
+### GA를 직접 활성화하는 경로와 이벤트로 트리거하는 경로는 어떻게 다른가?
 
 GA를 활성화하는 경로는 크게 두 가지다. Source/Target이 이벤트에서만 존재하는 이유는 이 두 경로의 차이에서 비롯된다.
 
@@ -68,7 +68,7 @@ SendGameplayEventToActor(TargetActor, EventTag, FGameplayEventData{
 
 ---
 
-### Source / Owner / Target이 가리키는 대상
+### GA 태그 검사에서 Source / Owner / Target이 각각 가리키는 대상은 무엇인가?
 
 `InternalTryActivateAbility` 내부의 이 한 줄이 전부를 설명한다.
 
@@ -107,7 +107,7 @@ if (TargetTags != nullptr)
 
 ---
 
-### Source/Target이 이벤트 트리거에서만 존재하는 이유
+### Source/TargetRequired/BlockedTags가 이벤트 트리거에서만 동작하는 이유는 무엇인가?
 
 설계 의도에서 비롯된다.
 
@@ -118,7 +118,7 @@ if (TargetTags != nullptr)
 
 ---
 
-### 용도 정리
+### GA 태그 컨테이너를 검사 대상과 실행 경로 기준으로 어떻게 선택해야 하는가?
 
 | 태그 컨테이너 | 검사 대상 | 실행 경로 | 사용 예시 |
 |---|---|---|---|

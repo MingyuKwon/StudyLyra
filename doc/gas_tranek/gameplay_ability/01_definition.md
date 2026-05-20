@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ga-definition"></a>
-#### 4.6.1 GameplayAbility 정의
+#### GA란 무엇이며, 어떤 행동을 GA로 구현해야 하고 어떤 것은 피해야 하는가?
 
 [`GameplayAbilities`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/UGameplayAbility/index.html)(`GA`)는 Actor가 게임 내에서 수행할 수 있는 모든 행동이나 스킬을 의미한다. 예를 들어 달리기와 총 발사처럼 동시에 여러 GA가 활성화될 수 있다. Blueprint 또는 C++로 제작할 수 있다.
 
@@ -40,17 +40,17 @@ GA는 `Net Execution Policy`에 따라 owning client 및/또는 서버에서 실
 복잡한 어빌리티는 여러 GA가 서로 활성화하거나 취소하는 방식으로 상호작용하며 구현할 수 있다.
 
 <a name="concepts-ga-definition-reppolicy"></a>
-#### 4.6.1.1 Replication Policy
+#### GA의 Replication Policy는 왜 사용하지 말아야 하는가?
 
 이 옵션은 사용하지 말 것. 이름이 오해를 유발하지만 실제로는 필요하지 않다. `GameplayAbilitySpec`은 기본적으로 서버에서 owning client로 자동 복제된다. 앞서 언급했듯이, **GA는 simulated proxy에서 실행되지 않는다.** 시각적 변경 사항은 AbilityTask와 GameplayCue를 통해 simulated proxy로 복제하거나 RPC한다. Epic의 Dave Ratti는 이 옵션을 [향후 제거할 의향](https://epicgames.ent.box.com/s/m1egifkxv3he3u3xezb9hzbgroxyhx89)을 밝힌 바 있다.
 
 <a name="concepts-ga-definition-remotecancel"></a>
-#### 4.6.1.2 Server Respects Remote Ability Cancellation
+#### "Server Respects Remote Ability Cancellation" 옵션이 득보다 실이 많은 이유는?
 
 이 옵션은 득보다 실이 많다. 클라이언트의 GA가 취소되거나 자연스럽게 종료될 경우, 완료 여부와 관계없이 서버의 GA도 강제로 종료시킨다. 특히 레이턴시가 높은 플레이어가 사용하는 로컬 예측 GA에서 후자의 문제가 두드러진다. 일반적으로 이 옵션은 비활성화하는 것을 권장한다.
 
 <a name="concepts-ga-definition-repinputdirectly"></a>
-#### 4.6.1.3 Replicate Input Directly
+#### "Replicate Input Directly" 대신 Epic이 권장하는 대안은 무엇인가?
 
 이 옵션을 활성화하면 입력 press/release 이벤트가 항상 서버로 복제된다. Epic은 이 방식 대신, ASC에 입력이 바인딩되어 있는 경우 기존 입력 관련 `AbilityTask`에 내장된 `Generic Replicated Events`를 활용하도록 권장한다.
 
@@ -62,7 +62,7 @@ UAbilitySystemComponent::ServerSetInputPressed()
 
 ---
 
-### 왜 GA는 owning client에게만 복제하는가
+### GA의 GameplayAbilitySpec은 왜 owning client에게만 복제하고 simulated proxy에는 보내지 않는가?
 
 #### 각 주체가 실제로 필요한 정보
 
@@ -83,7 +83,7 @@ Simulated proxy는 **남의 캐릭터를 보는 관찰자**다.
 저 캐릭터가 어떤 어빌리티를 갖고 있는지, 쿨다운 상태가 어떤지 알 필요가 없다.
 "지금 저 캐릭터가 넉백되고 있다", "저 캐릭터에서 화염 이펙트가 나온다" — 이것만 알면 된다.
 
-#### 대역폭 효율
+#### GA 스펙을 모든 클라에 복제하면 대역폭에 어떤 문제가 생기는가?
 
 `FGameplayAbilitySpec`에는 어빌리티 클래스, 레벨, 입력 ID, 핸들, 활성화 카운트, 인스턴스 목록 등 상당한 양의 데이터가 들어있다.
 
@@ -91,7 +91,7 @@ Simulated proxy는 **남의 캐릭터를 보는 관찰자**다.
 
 `COND_OwnerOnly`로 제한함으로써 이 비용을 owning client 1명에게만 부과한다.
 
-#### Simulated proxy에게 필요한 정보는 별도 채널로
+#### Simulated proxy는 GA 스펙 없이 어떤 채널로 필요한 정보를 받는가?
 
 GA 스펙을 주지 않는 대신, simulated proxy가 실제로 필요한 것들은 각자의 전용 채널을 통해 전달된다.
 

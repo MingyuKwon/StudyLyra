@@ -8,7 +8,7 @@
 
 ---
 
-### GASDoc 방식은 Lyra에서 쓰이지 않는다
+### GASDoc의 레거시 입력 방식과 Lyra의 Enhanced Input 방식은 어떻게 다른가?
 
 GASDoc의 `enum`+`BindAbilityActivationToInputComponent()` 패턴은 **UE4 레거시 입력 시스템** 기반이다.
 Lyra는 **Enhanced Input System**으로 완전히 대체했으며, 입력 식별자도 정수 enum 대신 `GameplayTag`를 쓴다.
@@ -24,7 +24,7 @@ Lyra는 **Enhanced Input System**으로 완전히 대체했으며, 입력 식별
 
 ---
 
-### 바인딩 설정 — InitializePlayerInput
+### Lyra는 어떻게 입력을 ASC에 바인딩하는가?
 
 `ULyraHeroComponent::InitializePlayerInput()`에서 Enhanced Input에 콜백을 등록한다.
 `ULyraInputConfig`(DataAsset)가 `InputAction → GameplayTag` 매핑 테이블 역할을 한다.
@@ -39,7 +39,7 @@ LyraIC->BindAbilityActions(InputConfig, this,
 
 ---
 
-### 프레임 내 호출 타이밍
+### GA 입력이 즉시 활성화되지 않고 PostProcessInput까지 지연되는 이유는 무엇인가?
 
 ```
 [프레임 시작]
@@ -65,7 +65,7 @@ PostProcessInput()   ← LyraPlayerController.cpp:376
 
 ---
 
-### 입력 처리 파이프라인 — ProcessAbilityInput
+### ProcessAbilityInput은 프레임 내에서 어떤 순서로 GA 입력을 처리하는가?
 
 ```cpp
 // LyraAbilitySystemComponent.cpp:216
@@ -112,7 +112,7 @@ void ULyraAbilitySystemComponent::ProcessAbilityInput(float DeltaTime, bool bGam
 
 ---
 
-### 활성화 정책 — ELyraAbilityActivationPolicy
+### Lyra의 세 가지 GA 활성화 정책(OnInputTriggered / WhileInputActive / OnSpawn)은 각각 언제 사용하는가?
 
 ```cpp
 enum class ELyraAbilityActivationPolicy : uint8
@@ -125,11 +125,11 @@ enum class ELyraAbilityActivationPolicy : uint8
 
 ---
 
-### 이미 활성화된 GA에 추가 입력 전달하기
+### 이미 실행 중인 GA에 추가 입력을 어떻게 전달하는가?
 
 GA가 실행 중일 때 입력을 추가로 받아야 하는 경우는 두 가지 메커니즘으로 나뉜다.
 
-#### 같은 입력 — WaitInputPress / WaitInputRelease
+#### GA 실행 중 같은 입력이 다시 들어올 때 WaitInputPress/WaitInputRelease는 어떻게 동작하는가?
 
 `ProcessAbilityInput`에서 이미 활성화된 스펙에 같은 입력이 들어오면 `AbilitySpecInputPressed()`를 호출한다.
 내부적으로 `GenericReplicatedEvent` 시스템을 통해 `WaitInputPress` AbilityTask로 신호가 전달된다.
@@ -145,7 +145,7 @@ ProcessAbilityInput()
 
 **제약**: `GetAbilitySpecHandle()`로 바인딩하므로 **이 GA를 활성화한 바로 그 입력**에만 반응한다.
 
-#### 다른 입력 — WaitGameplayEvent
+#### GA 실행 중 다른 입력을 받아야 할 때 WaitGameplayEvent를 어떻게 활용하는가?
 
 A로 GA를 활성화한 상태에서 B 입력을 받으려면 `GameplayEvent` 경유가 표준 패턴이다.
 
@@ -170,7 +170,7 @@ Task->EventReceived.AddDynamic(this, &ThisClass::OnBInputReceived);
 Task->ReadyForActivation();
 ```
 
-#### 패턴 정리
+#### 같은 입력 재입력과 다른 입력 수신 상황별로 어떤 메커니즘을 선택해야 하는가?
 
 | 상황 | 메커니즘 |
 |---|---|
@@ -180,7 +180,7 @@ Task->ReadyForActivation();
 
 ---
 
-### 입력 태그가 Spec에 들어가는 경위
+### 입력 태그가 GameplayAbilitySpec에 어떻게 등록되어 매칭에 사용되는가?
 
 `DynamicSpecSourceTags`에 InputTag가 있어야 `AbilityInputTagPressed`의 매칭이 된다.
 어빌리티 부여 시 `FGameplayAbilitySpec`을 생성하면서 `DynamicSpecSourceTags.AddTag(InputTag)`를 호출해야 한다.
