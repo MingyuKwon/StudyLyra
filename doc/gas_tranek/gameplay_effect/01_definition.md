@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ge-definition"></a>
-#### 4.5.1 GameplayEffect 정의
+#### GameplayEffect란 무엇이며 세 가지 Duration 타입은 언제 사용해야 하는가?
 
 [`GameplayEffect`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayEffect/index.html)(GE)는 어빌리티가 자신 또는 다른 대상의 Attribute와 GameplayTag를 변경하는 수단이다. 즉각적인 데미지·힐링부터 이동 속도 버프나 스턴 같은 장기 지속 상태 이상까지 모두 GE로 표현할 수 있다. `UGameplayEffect` 클래스는 **데이터 전용 클래스**로 설계되었으며, 단일 게임플레이 효과를 정의한다. GE에 별도의 로직을 추가해서는 안 된다. 일반적으로 디자이너는 `UGameplayEffect`의 Blueprint 자식 클래스를 다수 만들어 사용한다.
 
@@ -46,7 +46,7 @@ GE는 일반적으로 직접 인스턴스화되지 않는다. 어빌리티나 AS
 
 ---
 
-### GE에 로직을 넣으면 안 되는 이유
+### GE는 왜 데이터 전용 클래스여야 하며, 로직이 필요할 때는 어디에 넣어야 하는가?
 
 > 소스: `GameplayEffect.h:2096`, `GameplayEffect.cpp:937~991`
 
@@ -95,7 +95,7 @@ bool UGameplayEffect::CanApply(...) const
 | 복수 Attribute 변경, 조건 분기 | **Execution** — `Execute_Implementation`에서 `OutExecutionOutput`에 직접 밀어넣기 |
 | GE 적용/실행 흐름에 끼어들기 | **GEComponent** — `UGameplayEffectComponent` 서브클래스, `GEComponents` 배열에 추가 |
 
-### Periodic Effect가 예측 불가능한 이유
+### Periodic GE(DoT)는 왜 클라이언트 예측이 불가능한가?
 
 `GameplayPrediction.h`에 이렇게 명시되어 있다:
 
@@ -125,7 +125,7 @@ Periodic GE:  [틱1] [틱2] [틱3] [틱4] ...
 
 따라서 DoT 효과는 **서버에서만 처리**하고 클라이언트는 결과를 복제(Replicate)받는 방식으로 동작한다. Epic도 이를 한계로 인식하고 있으며 `GameplayPrediction.h`에 "미래에 추가 가능성이 있다"고 명시되어 있다.
 
-### Ongoing Tag Requirements — GE 켜고 끄기 메커니즘
+### Ongoing Tag Requirements는 GE를 어떻게 일시 억제(켜고 끄기)하며 완전 제거와는 어떻게 다른가?
 
 > 소스: `TargetTagRequirementsGameplayEffectComponent.cpp`, `AbilitySystemComponent.cpp`
 

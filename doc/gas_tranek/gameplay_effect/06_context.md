@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ge-context"></a>
-#### 4.5.10 Gameplay Effect Context
+#### GameplayEffectContext는 어떤 정보를 담고 있으며, 서브클래싱이 필요한 이유는 무엇인가?
 
 [`GameplayEffectContext`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/FGameplayEffectContext/index.html) 구조체는 `GameplayEffectSpec`의 인스티게이터(instigator)와 `TargetData` 정보를 보유한다. 또한 `ModifierMagnitudeCalculations` / `GameplayEffectExecutionCalculations`, `AttributeSets`, `GameplayCues` 등 여러 곳에 임의의 데이터를 전달할 때 서브클래싱하기 좋은 구조체이기도 하다.
 
@@ -22,7 +22,7 @@
 
 ---
 
-### "인스티게이터와 TargetData 정보를 보유한다"
+### Context에서 Instigator와 EffectCauser는 무엇이 다르며, 어떤 정보를 추가로 보유하는가?
 
 > 소스: `GameplayEffectTypes.h:423`
 
@@ -49,7 +49,7 @@ FVector                          WorldOrigin;          // 효과 발생 위치
 
 ---
 
-### "여러 곳에 임의의 데이터를 전달할 때 서브클래싱하기 좋다"
+### GameplayEffectContext를 서브클래싱하면 커스텀 데이터가 MMC/Execution/GameplayCue 전체에 전달되는 이유는?
 
 > 소스: `GameplayEffectTypes.h:493`, `GameplayEffectTypes.cpp:425`
 
@@ -66,7 +66,7 @@ Context는 `FGameplayEffectSpec` 안에 `FGameplayEffectContextHandle`로 담겨
 
 ---
 
-### "서브클래싱하는 방법 6단계" — Lyra 구현으로 보기
+### GameplayEffectContext를 서브클래싱하는 6단계를 Lyra 구현으로 어떻게 확인할 수 있는가?
 
 > 소스: `LyraGameplayEffectContext.h`, `LyraGameplayEffectContext.cpp`, `LyraAbilitySystemGlobals.cpp:16`
 
@@ -141,7 +141,7 @@ FGameplayEffectContext* ULyraAbilitySystemGlobals::AllocGameplayEffectContext() 
 
 ---
 
-### "샷건에서 TargetData 활용" — Lyra의 CartridgeID
+### Lyra의 CartridgeID는 샷건처럼 여러 발이 동시에 나가는 무기에서 어떤 문제를 어떻게 해결하는가?
 
 > 소스: `LyraGameplayEffectContext.h:64`
 

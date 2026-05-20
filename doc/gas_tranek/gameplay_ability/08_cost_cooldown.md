@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ga-commit"></a>
-#### 4.6.12 Ability Cost and Cooldown
+#### GA의 Cost와 Cooldown은 내부적으로 어떻게 구현되며, CommitAbility를 언제 호출해야 하는가?
 
 `GameplayAbility`에는 선택적인 비용(Cost)과 쿨다운(Cooldown) 기능이 내장되어 있다. Cost는 `GameplayAbility`를 활성화하기 위해 ASC가 보유해야 하는 미리 정의된 Attribute 양이며, `Instant` `GameplayEffect`(`Cost GE`)로 구현된다. Cooldown은 `GameplayAbility`의 재활성화를 만료될 때까지 방지하는 타이머이며, `Duration` `GameplayEffect`(`Cooldown GE`)로 구현된다.
 
@@ -16,7 +16,7 @@
 구현 세부 사항은 `CostGE`와 `CooldownGE` 항목을 참고할 것.
 
 <a name="concepts-ga-leveling"></a>
-#### 4.6.13 Leveling Up Abilities
+#### GA를 레벨업하는 두 가지 방법(Ungrant 후 Regrant vs Spec 레벨 증가)의 차이는 무엇인가?
 
 어빌리티를 레벨업하는 방법에는 두 가지가 있다.
 
@@ -28,7 +28,7 @@
 두 방법의 핵심적인 차이는 레벨업 시점에 활성화 중인 `GameplayAbility`를 취소할 것인지 여부다. `GameplayAbility`에 따라 두 방법 모두 사용하게 될 가능성이 높다. `UGameplayAbility` 서브클래스에 어떤 방법을 사용할지 지정하는 `bool` 변수를 추가하는 것을 권장한다.
 
 <a name="concepts-ga-sets"></a>
-#### 4.6.14 Ability Sets
+#### GameplayAbilitySet DataAsset은 어떤 역할을 하며 반드시 사용해야 하는가?
 
 `GameplayAbilitySet`은 캐릭터의 초기 `GameplayAbility` 목록과 입력 바인딩을 보관하고, GameplayAbility를 부여하는 로직을 포함하는 편의용 `UDataAsset` 클래스다. 서브클래스에는 추가적인 로직이나 프로퍼티를 포함할 수도 있다. Paragon에서는 각 영웅마다 자신의 모든 `GameplayAbility`를 포함하는 `GameplayAbilitySet`이 존재했다.
 

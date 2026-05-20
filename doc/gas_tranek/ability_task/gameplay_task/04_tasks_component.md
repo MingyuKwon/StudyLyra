@@ -6,7 +6,7 @@
 
 ---
 
-## 내부 배열 4개
+## GameplayTasksComponent가 태스크를 관리하는 4개의 내부 배열은 각각 어떤 역할인가?
 
 컴포넌트는 실행 중인 태스크를 4개의 배열로 분류해 관리한다.
 
@@ -33,7 +33,7 @@ TArray<TObjectPtr<UGameplayTask>> SimulatedTasks;
 
 ---
 
-## 생성자 기본값
+## GameplayTasksComponent는 기본적으로 틱이 비활성화되어 있는가, 그리고 언제 켜지는가?
 
 ```cpp
 UGameplayTasksComponent::UGameplayTasksComponent(const FObjectInitializer& OI)
@@ -48,7 +48,7 @@ UGameplayTasksComponent::UGameplayTasksComponent(const FObjectInitializer& OI)
 
 ---
 
-## 태스크 활성화 — OnGameplayTaskActivated()
+## 태스크 활성화 시 OnGameplayTaskActivated()는 어떤 배열에 등록하는가?
 
 `PerformActivation()` 내부에서 호출된다. 태스크를 적절한 배열에 등록한다.
 
@@ -70,7 +70,7 @@ void UGameplayTasksComponent::OnGameplayTaskActivated(UGameplayTask& Task)
 }
 ```
 
-### UpdateShouldTick()
+### UpdateShouldTick()은 언제 호출되며 어떤 조건에서 컴포넌트 틱을 켜는가?
 
 ```cpp
 void UGameplayTasksComponent::UpdateShouldTick()
@@ -84,7 +84,7 @@ TickingTask가 없으면 컴포넌트 틱이 꺼진다. 성능 최적화다.
 
 ---
 
-## 태스크 비활성화 — OnGameplayTaskDeactivated()
+## 태스크 종료 시 OnGameplayTaskDeactivated()는 어떤 정리를 수행하는가?
 
 `OnDestroy()` 내부에서 호출된다. 태스크를 배열에서 제거한다.
 
@@ -109,7 +109,7 @@ void UGameplayTasksComponent::OnGameplayTaskDeactivated(UGameplayTask& Task)
 
 ---
 
-## 틱 처리 — TickComponent()
+## TickComponent()에서 틱 도중 태스크가 자기 자신을 종료할 때 배열 변경 문제를 어떻게 방어하는가?
 
 ```cpp
 void UGameplayTasksComponent::TickComponent(float DeltaTime, ...)
@@ -132,9 +132,9 @@ void UGameplayTasksComponent::TickComponent(float DeltaTime, ...)
 
 ---
 
-## 우선순위 큐 — 태스크 스케줄링
+## 태스크 우선순위 큐는 어떻게 작동하며 리소스 충돌 시 스케줄링은 어떻게 결정되는가?
 
-### AddTaskReadyForActivation()
+### AddTaskReadyForActivation()은 어떤 경로로 태스크를 큐에 등록하는가?
 
 `ReadyForActivation()`에서 리소스/우선순위 관리가 필요한 태스크를 호출한다.
 
@@ -146,7 +146,7 @@ void UGameplayTasksComponent::AddTaskReadyForActivation(UGameplayTask& NewTask)
 }
 ```
 
-### AddTaskToPriorityQueue()
+### 같은 우선순위의 태스크 삽입 순서는 ETaskResourceOverlapPolicy로 어떻게 결정되는가?
 
 우선순위 내림차순으로 삽입한다. 같은 우선순위 내 순서는 `ETaskResourceOverlapPolicy`로 결정된다.
 
@@ -160,7 +160,7 @@ enum class ETaskResourceOverlapPolicy : uint8
 };
 ```
 
-### UpdateTaskActivations()
+### UpdateTaskActivations()는 큐에서 어떤 기준으로 태스크를 실행 또는 대기 상태로 남기는가?
 
 큐 앞에서부터 실행 가능 여부를 평가한다.
 RequiredResources가 이미 점유된 리소스와 충돌하면 해당 태스크는 대기 상태로 남는다.
@@ -176,7 +176,7 @@ for each task in TaskPriorityQueue (high priority first):
 
 ---
 
-## 이벤트 큐 — ProcessTaskEvents()
+## ProcessTaskEvents()에서 무한 루프를 막기 위해 어떤 안전장치를 사용하는가?
 
 태스크 활성화/비활성화 중에 새 이벤트가 발생할 수 있다.
 무한 루프를 막기 위해 `MaxIterations = 16` 제한과 `FEventLock` 재진입 방지 장치가 있다.
@@ -197,9 +197,9 @@ void UGameplayTasksComponent::ProcessTaskEvents()
 
 ---
 
-## 복제 — SimulatedTasks
+## SimulatedTasks 배열은 어떻게 복제되며 Owning Client는 왜 제외되는가?
 
-### AddSimulatedTask()
+### AddSimulatedTask()에서 COND_SkipOwner를 사용하는 이유는 무엇인가?
 
 `bSimulatedTask=true`인 태스크가 활성화될 때 호출된다.
 
@@ -212,7 +212,7 @@ void UGameplayTasksComponent::AddSimulatedTask(UGameplayTask& NewTask)
 }
 ```
 
-### OnRep_SimulatedTasks()
+### Simulated Proxy가 SimulatedTasks를 받았을 때 OnRep_SimulatedTasks()는 어떻게 초기화하는가?
 
 Simulated proxy에서 배열이 복제됐을 때 호출된다.
 
@@ -235,7 +235,7 @@ void UGameplayTasksComponent::OnRep_SimulatedTasks()
 }
 ```
 
-### ReplicateSubobjects()
+### ReplicateSubobjects()에서 Owning Client에게 SimulatedTasks를 복제하지 않는 이유는?
 
 `NetOwner`(owning client)에게는 SimulatedTasks를 복제하지 않는다.
 owning client는 자신이 직접 태스크를 실행하기 때문이다.
@@ -262,7 +262,7 @@ bool UGameplayTasksComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBu
 
 ---
 
-## ASC와의 관계
+## ASC가 GameplayTasksComponent를 상속하면 어떤 이점이 생기는가?
 
 `UAbilitySystemComponent`는 `UGameplayTasksComponent`를 상속한다.
 

@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ge-duration"></a>
-#### 4.5.16 활성 Gameplay Effect의 지속시간 변경
+#### 이미 적용된 GE의 지속시간을 런타임에 변경하려면 어떻게 해야 하는가?
 
 `Cooldown GE` 또는 `Duration` `GameplayEffect`의 남은 시간을 변경하려면 `GameplayEffectSpec`의 `Duration`을 변경하고, `StartServerWorldTime`, `CachedStartServerWorldTime`, `StartWorldTime`을 업데이트한 뒤, `CheckDuration()`으로 지속시간 검사를 다시 실행해야 한다. 서버에서 이를 수행하고 `FActiveGameplayEffect`를 dirty로 마킹하면 클라이언트에도 변경 사항이 복제된다.
 
@@ -49,7 +49,7 @@ bool UPAAbilitySystemComponent::SetGameplayEffectDurationHandle(FActiveGameplayE
 ```
 
 <a name="concepts-ge-dynamic"></a>
-#### 4.5.17 런타임에 동적 Gameplay Effect 생성
+#### 런타임에 GE를 동적으로 생성할 수 있는 경우와 없는 경우, 그리고 올바른 대안은 무엇인가?
 
 런타임에 `GameplayEffects`를 동적으로 생성하는 것은 고급 주제다. 이 작업을 자주 할 필요는 없다.
 
@@ -57,7 +57,7 @@ C++에서 런타임에 처음부터 생성할 수 있는 것은 `Instant` `Gamep
 
 런타임에 생성된 `Instant` `GameplayEffects`는 로컬 예측(local predicted) `GameplayAbility` 내부에서도 호출할 수 있다. 하지만 동적 생성이 사이드 이펙트를 유발할 수 있는지 여부는 아직 알려져 있지 않다.
 
-##### 예시
+##### 런타임 동적 Instant GE 생성의 실제 예시는 어떻게 되는가?
 
 샘플 프로젝트는 캐릭터가 최후의 일격(killing blow)을 받을 때 `AttributeSet` 내에서 킬러에게 골드와 경험치를 전달하기 위해 동적 GE를 하나 생성한다.
 
@@ -126,7 +126,7 @@ void UGameplayAbilityRuntimeGE::ActivateAbility(const FGameplayAbilitySpecHandle
 ```
 
 <a name="concepts-ge-containers"></a>
-#### 4.5.18 Gameplay Effect Containers
+#### GameplayEffectContainer는 무엇이며, GE와 TargetData를 함께 관리할 때 어떤 이점이 있는가?
 
 Epic의 [Action RPG Sample Project](https://www.unrealengine.com/marketplace/en-US/product/action-rpg)는 `FGameplayEffectContainer`라는 구조체를 구현한다. 이 구조체는 기본 GAS에 포함되어 있지 않지만, `GameplayEffects`와 `TargetData`를 함께 담는 데 매우 유용하다. `GameplayEffects`로부터 `GameplayEffectSpecs`를 생성하고 `GameplayEffectContext`에 기본값을 설정하는 등의 작업을 자동화해준다. `GameplayAbility`에서 `GameplayEffectContainer`를 만들어 발사체(projectile)에 전달하는 것은 매우 쉽고 직관적이다. 필자는 포함된 샘플 프로젝트에 `GameplayEffectContainers`를 구현하지 않았는데, 이는 기본 GAS만으로 어떻게 작업하는지를 보여주기 위해서였다. 하지만 이 구조체를 자세히 살펴보고 자신의 프로젝트에 추가하는 것을 강력히 권장한다.
 

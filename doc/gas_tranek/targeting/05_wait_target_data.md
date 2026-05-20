@@ -5,7 +5,7 @@
 
 ---
 
-## 두 가지 생성 경로
+## UAbilityTask_WaitTargetData의 두 가지 생성 경로는 어떻게 다른가?
 
 ```cpp
 // 경로 A: TargetClass 기반 — Blueprint 노드에서 Deferred Spawn 처리
@@ -28,7 +28,7 @@ UAbilityTask_WaitTargetData* WaitTargetDataUsingActor(
 
 ---
 
-## Activate() — 경로 B 전용 (TargetActor 재사용)
+## TargetActor 재사용 경로에서 Activate()는 어떻게 처리하는가?
 
 ```cpp
 void UAbilityTask_WaitTargetData::Activate()
@@ -70,7 +70,7 @@ void UAbilityTask_WaitTargetData::Activate()
 
 ---
 
-## BeginSpawningActor / FinishSpawningActor — 경로 A (클래스 기반)
+## 클래스 기반 경로에서 BeginSpawningActor와 FinishSpawningActor는 어떤 순서로 동작하는가?
 
 Blueprint의 latent 실행 핀 구조:
 
@@ -130,7 +130,7 @@ void UAbilityTask_WaitTargetData::FinishSpawningActor(
 
 ---
 
-## ShouldSpawnTargetActor
+## ShouldSpawnTargetActor()는 서버와 로컬 클라이언트를 어떻게 구분하여 스폰을 결정하는가?
 
 ```cpp
 bool UAbilityTask_WaitTargetData::ShouldSpawnTargetActor() const
@@ -154,7 +154,7 @@ bool UAbilityTask_WaitTargetData::ShouldSpawnTargetActor() const
 
 ---
 
-## InitializeTargetActor — PlayerController 주입 + 콜백 등록
+## InitializeTargetActor()에서 PlayerController 주입과 콜백 등록이 이루어지는 이유는?
 
 ```cpp
 void UAbilityTask_WaitTargetData::InitializeTargetActor(AGameplayAbilityTargetActor* SpawnedActor) const
@@ -171,7 +171,7 @@ void UAbilityTask_WaitTargetData::InitializeTargetActor(AGameplayAbilityTargetAc
 
 ---
 
-## FinalizeTargetActor — 시작 + ConfirmationType 처리
+## FinalizeTargetActor()에서 ConfirmationType에 따라 어떻게 다르게 동작하는가?
 
 ```cpp
 void UAbilityTask_WaitTargetData::FinalizeTargetActor(AGameplayAbilityTargetActor* SpawnedActor) const
@@ -199,7 +199,7 @@ void UAbilityTask_WaitTargetData::FinalizeTargetActor(AGameplayAbilityTargetActo
 
 ---
 
-## RegisterTargetDataCallbacks — 서버 RPC 대기
+## 서버에서 RegisterTargetDataCallbacks()가 클라이언트 RPC를 어떻게 기다리는가?
 
 ```cpp
 void UAbilityTask_WaitTargetData::RegisterTargetDataCallbacks()
@@ -230,7 +230,7 @@ void UAbilityTask_WaitTargetData::RegisterTargetDataCallbacks()
 
 ---
 
-## OnTargetDataReadyCallback — 클라이언트가 서버로 전송
+## OnTargetDataReadyCallback()에서 클라이언트는 TargetData를 서버로 어떻게 전송하는가?
 
 ```cpp
 void UAbilityTask_WaitTargetData::OnTargetDataReadyCallback(
@@ -271,7 +271,7 @@ void UAbilityTask_WaitTargetData::OnTargetDataReadyCallback(
 
 ---
 
-## OnTargetDataCancelledCallback — 클라이언트 취소 시
+## 클라이언트가 타게팅을 취소했을 때 서버에는 어떻게 통보되는가?
 
 ```cpp
 void UAbilityTask_WaitTargetData::OnTargetDataCancelledCallback(
@@ -295,7 +295,7 @@ void UAbilityTask_WaitTargetData::OnTargetDataCancelledCallback(
 
 ---
 
-## OnTargetDataReplicatedCallback — 서버가 클라이언트 TargetData 수신
+## 서버가 클라이언트 TargetData를 수신했을 때 OnTargetDataReplicatedCallback()은 어떻게 검증하는가?
 
 ```cpp
 void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCallback(
@@ -316,7 +316,7 @@ void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCallback(
 }
 ```
 
-## OnTargetDataReplicatedCancelledCallback — 서버가 클라이언트 취소 수신
+## 서버가 클라이언트 취소 신호를 수신했을 때 어떻게 처리하는가?
 
 ```cpp
 void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCancelledCallback()
@@ -329,7 +329,7 @@ void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCancelledCallback()
 
 ---
 
-## ConfirmationType 동작 정리
+## ConfirmationType에 따라 WaitTargetData Task의 동작과 종료 조건은 어떻게 달라지는가?
 
 | 값 | FinalizeTargetActor 처리 | Task 종료 조건 |
 |----|--------------------------|----------------|

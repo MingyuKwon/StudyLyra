@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ga-batching"></a>
-#### 4.6.15 Ability Batching
+#### Ability Batching이란 무엇이며, 히트스캔 총에서 어떻게 RPC를 최적화하는가?
 
 전통적인 `Gameplay Ability` 라이프사이클은 클라이언트에서 서버로 최소 2~3회의 RPC를 발생시킨다.
 
@@ -60,7 +60,7 @@ GASShooter는 반자동 총과 완전 자동 총 모두에 동일한 배치 `Gam
 GASShooter는 앞서 언급한 로컬 전용 어빌리티에서 배치 어빌리티를 트리거할 수 있도록 Blueprint 노드를 노출한다.
 
 <a name="concepts-ga-netsecuritypolicy"></a>
-#### 4.6.16 Net Security Policy
+#### GA의 Net Security Policy 옵션들은 클라이언트의 어떤 시도를 어떻게 차단하는가?
 
 `GameplayAbility`의 `NetSecurityPolicy`는 해당 어빌리티가 네트워크 상에서 어디에서 실행되어야 하는지를 결정한다. 제한된 어빌리티를 실행하려는 클라이언트의 시도로부터 보호 기능을 제공한다.
 

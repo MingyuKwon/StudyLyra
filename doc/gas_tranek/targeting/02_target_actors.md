@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-targeting-actors"></a>
-#### 4.11.2 Target Actors
+#### TargetActor란 무엇이며 WaitTargetData Task와 어떻게 함께 사용하는가?
 
 `GameplayAbility`는 `WaitTargetData` `AbilityTask`와 함께 [`TargetActors`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/AGameplayAbilityTargetActor/index.html)를 스폰하여 월드에서 타게팅 정보를 시각화하고 수집한다. `TargetActor`는 선택적으로 `GameplayAbilityWorldReticles`를 사용하여 현재 타겟을 표시할 수 있다. 확인(confirmation) 시 타게팅 정보는 `TargetData`로 반환되어 `GameplayEffect`에 전달된다.
 

@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-target-data-filters"></a>
-#### 4.11.3 Target Data Filters
+#### TargetData 필터를 커스텀하려면 어떻게 서브클래싱하는가?
 
 `Make GameplayTargetDataFilter`와 `Make Filter Handle` 노드를 모두 사용하면 플레이어의 `Pawn`을 필터링하거나 특정 클래스만 선택할 수 있다. 더 고급 필터링이 필요하다면 `FGameplayTargetDataFilter`를 서브클래싱하고 `FilterPassesForActor` 함수를 오버라이드한다.
 
@@ -35,7 +35,7 @@ FGameplayTargetDataFilterHandle UGDTargetDataFilterBlueprintLibrary::MakeGDNameF
 ```
 
 <a name="concepts-targeting-reticles"></a>
-#### 4.11.4 Gameplay Ability World Reticles
+#### GameplayAbilityWorldReticle은 언제 스폰·파괴되며 타게팅 중 어떻게 시각화에 활용하는가?
 
 [`AGameplayAbilityWorldReticles`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/AGameplayAbilityWorldReticle/index.html)(`Reticle`)는 `Instant`가 아닌 확인 타입의 `TargetActor`로 타게팅할 때 **누구를 타게팅하고 있는지** 시각화한다. `TargetActor`는 모든 `Reticle`의 스폰 및 파괴 수명을 관리한다. `Reticle`은 `AActor`이므로 시각적 표현을 위해 어떤 종류의 시각 컴포넌트도 사용할 수 있다. [GASShooter](https://github.com/tranek/GASShooter)에서 볼 수 있는 일반적인 구현은 `WidgetComponent`를 사용하여 화면 공간에 UMG 위젯을 표시하는 것이다(항상 플레이어의 카메라를 향한다). `Reticle`은 자신이 어떤 `AActor` 위에 있는지 알지 못하지만, 커스텀 `TargetActor`에서 그 기능을 서브클래싱하여 추가할 수 있다. `TargetActor`는 일반적으로 매 `Tick()`마다 `Reticle`의 위치를 타겟의 위치로 업데이트한다.
 

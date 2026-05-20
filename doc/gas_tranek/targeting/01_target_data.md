@@ -5,10 +5,10 @@
 ---
 
 <a name="concepts-targeting"></a>
-### 4.11 Targeting
+### GAS에서 타게팅이란 무엇이며 FGameplayAbilityTargetData의 역할은?
 
 <a name="concepts-targeting-data"></a>
-#### 4.11.1 Target Data
+#### FGameplayAbilityTargetData를 서브클래싱할 때 반드시 구현해야 하는 것은 무엇인가?
 
 [`FGameplayAbilityTargetData`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/Abilities/FGameplayAbilityTargetData/index.html)는 네트워크를 통해 전달하기 위한 범용 타게팅 데이터 구조체다. `TargetData`는 일반적으로 `AActor`/`UObject` 레퍼런스, `FHitResult`, 그 외 일반적인 위치/방향/원점 정보를 담는다. 그러나 서브클래싱을 통해 원하는 거의 모든 데이터를 넣을 수 있으며, `GameplayAbility` 내에서 클라이언트와 서버 사이에 데이터를 전달하는 간단한 수단으로 활용된다. 기본 구조체 `FGameplayAbilityTargetData`는 직접 사용하는 것이 아니라 서브클래싱하여 사용한다. `GAS`는 `GameplayAbilityTargetTypes.h`에 기본 제공하는 `FGameplayAbilityTargetData` 서브클래스 구조체들을 포함하고 있다.
 
@@ -111,7 +111,7 @@ FName GetCoolNameFromTargetData(const FGameplayAbilityTargetDataHandle& Handle, 
 
 ---
 
-### TargetData가 필요한 이유 — 직접 RPC/Replicate로 대체하지 못하는 이유
+### TargetData를 직접 RPC로 대체하지 못하는 이유는 무엇인가?
 
 TargetData가 RPC를 *대체*하는 게 아니라, **RPC를 쓰면서도 GAS 파이프라인 전체에 데이터를 흘려보내야 하는 문제**를 해결하는 구조다.
 
@@ -148,11 +148,11 @@ TargetData 자체는 결국 RPC로 전송되지만, GAS 파이프라인의 나�
 
 ---
 
-### Lyra 실제 구현 — 원거리 무기 사격 흐름
+### Lyra의 원거리 무기 사격에서 TargetData는 어떤 흐름으로 생성·전송·적용되는가?
 
 원거리 무기(`ULyraGameplayAbility_RangedWeapon`)가 TargetData를 주고받는 전 과정이다.
 
-#### 1단계 — TargetData 서브클래스 정의
+#### Lyra는 왜 FGameplayAbilityTargetData를 서브클래싱하여 CartridgeID를 추가했는가?
 
 `AbilitySystem/LyraGameplayAbilityTargetData_SingleTargetHit.h`
 
@@ -190,7 +190,7 @@ struct TStructOpsTypeTraits<FLyraGameplayAbilityTargetData_SingleTargetHit>
 
 **포인트**: 엔진 제공 `FGameplayAbilityTargetData_SingleTargetHit`(HitResult 포함)를 상속해서 `CartridgeID`만 추가했다.
 
-#### 2단계 — EffectContext에 데이터 주입
+#### AddTargetDataToContext()는 어떤 역할을 하며 커스텀 Context에 데이터를 어떻게 주입하는가?
 
 `LyraGameplayAbilityTargetData_SingleTargetHit.cpp`
 
@@ -213,7 +213,7 @@ void FLyraGameplayAbilityTargetData_SingleTargetHit::AddTargetDataToContext(
 GE가 Apply될 때 이 함수가 호출되어, CartridgeID가 EffectContext 안으로 들어간다.  
 이후 ExecCalc / GameplayCue / AttributeSet 콜백에서 `FLyraGameplayEffectContext::ExtractEffectContext()`로 꺼낼 수 있다.
 
-#### 3단계 — 로컬 레이캐스트 후 TargetData 패킹
+#### 클라이언트에서 로컬 레이캐스트 결과를 TargetDataHandle로 패킹하는 방법은?
 
 `Weapons/LyraGameplayAbility_RangedWeapon.cpp` — `StartRangedWeaponTargeting()`
 
@@ -245,7 +245,7 @@ void ULyraGameplayAbility_RangedWeapon::StartRangedWeaponTargeting()
 }
 ```
 
-#### 4단계 — 서버 전송 및 GE 적용
+#### 클라이언트가 서버로 TargetData를 전송하고 GE를 적용하는 흐름은 어떻게 되는가?
 
 `OnTargetDataReadyCallback()` — 클라이언트와 서버 양쪽에서 실행된다.
 
@@ -284,7 +284,7 @@ void ULyraGameplayAbility_RangedWeapon::OnTargetDataReadyCallback(
 }
 ```
 
-#### 5단계 — ActivateAbility에서 콜백 등록 / EndAbility에서 정리
+#### TargetData 콜백은 ActivateAbility에서 어떻게 등록하고 EndAbility에서 어떻게 정리하는가?
 
 ```cpp
 void ULyraGameplayAbility_RangedWeapon::ActivateAbility(...)
@@ -311,7 +311,7 @@ void ULyraGameplayAbility_RangedWeapon::EndAbility(...)
 }
 ```
 
-#### 전체 흐름 요약
+#### 클라이언트→서버 TargetData 전체 흐름을 한 눈에 보면?
 
 ```
 [클라이언트]
@@ -338,9 +338,9 @@ ServerSetReplicatedTargetData() 수신
 
 ---
 
-### TargetData와 Context의 관계
+### TargetData와 FGameplayEffectContext의 관계는 어떻게 되는가?
 
-#### TargetData는 Context로 이전된다
+#### TargetData가 GE 파이프라인에서 Context로 이전되는 시점은 언제인가?
 
 TargetData는 주로 두 가지 목적으로 사용된다.
 
@@ -357,7 +357,7 @@ FGameplayEffectContext (GE 파이프라인 전체를 따라다니는 운반체)
 ExecCalc / MMC / GameplayCue / AttributeSet 콜백
 ```
 
-#### 커스텀 Context가 필요한 경우
+#### 커스텀 FGameplayEffectContext가 필요한 기준은 무엇인가?
 
 `FGameplayEffectContext`는 이미 `HitResult`와 `Actors` 배열을 지원한다. TargetData가 이 필드만 주입하면 커스텀 Context 없이 동작한다.
 
@@ -371,13 +371,13 @@ ExecCalc / MMC / GameplayCue / AttributeSet 콜백
 
 Lyra가 `CartridgeID`를 위해 `FLyraGameplayEffectContext`를 만든 것이 세 번째 케이스다.
 
-#### 둘은 1:1 쌍이 아니다
+#### 커스텀 TargetData와 커스텀 Context는 반드시 1:1로 대응해야 하는가?
 
 Context는 TargetData가 주입하는 **대상**일 뿐이다. 여러 TargetData 타입이 같은 커스텀 Context에 주입할 수도 있고, 커스텀 TargetData가 기본 Context를 그대로 쓸 수도 있다. 커스텀 Context 한 개를 공유하면서 다양한 TargetData 타입이 각자의 `AddTargetDataToContext()`를 통해 같은 Context에 데이터를 채워 넣는 구조가 일반적이다.
 
 ---
 
-### ExecCalc에서 TargetData 유래 데이터를 실제로 쓰는 사례 — LyraDamageExecution
+### LyraDamageExecution에서 TargetData에서 흘러온 HitResult를 데미지 계산에 어떻게 활용하는가?
 
 `LyraDamageExecution::Execute_Implementation()`은 Context에서 HitResult를 꺼내 세 가지 계산에 사용한다. TargetData를 들고 오지 않으면 이 계산들이 전부 폴백값으로 떨어진다.
 
@@ -388,7 +388,7 @@ FLyraGameplayEffectContext* TypedContext =
 const FHitResult* HitActorResult = TypedContext->GetHitResult();  // TargetData에서 흘러온 것
 ```
 
-#### 용도 1 — 피격 대상·위치 특정
+#### HitResult는 LyraDamageExecution에서 피격 대상과 위치를 어떻게 특정하는 데 쓰이는가?
 
 ```cpp
 HitActor       = CurHitResult.HitObjectHandle.FetchActor();
@@ -397,7 +397,7 @@ ImpactLocation = CurHitResult.ImpactPoint;
 
 HitResult가 없으면 `TargetASC->GetAvatarActor()` 위치로 폴백한다.
 
-#### 용도 2 — 거리 감쇠
+#### HitResult의 ImpactPoint는 거리 감쇠 계산에 어떻게 사용되는가?
 
 ```cpp
 Distance = FVector::Dist(TypedContext->GetOrigin(), ImpactLocation);
@@ -406,7 +406,7 @@ DistanceAttenuation = AbilitySource->GetDistanceAttenuation(Distance, SourceTags
 
 발사 기원점 ~ 피격 지점 거리를 계산해 원거리일수록 데미지를 줄인다.
 
-#### 용도 3 — 재질별 감쇠 (헤드샷 등)
+#### HitResult의 PhysicalMaterial은 헤드샷 등 재질별 감쇠를 어떻게 결정하는가?
 
 ```cpp
 const UPhysicalMaterial* PhysMat = TypedContext->GetPhysicalMaterial(); // HitResult 내부
@@ -415,7 +415,7 @@ PhysicalMaterialAttenuation = AbilitySource->GetPhysicalMaterialAttenuation(Phys
 
 HitResult에 담긴 PhysicalMaterial로 머리·몸통·방어구 등 표면별 데미지 배율을 적용한다.
 
-#### 최종 데미지 공식
+#### Lyra의 최종 데미지 공식은 어떻게 구성되는가?
 
 ```
 DamageDone = BaseDamage
@@ -424,7 +424,7 @@ DamageDone = BaseDamage
            × DamageInteractionAllowedMultiplier  // 팀킬 방지 (0 or 1)
 ```
 
-#### 흐름 요약
+#### 클라이언트 레이캐스트부터 최종 데미지 적용까지 흐름을 요약하면?
 
 ```
 [클라이언트 레이캐스트]

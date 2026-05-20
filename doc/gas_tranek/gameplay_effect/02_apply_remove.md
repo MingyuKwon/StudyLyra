@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ge-applying"></a>
-#### 4.5.2 GameplayEffect 적용
+#### GameplayEffect를 적용하는 방법과 적용 감지 델리게이트는 어떻게 사용하는가?
 
 `GameplayEffect`는 GameplayAbility의 함수나 ASC의 함수를 통해 다양한 방식으로 적용할 수 있으며, 보통 `ApplyGameplayEffectTo` 형태의 함수를 사용한다. 이 함수들은 결국 Target의 `UAbilitySystemComponent::ApplyGameplayEffectSpecToSelf()`를 호출하는 편의 래퍼다.
 
@@ -24,7 +24,7 @@ virtual void OnActiveGameplayEffectAddedCallback(UAbilitySystemComponent* Target
 서버는 복제 모드와 무관하게 항상 이 함수를 호출한다. Autonomous Proxy는 `Full` 및 `Mixed` 복제 모드에서 복제된 GameplayEffect에 대해서만 호출된다. Simulated Proxy는 `Full` 복제 모드에서만 호출된다.
 
 <a name="concepts-ga-removing"></a>
-#### 4.5.3 GameplayEffect 제거
+#### GameplayEffect를 제거하는 방법과 제거 감지 델리게이트는 어떻게 사용하는가?
 
 `GameplayEffect`도 GameplayAbility의 함수나 ASC의 함수를 통해 다양한 방식으로 제거할 수 있으며, 보통 `RemoveActiveGameplayEffect` 형태의 함수를 사용한다. 이 함수들은 결국 Target의 `FActiveGameplayEffectsContainer::RemoveActiveEffects()`를 호출하는 편의 래퍼다.
 
@@ -44,7 +44,7 @@ virtual void OnRemoveGameplayEffectCallback(const FActiveGameplayEffect& EffectR
 
 ---
 
-### ReplicationMode별 동기화 구조
+### GE의 ReplicationMode(Minimal / Mixed / Full)에 따라 GE 정보가 어떻게 다르게 복제되는가?
 
 > 소스: `GameplayEffect.cpp:5072`, `GameplayEffect.cpp:4618`
 
@@ -70,7 +70,7 @@ Lyra는 `Mixed`. 내 캐릭터(Owner)에게는 전체 GE 목록, 다른 플레�
 
 ---
 
-### Owner가 GE Spec 전체를 받는 이유 — 예측(Prediction)
+### Owning client가 GE Spec 전체를 받아야 하는 이유는 예측(Prediction)과 어떻게 연결되는가?
 
 > 소스: `GameplayEffect.cpp:2822`
 
@@ -111,7 +111,7 @@ GE를 로컬에서 실행하려면 Spec 데이터(Modifiers, Duration 등)가 �
 
 ---
 
-### 복제 필드 분류
+### FActiveGameplayEffect에서 복제되는 필드, 클라에서 재구성하는 필드, 클라에 없는 필드는 어떻게 나뉘는가?
 
 > 소스: `GameplayEffect.h:1406`, `GameplayEffect.cpp:2866`
 

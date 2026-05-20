@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ge-ec"></a>
-#### 4.5.12 Gameplay Effect Execution Calculation
+#### ExecCalc(ExecutionCalculation)란 무엇이며 예측이 불가능하고 C++로만 구현해야 하는 이유는?
 
 [`GameplayEffectExecutionCalculations`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayEffectExecutionCalculat-/index.html)(`ExecutionCalculation`, `Execution` — 플러그인 소스 코드에서 이 용어를 자주 볼 수 있다 — 또는 `ExecCalc`)는 `GameplayEffects`가 `ASC`에 변화를 주는 가장 강력한 방법이다. `ModifierMagnitudeCalculations`처럼 `Attributes`를 캡처하고 선택적으로 스냅샷할 수 있다. `MMC`와 달리 이 방식은 하나 이상의 `Attribute`를 변경할 수 있으며, 프로그래머가 원하는 거의 모든 것을 수행할 수 있다. 이러한 강력함과 유연성의 단점은 예측(predicted)이 불가능하고 반드시 C++로 구현해야 한다는 것이다.
 
@@ -27,12 +27,12 @@
 가장 흔한 `ExecCalc` 활용 예는 Source와 Target의 여러 Attribute를 복잡한 공식으로 읽어 받는 데미지를 계산하는 것이다. 샘플 프로젝트에는 `GameplayEffectSpec`의 `SetByCaller`에서 데미지 값을 읽고, Target에서 캡처한 방어구(armor) `Attribute`로 그 값을 경감하는 간단한 `ExecCalc`가 포함되어 있다. `GDDamageExecCalculation.cpp/.h`를 참고하라.
 
 <a name="concepts-ge-ec-senddata"></a>
-##### 4.5.12.1 Execution Calculation에 데이터 전달하기
+##### ExecCalc에 Attribute 캡처 외의 데이터를 전달하는 방법에는 무엇이 있는가?
 
 `Attributes`를 캡처하는 것 외에도 `ExecutionCalculation`에 데이터를 전달하는 방법이 몇 가지 있다.
 
 <a name="concepts-ge-ec-senddata-setbycaller"></a>
-###### 4.5.12.1.1 SetByCaller
+###### ExecCalc에서 GESpec의 SetByCaller 값을 어떻게 읽는가?
 
 `GameplayEffectSpec`에 설정된 `SetByCallers`는 `ExecutionCalculation`에서 직접 읽을 수 있다.
 
@@ -42,7 +42,7 @@ float Damage = FMath::Max<float>(Spec.GetSetByCallerMagnitude(FGameplayTag::Requ
 ```
 
 <a name="concepts-ge-ec-senddata-backingdataattribute"></a>
-###### 4.5.12.1.2 Backing Data Attribute Calculation Modifier
+###### Backing Data Attribute를 CalculationModifier로 사용해 ExecCalc에 하드코딩 값을 전달하는 방법은?
 
 `GameplayEffect`에 하드코딩된 값을 전달하고 싶다면, 캡처된 `Attributes` 중 하나를 backing data로 사용하는 `CalculationModifier`를 통해 전달할 수 있다.
 
@@ -59,7 +59,7 @@ ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().Damag
 ```
 
 <a name="concepts-ge-ec-senddata-backingdatatempvariable"></a>
-###### 4.5.12.1.3 Backing Data Temporary Variable Calculation Modifier
+###### Temporary Variable(Transient Aggregator)을 CalculationModifier로 사용하는 방법은?
 
 `GameplayEffect`에 하드코딩된 값을 전달하는 또 다른 방법으로, C++에서 `Transient Aggregator`라 불리는 `Temporary Variable`을 `CalculationModifier`의 backing data로 사용할 수 있다. `Temporary Variable`은 `GameplayTag`와 연결된다.
 
@@ -81,7 +81,7 @@ ExecutionParams.AttemptCalculateTransientAggregatorMagnitude(FGameplayTag::Reque
 ```
 
 <a name="concepts-ge-ec-senddata-effectcontext"></a>
-###### 4.5.12.1.4 Gameplay Effect Context
+###### 커스텀 GameplayEffectContext를 통해 ExecCalc에 데이터를 전달하는 방법은?
 
 `GameplayEffectSpec`에 설정된 커스텀 `GameplayEffectContext`를 통해 `ExecutionCalculation`에 데이터를 전달할 수 있다.
 
@@ -108,7 +108,7 @@ FGameplayEffectSpec* GetOwningSpecForPreExecuteMod() const;
 
 ---
 
-### MMC vs ExecCalc — Modifier를 "채우는가" vs "만드는가"
+### MMC는 GE Blueprint Modifier를 "채우는" 역할이고 ExecCalc는 Modifier를 "만드는" 역할인데, 그 차이는 무엇인가?
 
 MMC와 ExecCalc의 근본 차이는 GE Blueprint Modifier 항목과의 관계다.
 
@@ -140,7 +140,7 @@ OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(
 
 ---
 
-### LyraDamageExecution 골격 — 3단계
+### Lyra의 LyraDamageExecution은 어떤 3단계 구조로 ExecCalc를 구현하는가?
 
 > 소스: `LyraDamageExecution.cpp`, `LyraHealExecution.cpp`
 
@@ -218,7 +218,7 @@ void ULyraDamageExecution::Execute_Implementation(
 
 ---
 
-### 캡처 레시피 vs 캡처 값 — Definition과 CaptureSpec
+### FGameplayEffectAttributeCaptureDefinition(레시피)과 FGameplayEffectAttributeCaptureSpec(값)은 어떻게 다른가?
 
 > 소스: `GameplayEffect.h:766`, `GameplayEffect.cpp:3870`, `GameplayEffectAggregator.cpp:579`
 
@@ -284,7 +284,7 @@ ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
 
 ---
 
-### Lyra가 ExecCalc를 선택한 이유
+### Lyra의 데미지 시스템이 Meta Attribute 패턴과 서버 권한 보장을 위해 ExecCalc를 선택한 이유는?
 
 **Meta Attribute 패턴** — `Health`를 직접 깎지 않고 `Damage` Meta Attribute에 쓴다. `PostGameplayEffectExecute`가 이를 `Health` 감소로 변환한다. `AddOutputModifier`로 출력 Attribute를 자유롭게 지정할 수 있는 ExecCalc만 이 흐름을 만들 수 있다.
 

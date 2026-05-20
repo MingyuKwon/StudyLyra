@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ge-mmc"></a>
-#### 4.5.11 Modifier Magnitude Calculation
+#### MMC(ModifierMagnitudeCalculation)란 무엇이며, ExecCalc와 비교해 어떤 장단점이 있는가?
 
 [`ModifierMagnitudeCalculations`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayModMagnitudeCalculation/index.html)(`ModMagCalc` 또는 `MMC`)는 `GameplayEffects`에서 `Modifiers`로 사용되는 강력한 클래스다. `GameplayEffectExecutionCalculations`와 비슷하게 동작하지만 그보다 기능이 제한적이며, 무엇보다 중요한 장점은 예측(predicted)이 가능하다는 것이다. MMC의 유일한 목적은 `CalculateBaseMagnitude_Implementation()`에서 float 값을 반환하는 것이다. Blueprint와 C++ 모두에서 서브클래스로 만들어 이 함수를 오버라이드할 수 있다.
 
@@ -80,7 +80,7 @@ float UPAMMC_PoisonMana::CalculateBaseMagnitude_Implementation(const FGameplayEf
 
 ---
 
-### Lyra는 MMC를 쓰지 않는다 — ExecCalc를 선택한 이유
+### Lyra가 데미지/힐링 계산에 MMC 대신 ExecCalc를 선택한 세 가지 이유는 무엇인가?
 
 > 소스: `LyraDamageExecution.cpp`, `LyraHealExecution.cpp`
 
@@ -116,7 +116,7 @@ OutExecutionOutput.AddOutputModifier(
 
 ---
 
-### Attribute 캡처 패턴 — static 싱글톤으로 정의
+### MMC/ExecCalc에서 Attribute 캡처 정의를 static 싱글톤으로 만드는 이유는 무엇인가?
 
 > 소스: `LyraDamageExecution.cpp:14`, `LyraHealExecution.cpp:11`
 
@@ -162,7 +162,7 @@ ULyraDamageExecution::ULyraDamageExecution()
 
 ---
 
-### MMC vs ExecCalc — 언제 무엇을 쓰나
+### MMC와 ExecCalc는 "Modifier를 채우는가" vs "만드는가" 관점에서 어떻게 다르며, 각각 언제 써야 하는가?
 
 > 소스: `GameplayEffect.h`, `GameplayEffectExecutionCalculation.h`
 

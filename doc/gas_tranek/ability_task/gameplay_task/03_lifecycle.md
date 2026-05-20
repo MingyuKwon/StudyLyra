@@ -112,9 +112,9 @@ UGameplayTask::UGameplayTask(const FObjectInitializer& ObjectInitializer)
 
 ---
 
-## 활성화 단계
+## ReadyForActivation() 호출 후 태스크 활성화는 어떤 두 경로로 분기되는가?
 
-### ReadyForActivation() → PerformActivation()
+### 즉시 실행 경로와 큐 대기 경로는 각각 어떤 조건에서 선택되는가?
 > 상세 설명: [02 핵심 API](02_api.md#readyforactivation)
 
 `ReadyForActivation()` 호출 시 두 경로로 분기된다.
@@ -136,9 +136,9 @@ ReadyForActivation() → TasksComponent->AddTaskReadyForActivation()
 
 ---
 
-## 실행 중 단계
+## 태스크 실행 중에 틱과 일시 중단은 어떻게 동작하는가?
 
-### TickTask()
+### TickTask()는 어떤 경로로 호출되며 순회 중 자기 파괴 문제를 어떻게 방어하는가?
 
 `bTickingTask = true`로 설정한 태스크는 `TasksComponent->TickComponent()`에서 매 프레임 `TickTask(DeltaTime)`을 받는다.
 
@@ -150,7 +150,7 @@ UGameplayTasksComponent::TickComponent()
 
 `TasksComponent`는 틱 중에 태스크가 자신을 파괴할 수 있으므로, `TickingTasks`를 **로컬 배열로 복사한 뒤** 순회한다.
 
-### 일시 중단 / 재개
+### PauseTask()와 ResumeTask()는 어떻게 작동하는가?
 
 `PauseTask()` — `Active → Paused`  
 `ResumeTask()` — `Paused → Active`
@@ -159,9 +159,9 @@ UGameplayTasksComponent::TickComponent()
 
 ---
 
-## 종료 단계
+## 태스크는 어떤 두 경로로 종료되며 각 경우 OnDestroy()의 bOwnerFinished 값은 무엇인가?
 
-### EndTask() vs TaskOwnerEnded()
+### EndTask()와 TaskOwnerEnded()의 차이를 bOwnerFinished 파라미터로 어떻게 구분하는가?
 
 두 종료 경로는 `OnDestroy()`의 `bOwnerFinished` 파라미터로 구분된다.
 
@@ -170,7 +170,7 @@ UGameplayTasksComponent::TickComponent()
 | `EndTask()` | 태스크 자신 | `false` | 태스크가 스스로 완료됨 |
 | `TaskOwnerEnded()` | GA 등 소유자 | `true` | 소유자가 종료되며 태스크도 정리 |
 
-### OnDestroy()
+### OnDestroy() 내부에서 어떤 정리 작업이 일어나는가?
 
 두 경로 모두 `OnDestroy()`로 수렴한다. 개발자가 오버라이드하는 실제 정리 함수다.
 
@@ -186,7 +186,7 @@ void UGameplayTask::OnDestroy(bool bInOwnerFinished)
 > `Super::OnDestroy()`는 항상 **마지막**에 호출한다.
 > `MarkAsGarbage()` 이후에는 BP 내부 메커니즘이 동작하지 않을 수 있다.
 
-### MarkAsGarbage() 이후
+### MarkAsGarbage() 호출 후 태스크 포인터를 사용하면 왜 위험한가?
 
 `MarkAsGarbage()` 호출 직후 객체가 파괴되는 것이 아니라, GC가 다음 사이클에 수집한다.
 그 사이에 객체에 접근하면 dangling pointer가 될 수 있으므로, `OnDestroy()` 이후 태스크 포인터를 사용하면 안 된다.

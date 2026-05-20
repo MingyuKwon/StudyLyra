@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-p-windows"></a>
-#### 4.10.2 Ability 내에서 새 Prediction Window 생성
+#### AbilityTask 콜백 이후에 추가 액션을 예측하려면 새 Scoped Prediction Window를 어떻게 만드는가?
 
 `AbilityTask` 콜백에서 추가 액션을 예측하려면 새로운 Scoped Prediction Key로 새로운 Scoped Prediction Window를 생성해야 한다. 이를 클라이언트와 서버 사이의 Synch Point라고 부르기도 한다. 입력 관련 AbilityTask들은 모두 새 Scoped Prediction Window를 생성하는 기능이 내장되어 있어, `AbilityTask` 콜백의 원자적 코드에서 유효한 Scoped Prediction Key를 사용할 수 있다. `WaitDelay` 태스크 같은 경우에는 콜백에 대한 새 Scoped Prediction Window를 생성하는 내장 코드가 없다. `WaitDelay`처럼 Scoped Prediction Window를 생성하는 내장 코드가 없는 `AbilityTask` 이후에 액션을 예측해야 한다면, `OnlyServerWait` 옵션으로 `WaitNetSync` `AbilityTask`를 사용해 수동으로 처리해야 한다. 클라이언트가 `OnlyServerWait` 상태의 `WaitNetSync`에 도달하면, `GameplayAbility`의 Activation Prediction Key를 기반으로 새로운 Scoped Prediction Key를 생성하고, 이를 서버에 RPC로 전송하며, 새로 적용하는 `GameplayEffect`에 추가한다. 서버가 `OnlyServerWait` 상태의 `WaitNetSync`에 도달하면, 클라이언트로부터 새로운 Scoped Prediction Key를 받을 때까지 대기한 후 계속 실행한다. 이 Scoped Prediction Key는 Activation Prediction Key와 동일한 방식으로 `GameplayEffect`에 적용되고 클라이언트에게 복제되어 stale 처리된다. Scoped Prediction Key는 스코프를 벗어나면 만료되어 Scoped Prediction Window가 닫힌다. 따라서 원자적 연산만 새 Scoped Prediction Key를 사용할 수 있으며, latent한 연산은 사용할 수 없다.
 
@@ -21,7 +21,7 @@
 owning 클라이언트에서 예측된 `GameplayEffect`가 두 번 재생된다면, Prediction Key가 stale 상태인 "redo 문제"를 겪고 있는 것이다. `GameplayEffect`를 적용하기 직전에 `OnlyServerWait` 옵션의 `WaitNetSync` `AbilityTask`를 추가하여 새로운 Scoped Prediction Key를 생성하면 대개 해결할 수 있다.
 
 <a name="concepts-p-spawn"></a>
-#### 4.10.3 액터 예측 스폰
+#### 클라이언트에서 액터를 예측적으로 스폰하려면 어떻게 해야 하며 GAS 기본 지원이 없는 이유는?
 
 클라이언트에서 `Actor`를 예측적으로 스폰하는 것은 고급 주제다. GAS는 이에 대한 기능을 기본 제공하지 않는다(`SpawnActor` `AbilityTask`는 서버에서만 `Actor`를 스폰한다). 핵심 개념은 클라이언트와 서버 **양쪽에서 복제된 `Actor`를 스폰**하는 것이다.
 
@@ -38,7 +38,7 @@ bool APAReplicatedActorExceptOwner::IsNetRelevantFor(const AActor * RealViewer, 
 
 ---
 
-### WaitNetSync의 실제 클래스: `UAbilityTask_NetworkSyncPoint`
+### WaitNetSync라 불리는 UAbilityTask_NetworkSyncPoint의 실제 구현은 무엇인가?
 
 GASDoc에서 "WaitNetSync"라고 부르는 것의 실제 클래스명은 `UAbilityTask_NetworkSyncPoint`이며,
 정적 팩토리 함수 이름이 `WaitNetSync()`다.
@@ -47,7 +47,7 @@ GASDoc에서 "WaitNetSync"라고 부르는 것의 실제 클래스명은 `UAbili
 
 ---
 
-### SyncType 3종
+### WaitNetSync의 BothWait·OnlyServerWait·OnlyClientWait는 각각 어떤 상황에서 쓰는가?
 
 ```cpp
 UENUM()
@@ -65,7 +65,7 @@ GASDoc이 말하는 "새 Scoped Prediction Window 수동 생성" 용도에는 **
 
 ---
 
-### `Activate()` 내부 구현 흐름
+### WaitNetSync의 Activate() 내부에서 클라이언트와 서버는 각각 어떤 동작을 수행하는가?
 
 **출처**: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/Abilities/Tasks/AbilityTask_NetworkSyncPoint.cpp`
 
@@ -112,7 +112,7 @@ void UAbilityTask_NetworkSyncPoint::Activate()
 
 ---
 
-### 입력 태스크의 내장 Sync Point 비교 (`WaitInputPress`)
+### 입력 관련 AbilityTask에 내장된 Sync Point가 WaitNetSync와 어떻게 같은 패턴을 사용하는가?
 
 GASDoc이 "입력 관련 AbilityTask는 내장된 Scoped Prediction Window가 있다"고 한 이유:
 
@@ -153,7 +153,7 @@ void UAbilityTask_WaitInputPress::OnPressCallback()
 
 ---
 
-### 적용 패턴 정리
+### 예측 GE 적용 문제가 발생하는 상황별 WaitNetSync 사용 패턴은 어떻게 되는가?
 
 | 상황 | 해결책 |
 |---|---|

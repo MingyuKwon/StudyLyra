@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ge-car"></a>
-#### 4.5.13 Custom Application Requirement
+#### Custom Application Requirement(CAR)는 태그 체크보다 어떤 고급 조건이 필요할 때 사용하는가?
 
 [`CustomApplicationRequirement`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/UGameplayEffectCustomApplication-/index.html)(`CAR`) 클래스는 설계자에게 `GameplayEffect`를 적용할 수 있는지 여부를 제어하는 고급 수단을 제공한다. `GameplayEffect`의 단순한 `GameplayTag` 체크보다 더 정교한 제어가 필요할 때 사용한다. Blueprint에서는 `CanApplyGameplayEffect()`를 오버라이드하여, C++에서는 `CanApplyGameplayEffect_Implementation()`을 오버라이드하여 구현할 수 있다.
 
@@ -16,7 +16,7 @@
 `CAR`는 더 고급 기능도 수행할 수 있다. 예를 들어, 이 `GameplayEffect`의 인스턴스가 이미 Target에 적용되어 있는지 확인하고, 새 인스턴스를 적용하는 대신 기존 인스턴스의 지속시간을 변경하는 것이 그 예다(이 경우 `CanApplyGameplayEffect()`에서 false를 반환한다).
 
 <a name="concepts-ge-cost"></a>
-#### 4.5.14 Cost Gameplay Effect
+#### GA의 Cost GE는 어떻게 구현하며, 여러 GA에서 하나의 Cost GE를 재사용하는 방법은?
 
 `GameplayAbilities`에는 어빌리티 비용(cost)으로 사용하기 위해 특별히 설계된 `GameplayEffect`를 선택적으로 지정할 수 있다. Cost는 `GameplayAbility`를 발동하기 위해 `ASC`가 보유해야 하는 `Attribute` 수치를 의미한다. `GA`가 `Cost GE`를 충족하지 못하면 발동할 수 없다. 이 `Cost GE`는 `Attribute`에서 값을 차감하는 Modifier를 하나 이상 포함하는 `Instant` `GameplayEffect`여야 한다. 기본적으로 `Cost GEs`는 예측 가능하게 유지하도록 설계되었으며, 그 특성을 유지하는 것이 권장된다 — 즉, `ExecutionCalculations`를 사용하지 말 것. 복잡한 비용 계산에는 `MMC`가 완전히 허용되며 오히려 권장된다.
 
@@ -51,7 +51,7 @@ FScalableFloat Cost;
 2. **`UGameplayAbility::GetCostGameplayEffect()` 오버라이드.** 이 함수를 오버라이드하여 `GameplayAbility`의 비용 값을 읽는 런타임 `GameplayEffect`를 생성한다.
 
 <a name="concepts-ge-cooldown"></a>
-#### 4.5.15 Cooldown Gameplay Effect
+#### GA의 Cooldown GE는 어떻게 구현하며, GA가 Cooldown Tag의 존재로 쿨다운을 판단하는 이유는?
 
 `GameplayAbilities`에는 어빌리티 쿨다운으로 사용하기 위해 특별히 설계된 `GameplayEffect`를 선택적으로 지정할 수 있다. 쿨다운은 발동 후 어빌리티를 다시 발동할 수 있을 때까지의 대기 시간을 결정한다. `GA`가 쿨다운 중이면 발동할 수 없다. 이 `Cooldown GE`는 Modifier가 없는 `Duration` `GameplayEffect`여야 하며, `GameplayEffect`의 `GrantedTags`에 `GameplayAbility`마다(또는 어빌리티를 슬롯에 할당하고 슬롯이 쿨다운을 공유하는 게임이라면 어빌리티 슬롯마다) 고유한 `GameplayTag`("`Cooldown Tag`")를 지정해야 한다. `GA`는 실제로 `Cooldown GE`의 존재가 아닌 `Cooldown Tag`의 존재를 확인한다. 기본적으로 `Cooldown GEs`는 예측 가능하게 유지하도록 설계되었으며, 그 특성을 유지하는 것이 권장된다 — 즉, `ExecutionCalculations`를 사용하지 말 것. 복잡한 쿨다운 계산에는 `MMC`가 완전히 허용되며 오히려 권장된다.
 
@@ -169,7 +169,7 @@ float UPGMMC_HeroAbilityCooldown::CalculateBaseMagnitude_Implementation(const FG
 ![Cooldown GE with MMC](https://github.com/tranek/GASDocumentation/raw/master/Images/cooldownmmc.png)
 
 <a name="concepts-ge-cooldown-tr"></a>
-##### 4.5.15.1 Cooldown Gameplay Effect의 남은 시간 조회
+##### 쿨다운 남은 시간을 코드에서 어떻게 조회하며 복제 모드와의 관계는?
 ```c++
 bool APGPlayerState::GetCooldownRemainingForTag(FGameplayTagContainer CooldownTags, float & TimeRemaining, float & CooldownDuration)
 {
@@ -207,7 +207,7 @@ bool APGPlayerState::GetCooldownRemainingForTag(FGameplayTagContainer CooldownTa
 **주의:** 클라이언트에서 쿨다운 남은 시간을 조회하려면 클라이언트가 복제된 `GameplayEffects`를 수신할 수 있어야 한다. 이는 `ASC`의 복제 모드에 따라 달라진다.
 
 <a name="concepts-ge-cooldown-listen"></a>
-##### 4.5.15.2 쿨다운 시작 및 종료 감지
+##### 쿨다운 시작과 종료를 감지할 때 GE 추가/제거 델리게이트보다 Cooldown Tag 이벤트를 권장하는 이유는?
 
 쿨다운이 시작되는 시점을 감지하려면, `Cooldown GE`가 적용될 때 `AbilitySystemComponent->OnActiveGameplayEffectAddedDelegateToSelf`에 바인딩하거나, `Cooldown Tag`가 추가될 때 `AbilitySystemComponent->RegisterGameplayTagEvent(CooldownTag, EGameplayTagEventType::NewOrRemoved)`에 바인딩할 수 있다. `Cooldown GE`가 추가되는 시점을 감지하는 것을 권장하는데, 이렇게 하면 적용한 `GameplayEffectSpec`에도 접근할 수 있어 로컬에서 예측한 `Cooldown GE`인지 서버에서 보정된 것인지 구분할 수 있기 때문이다.
 
@@ -220,7 +220,7 @@ bool APGPlayerState::GetCooldownRemainingForTag(FGameplayTagContainer CooldownTa
 ![Listen for Cooldown Change BP Node](https://github.com/tranek/GASDocumentation/raw/master/Images/cooldownchange.png)
 
 <a name="concepts-ge-cooldown-prediction"></a>
-##### 4.5.15.3 쿨다운 예측
+##### GAS에서 쿨다운은 왜 진정한 예측이 불가능하며, 레이턴시가 높은 플레이어에게 어떤 영향을 주는가?
 
 현재 쿨다운은 진정한 의미에서 예측할 수 없다. 로컬에서 예측된 `Cooldown GE`가 적용될 때 UI 쿨다운 타이머를 시작할 수 있지만, `GameplayAbility`의 실제 쿨다운은 서버의 쿨다운 남은 시간에 종속된다. 플레이어의 레이턴시에 따라 로컬에서 예측된 쿨다운이 만료되었더라도 `GameplayAbility`는 서버에서 여전히 쿨다운 중일 수 있으며, 이 경우 서버의 쿨다운이 만료될 때까지 `GameplayAbility`를 즉시 재발동할 수 없다.
 
@@ -232,7 +232,7 @@ bool APGPlayerState::GetCooldownRemainingForTag(FGameplayTagContainer CooldownTa
 
 ---
 
-### Cost/Cooldown GE 재사용 패턴이 Instanced 어빌리티를 요구하는 이유
+### Cost/Cooldown GE 재사용 패턴이 Non-Instanced GA에서 동작하지 않는 두 가지 이유는?
 
 > 소스: `GameplayAbility.cpp:1995`, `GameplayEffectTypes.cpp:226`, `GameplayEffectTypes.cpp:269`
 
@@ -252,7 +252,7 @@ Non-Instanced 어빌리티에서 `this`는 CDO다. CDO는 같은 어빌리티 �
 
 ---
 
-#### 이유 1 — TempCooldownTags가 CDO에 쓰인다 (공유 상태 오염)
+#### Non-Instanced GA에서 TempCooldownTags가 CDO에 쓰여 경쟁 조건이 발생하는 이유는?
 
 `GetCooldownTags()`는 런타임에 `TempCooldownTags` 필드를 수정한다.
 
@@ -272,7 +272,7 @@ Instanced이면 액터마다 독립적인 `UGameplayAbility` 인스턴스가 있
 
 ---
 
-#### 이유 2 — GetAbilityInstance_NotReplicated()가 복제되지 않는다
+#### GetAbilityInstance_NotReplicated()가 복제되지 않아 Non-Instanced GA에서 MMC가 실패하는 이유는?
 
 MMC에서 어빌리티 데이터를 꺼내는 방식:
 
@@ -299,7 +299,7 @@ Non-Instanced이면 `this`가 CDO이고, CDO 포인터는 네트워크로 의미
 
 ---
 
-#### UE 5.5에서 NonInstanced 정책 자체가 제거됐다
+#### UE 5.5에서 NonInstanced Instancing Policy가 제거된 배경은 무엇인가?
 
 ```cpp
 // GameplayAbility.cpp:31
@@ -312,7 +312,7 @@ UE 5.5부터 `EGameplayAbilityInstancingPolicy::NonInstanced`는 deprecated → 
 
 ---
 
-### Lyra의 Cost — GE를 쓰지 않는다
+### Lyra는 왜 Cost에 GE를 쓰지 않고 ULyraAbilityCost 추상 클래스를 도입했는가?
 
 > 소스: `LyraAbilityCost.h`, `LyraAbilityCost_ItemTagStack.cpp`, `LyraAbilityCost_PlayerTagStack.cpp`, `LyraAbilityCost_InventoryItem.h`, `LyraGameplayAbility.cpp:202`
 
@@ -370,7 +370,7 @@ Lyra가 제공하는 `ULyraAbilityCost` 구현체 세 가지:
 
 ---
 
-#### Cost는 예측되지 않는다 — 의도적 타협
+#### Lyra가 탄약 Cost를 예측하지 않는 의도적 타협은 무엇이며, 그 결과 RTT 사이에 어떤 동작이 발생하는가?
 
 > 소스: `GameplayAbility.cpp:631`, `LyraAbilityCost_ItemTagStack.cpp:43`
 
@@ -428,7 +428,7 @@ Lyra의 판단: 총구 화염이 입력 즉시 나오지 않으면 조작감이 
 
 ---
 
-### Lyra의 Cooldown — 표준 GE 방식 그대로
+### Lyra는 Cost와 달리 왜 Cooldown에는 표준 GE 방식을 그대로 사용하는가?
 
 > 소스: `GA_Hero_Dash.uasset`, `GA_Grenade.uasset`, `LyraGameplayAbility.cpp:36`
 

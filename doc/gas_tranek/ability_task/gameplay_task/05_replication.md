@@ -4,7 +4,7 @@
 
 ---
 
-## 기본 원칙: 각 머신이 코드를 직접 실행한다
+## GameplayTask 복제의 기본 원칙은 무엇인가? 서버·Owning Client·Simulated Proxy는 각각 어떻게 다른가?
 
 태스크 코드는 복제되지 않는다. 각 머신이 자기 로컬에서 태스크를 직접 생성하고 실행한다.
 
@@ -21,9 +21,9 @@ Simulated proxy는 남의 캐릭터를 보는 머신이라 게임 스테이트�
 
 ---
 
-## bSimulatedTask 패턴
+## bSimulatedTask 패턴은 어떻게 동작하며 Simulated Proxy에 효과를 재현하는 흐름은?
 
-### 흐름
+### bSimulatedTask 활성화 시 서버→클라이언트 복제 체인은 어떻게 되는가?
 
 `bSimulatedTask = true`로 설정하면 태스크가 `SimulatedTasks[]` 배열에 등록되고 simulated proxy로 복제된다.
 Simulated proxy가 받는 것은 "태스크를 실행해"라는 명령이 아니라 **파라미터 데이터**다.
@@ -88,7 +88,7 @@ void UGameplayTasksComponent::OnRep_SimulatedTasks()
       NO  → 객체만 복제됨, InitSimulatedTask 호출 없음
 ```
 
-### InitSimulatedTask는 한 번만 호출된다 — 괜찮은가?
+### InitSimulatedTask()가 태스크 시작 시 한 번만 호출되는데 실행 중 파라미터 변경은 어떻게 처리하는가?
 
 `InitSimulatedTask`는 태스크가 처음 도착할 때 한 번만 호출된다.
 하지만 태스크 객체의 `UPROPERTY(Replicated)` 필드는 `AddReplicatedSubObject`로 등록된 서브오브젝트로서 **서버에서 값이 바뀔 때마다 계속 복제**된다.
@@ -110,7 +110,7 @@ void OnRep_Strength() { /* 새 Strength로 RootMotionSource 업데이트 */ }
 언리얼의 복제 순서상 서브오브젝트 프로퍼티가 먼저 처리되고 이후 배열 OnRep이 발동한다.
 `InitSimulatedTask`가 호출될 때 `UPROPERTY(Replicated)` 필드는 이미 세팅된 상태다.
 
-### bSimulatedTask vs bIsSimulating
+### bSimulatedTask와 bIsSimulating의 차이는 무엇이고 언제 각각 세팅되는가?
 
 ```cpp
 // GameplayTask.h:344~348
@@ -121,13 +121,13 @@ uint32 bIsSimulating  : 1;   // 런타임 상태 — "나는 지금 simulated pr
 `bIsSimulating`은 `InitSimulatedTask()` 내부(`Super::InitSimulatedTask()`)에서만 `true`로 세팅된다.
 태스크 로직에서 `if (!bIsSimulating)` 분기로 서버/owning client 전용 코드를 가드할 수 있다.
 
-### bTickingTask 없이는 InitSimulatedTask가 호출되지 않는다
+### bSimulatedTask만 설정하고 bTickingTask를 설정하지 않으면 InitSimulatedTask()가 호출되지 않는 이유는?
 
 `OnRep_SimulatedTasks`의 조건이 `IsTickingTask()`이기 때문이다.
 `bSimulatedTask = true`만 설정하면 태스크 객체는 복제되지만 `InitSimulatedTask()`는 호출되지 않는다.
 두 플래그를 함께 설정해야 시뮬레이션이 시작된다.
 
-### 개발자 체크리스트
+### Simulated Proxy에 복제되는 태스크를 구현할 때 어떤 항목을 체크해야 하는가?
 
 ```cpp
 class UMySimulatedTask : public UAbilityTask
@@ -158,17 +158,17 @@ class UMySimulatedTask : public UAbilityTask
 
 ---
 
-## 엔진 예시: AbilityTask_ApplyRootMotionConstantForce
+## RootMotion AbilityTask에서 bSimulatedTask 패턴을 쓰는 이유와 구현 방식은?
 
 RootMotion AbilityTask는 `bSimulatedTask` 패턴의 교과서적 구현이다.
 
-### 왜 simulated proxy에도 RootMotion이 필요한가
+### 서버에서만 RootMotion을 적용하면 Simulated Proxy 화면이 왜 끊겨 보이는가?
 
 RootMotion은 `CharacterMovementComponent::ApplyRootMotionSource()`로 물리를 직접 구동한다.
 서버에서만 적용하면 simulated proxy는 복제된 위치·속도만 받아 움직임이 끊겨 보인다.
 Simulated proxy에서도 동일한 `FRootMotionSource`를 적용해야 부드러운 시각적 일관성이 유지된다.
 
-### 구조
+### AbilityTask_ApplyRootMotionConstantForce의 구조와 주요 복제 파라미터는?
 
 ```cpp
 // AbilityTask_ApplyRootMotion_Base.cpp:14
@@ -243,7 +243,7 @@ void UAbilityTask_ApplyRootMotionConstantForce::PreDestroyFromReplication()
 
 ---
 
-## Lyra 예시: AbilityTask_GrantNearbyInteraction
+## Lyra의 AbilityTask_GrantNearbyInteraction은 왜 bSimulatedTask 없이 서버 전용으로만 동작하는가?
 
 Lyra의 AbilityTask는 대부분 서버 전용으로 동작하며 `bSimulatedTask`를 사용하지 않는다.
 Simulated proxy에 효과를 전달할 필요가 있을 때는 **GameplayCue** 또는 **복제된 컴포넌트 속성**으로 처리한다.
@@ -271,7 +271,7 @@ void UAbilityTask_GrantNearbyInteraction::OnDestroy(bool AbilityEnded)
 
 ---
 
-## NetworkSyncPoint 패턴
+## AbilityTask_NetworkSyncPoint는 파라미터 복제 대신 어떤 방식으로 서버-클라 타이밍을 동기화하는가?
 
 `AbilityTask_NetworkSyncPoint`는 파라미터 복제가 아닌 **RPC 신호**로 서버-클라 실행 타이밍을 동기화한다.
 GAS의 `GenericReplicatedEvent`(서버↔클라 양방향 RPC)를 내부적으로 사용한다.
@@ -284,7 +284,7 @@ OnlyClientWait: 클라만 대기, 서버는 신호 보내고 즉시 진행
 
 ---
 
-## 패턴 정리
+## 상황별 올바른 태스크 복제 패턴은 무엇인가?
 
 | 상황 | 방법 | 예시 |
 |---|---|---|

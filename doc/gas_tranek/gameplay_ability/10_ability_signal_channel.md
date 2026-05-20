@@ -4,7 +4,7 @@
 
 ---
 
-## 개념
+## EAbilityGenericReplicatedEvent란 무엇이며, 각 슬롯은 어떤 AbilityTask에 대응하는가?
 
 `EAbilityGenericReplicatedEvent`는 **활성화된 GA 인스턴스에 묶인 클라↔서버 양방향 신호 슬롯**이다.
 하나의 GA 인스턴스가 여러 이벤트를 동시에 기다릴 수 있도록 슬롯 배열(`GenericEvents[MAX]`)로 관리된다.
@@ -33,7 +33,7 @@ namespace EAbilityGenericReplicatedEvent
 }
 ```
 
-### 슬롯별 역할
+### GenericReplicatedEvent 슬롯별로 어떤 AbilityTask가 어떻게 연결되는가?
 
 | 슬롯 | AbilityTask | 트리거 |
 |---|---|---|
@@ -57,7 +57,7 @@ GA::ActivateAbility()
 
 ---
 
-## 저장소 — AbilityTargetDataMap
+## GenericReplicatedEvent의 이벤트 상태는 어디에 어떻게 저장되는가?
 
 이벤트 상태는 ASC의 `AbilityTargetDataMap` (`FGameplayAbilityReplicatedDataContainer`)에 저장된다.
 이름과 달리 실제 구현은 `TArray<(Key, TSharedRef<Cache>)>` 기반 커스텀 컨테이너다.
@@ -90,9 +90,9 @@ struct FAbilityReplicatedDataCache
 
 ---
 
-## 발동 메커니즘
+## GenericReplicatedEvent는 어떻게 발동되며, 구독자가 없을 때 bTriggered만 저장하는 이유는?
 
-### InvokeReplicatedEvent
+### InvokeReplicatedEvent는 내부적으로 어떻게 동작하는가?
 
 ```cpp
 // AbilitySystemComponent_Abilities.cpp:3880
@@ -112,7 +112,7 @@ bool InvokeReplicatedEvent(EventType, Handle, PredKey, ...)
 서버에서 이벤트가 먼저 발동됐을 때 클라의 태스크가 아직 `Activate()`를 호출하지 않은 경우,
 나중에 `CallReplicatedEventDelegateIfSet()`으로 사후에 이벤트를 처리할 수 있다.
 
-### 누가 호출하는가
+### 각 GenericReplicatedEvent 슬롯은 누가 어떤 경로로 발동하는가?
 
 **InputPressed / InputReleased** — ASC가 입력 처리 중 직접 발동
 
@@ -140,7 +140,7 @@ ProcessAbilityInput() → AbilitySpecInputPressed()
           └─ OnConfirmCallback() 로컬 즉시 처리
 ```
 
-### 이벤트별 발동 주체
+### 이벤트 종류별 로컬 발동 주체와 RPC 전송 주체는 어떻게 다른가?
 
 | 이벤트 | 로컬 발동 주체 | RPC 전송 주체 |
 |---|---|---|
@@ -154,7 +154,7 @@ ProcessAbilityInput() → AbilitySpecInputPressed()
 
 ---
 
-## 구독 API
+## GenericReplicatedEvent를 구독하고 사후 처리하는 API는 어떻게 사용하는가?
 
 ```cpp
 // 구독
@@ -189,7 +189,7 @@ ASC->AbilityReplicatedEventDelegate(InputPressed, Handle, PredKey).Remove(Delega
 
 ---
 
-## GenericReplicatedEvent vs WaitGameplayEvent
+## GenericReplicatedEvent와 WaitGameplayEvent는 어떻게 다르며, 각각 언제 사용해야 하는가?
 
 GenericReplicatedEvent는 **이 GA 인스턴스와 클라/서버가 통신하는 전용 채널**이다. 키가 `(Handle + PredKey)`이므로 발동자가 GA의 핸들을 알아야 하고, 입력 처리 흐름은 해당 입력에 매핑된 GA의 핸들만 다루기 때문에 "GA_A 실행 중 B 입력 받기" 같은 크로스 신호에는 쓸 수 없다.
 

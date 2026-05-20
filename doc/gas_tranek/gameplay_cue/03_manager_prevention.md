@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-gc-manager"></a>
-#### 4.8.5 GameplayCueManager
+#### GameplayCueManager가 시작 시 전체 에셋을 메모리에 로드하는 것이 왜 문제이며 어떻게 최적화하는가?
 
 기본적으로 `GameplayCueManager`는 플레이 시작 시 게임 디렉토리 전체를 스캔하여 `GameplayCueNotify`를 모두 찾아 메모리에 로드한다. `DefaultGame.ini`에서 `GameplayCueManager`가 스캔하는 경로를 변경할 수 있다.
 
@@ -35,7 +35,7 @@ virtual bool ShouldAsyncLoadRuntimeObjectLibraries() const override
 ```
 
 <a name="concepts-gc-prevention"></a>
-#### 4.8.6 GameplayCue 발동 차단
+#### 특정 상황에서 GameplayCue 발동을 차단하거나 다른 Cue로 교체하려면 어떻게 해야 하는가?
 
 때로는 `GameplayCue`가 발동되지 않도록 해야 할 때가 있다. 예를 들어 공격을 막았을 때, 데미지 `GameplayEffect`에 연결된 히트 임팩트를 재생하지 않거나 대신 다른 것을 재생하고 싶을 수 있다. 이는 `GameplayEffectExecutionCalculations` 내에서 `OutExecutionOutput.MarkGameplayCuesHandledManually()`를 호출하고, 그 다음 `Target` 또는 `Source`의 ASC에 수동으로 원하는 `GameplayCue` 이벤트를 전달함으로써 처리할 수 있다.
 

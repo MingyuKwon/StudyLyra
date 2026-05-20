@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ge-spec"></a>
-#### 4.5.9 GameplayEffectSpec (GESpec)
+#### GameplayEffectSpec이란 무엇이며 UGameplayEffect CDO와 어떻게 다른가?
 
 [`GameplayEffectSpec`](https://docs.unrealengine.com/en-US/API/Plugins/GameplayAbilities/FGameplayEffectSpec/index.html)(GESpec)은 `GameplayEffect`의 인스턴스화된 표현으로 볼 수 있다. GESpec은 자신이 나타내는 `GameplayEffect` 클래스, 생성 레벨, 생성자 정보를 담고 있다. 디자이너가 런타임 이전에 미리 생성해야 하는 `GameplayEffect`와 달리, GESpec은 런타임에 자유롭게 생성하고 수정한 뒤 적용할 수 있다. `GameplayEffect`를 적용할 때 `GameplayEffect`로부터 `GameplayEffectSpec`이 생성되며, 실제로 적용되는 것은 이 GESpec이다.
 
@@ -24,7 +24,7 @@
 - `SetByCaller` TMap들
 
 <a name="concepts-ge-spec-setbycaller"></a>
-##### 4.5.9.1 SetByCallers
+##### SetByCaller란 무엇이며 Modifier로 사용할 때와 EC/MMC에서 직접 읽을 때 어떻게 다른가?
 
 `SetByCaller`는 `GameplayEffectSpec`이 `GameplayTag` 또는 `FName`에 연결된 float 값을 실어 나를 수 있게 한다. 이 값들은 각각 `TMap<FGameplayTag, float>`와 `TMap<FName, float>`로 `GameplayEffectSpec`에 저장된다. 이는 `GameplayEffect`에서 Modifier로 사용하거나, 어빌리티 내부에서 생성된 수치 데이터를 `GameplayEffectExecutionCalculation`이나 `ModifierMagnitudeCalculation`으로 전달하는 일반적인 수단으로 활용된다.
 
@@ -61,9 +61,9 @@ Blueprint에서 오탈자를 방지하기 위해 `FName` 버전보다 `GameplayT
 
 ---
 
-### GESpec
+### GESpec이 UGameplayEffect CDO와 별도로 존재해야 하는 이유는 무엇인가?
 
-#### Spec이 별도로 존재하는 이유
+#### GESpec이 CDO와 별도로 존재해야 하는 이유는 무엇인가?
 
 > GE가 CDO인 이유와 로직을 넣으면 안 되는 이유: [`01_definition.md`](01_definition.md)
 
@@ -77,7 +77,7 @@ GE는 CDO 하나를 모든 적용이 공유한다. CDO는 수정 불가이므로
 
 Spec이 담는 데이터: Level, EffectContext(Instigator/HitResult), SetByCaller TMap, Captured Attributes(Snapshot), DynamicGrantedTags/DynamicAssetTags
 
-#### 복제 구조
+#### GESpec은 어떤 구조로 복제되며 클라이언트는 어떤 콜백으로 반응하는가?
 
 > 소스: `GameplayEffect.h:1334`, `GameplayEffect.h:1406`, `GameplayEffect.h:1639`, `GameplayEffect.cpp:5153`
 
@@ -98,7 +98,7 @@ FActiveGameplayEffectsContainer : FFastArraySerializer  (WithNetDeltaSerializer)
 
 **ReplicationMode**: `Minimal`(복제 안 함) / `Mixed`(Owner에게만 전체) / `Full`(모두에게 전체). Lyra는 `Mixed`.
 
-#### Snapshotting — Spec 생성 시점에 Attribute 캡처
+#### Snapshotting이란 무엇이며, bSnapshot과 Source/Target 조합에 따라 캡처 시점이 어떻게 달라지는가?
 
 > 소스: `GameplayEffectAttributeCaptureDefinition.h`, `LyraDamageExecution.cpp`, `LyraHealExecution.cpp`
 
@@ -150,9 +150,9 @@ ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
 
 ---
 
-### SetByCaller
+### SetByCaller는 왜 필요하며, Attribute를 공유 상태로 쓰는 대안에 어떤 문제가 있는가?
 
-#### 필요한 이유
+#### SetByCaller가 필요한 이유는 무엇인가?
 
 > 소스: `LyraGameData.h`, `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`
 
@@ -180,7 +180,7 @@ Lyra가 `DamageGameplayEffect_SetByCaller` GE 하나로 모든 데미지 소스�
 명중 시점: Spec["Damage"] = 50 그대로 Apply
 ```
 
-#### 사용 패턴
+#### SetByCaller를 GE Modifier로 사용할 때와 Execution에서 직접 읽을 때 어떻게 사용하는가?
 
 > 소스: `LyraCheatManager.cpp`, `LyraHealthComponent.cpp`
 
@@ -205,7 +205,7 @@ float DamageAmount = Spec.GetSetByCallerMagnitude(
 | GE Blueprint 사전 정의 | **필요** | 불필요 |
 | 태그-값 쌍 없으면 | 런타임 에러 + 0 반환 | 기본값 반환 (경고 선택적) |
 
-#### 복제
+#### SetByCaller TMap은 왜 복제되지 않으며, 클라이언트는 어떤 데이터를 대신 받는가?
 
 > 소스: `GameplayEffect.h:1258`, `GameplayEffect.h:1232`
 

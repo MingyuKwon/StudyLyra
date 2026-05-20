@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-p"></a>
-### 4.10 Prediction
+### GAS에서 클라이언트 측 예측이란 무엇이며 예측 가능한 것과 불가능한 것은 어떻게 나뉘는가?
 
 GAS는 클라이언트 측 예측(client-side prediction)을 기본 지원하지만, 모든 것을 예측하지는 않는다. GAS에서의 클라이언트 측 예측이란, 클라이언트가 서버의 허가를 기다리지 않고 `GameplayAbility`를 활성화하고 `GameplayEffect`를 적용할 수 있음을 의미한다. 클라이언트는 서버가 이를 허가할 것이라고 "예측"하고, `GameplayEffect`가 적용될 타겟도 예측한다. 서버는 클라이언트가 활성화한 뒤 네트워크 레이턴시 시간 이후에 `GameplayAbility`를 실행하고, 클라이언트의 예측이 맞았는지 여부를 알려준다. 예측이 틀렸다면 클라이언트는 "오예측(misprediction)"으로 인한 변경사항을 "롤백"하여 서버와 동기화한다.
 
@@ -53,7 +53,7 @@ GAS의 예측 구현이 해결하려는 문제들:
 *`GameplayPrediction.h` 발췌*
 
 <a name="concepts-p-key"></a>
-#### 4.10.1 Prediction Key
+#### Prediction Key는 어떻게 생성되어 서버와 클라이언트 간에 어떤 과정으로 검증되는가?
 
 GAS의 예측은 **Prediction Key** 개념을 기반으로 동작한다. Prediction Key는 클라이언트가 `GameplayAbility`를 활성화할 때 생성하는 정수 식별자다.
 
@@ -74,7 +74,7 @@ Prediction Key는 `Activation`을 시작으로 `GameplayAbility` 내의 원자�
 
 ---
 
-### PredictionKey 두 종류와 생성 시점
+### Activation Prediction Key와 Scoped Prediction Key는 각각 언제 생성되며 유효 범위는 어떻게 다른가?
 
 **출처**: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/GameplayPrediction.cpp`  
 **출처**: `Engine/Plugins/Runtime/GameplayAbilities/Source/GameplayAbilities/Private/AbilitySystemComponent_Abilities.cpp`
@@ -97,7 +97,7 @@ CallServerTryActivateAbility(Handle, InputPressed, ScopedPredictionKey); // 서�
 
 ---
 
-### Dependent Key 체인 — 롤백의 핵심
+### Dependent Key 체인은 어떻게 구성되며 서버 거부 시 모든 단계가 연쇄 롤백되는 원리는?
 
 `FScopedPredictionWindow(ASC, bCanGenerateNewKey=true)` 를 클라이언트에서 생성하면 내부적으로:
 
@@ -137,7 +137,7 @@ void AddDependency(KeyType ThisKey/*Key#2*/, KeyType DependsOn/*Key#1*/)
 
 ---
 
-### GA 거부 시 전체 롤백 흐름
+### 서버가 GA를 거부했을 때 클라이언트에서 전체 롤백은 어떤 순서로 일어나는가?
 
 시나리오: GA 예측 활성화 후 `WaitInputPress` 콜백까지 실행, 이후 서버가 GA를 거부.
 
@@ -175,7 +175,7 @@ void UAbilitySystemComponent::ClientActivateAbilityFailed_Implementation(
 
 ---
 
-### 뒤늦게 도착한 Input RPC 처리
+### GA 거부 후 뒤늦게 도착한 Input RPC는 어떻게 처리되며 사이드 이펙트가 없는 이유는?
 
 서버가 GA를 거부한 뒤 `ServerSetReplicatedEvent(InputPressed, Key#1, Key#2)` RPC가 도착한 경우:
 
@@ -190,7 +190,7 @@ GA가 이미 종료되어 `WaitInputPress`의 `OnPressCallback` 델리게이트�
 
 ---
 
-### 핵심 정리
+### 예측 키 롤백의 각 단계를 어떻게 요약할 수 있는가?
 
 | 단계 | 내부 동작 |
 |---|---|

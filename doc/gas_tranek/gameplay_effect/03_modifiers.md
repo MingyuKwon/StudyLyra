@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-ge-mods"></a>
-#### 4.5.4 Gameplay Effect Modifiers
+#### GE Modifier의 네 가지 연산(Add / Multiply / Divide / Override)과 네 가지 타입은 각각 어떻게 동작하는가?
 
 Modifier는 Attribute를 변경하는 수단이며, 예측(Prediction)적으로 Attribute를 변경할 수 있는 **유일한 방법**이다. GE는 Modifier를 0개 이상 가질 수 있고, 각 Modifier는 지정된 연산을 통해 하나의 Attribute만 담당한다.
 
@@ -40,7 +40,7 @@ Modifier의 종류는 Scalable Float, Attribute Based, Custom Calculation Class,
 | `Set By Caller`            | `SetByCaller` Modifier는 GameplayEffect 외부에서 런타임에 어빌리티 또는 GameplayEffectSpec 생성자가 GameplayEffectSpec에 직접 설정하는 값이다. 예를 들어, 플레이어가 버튼을 누르고 있는 시간에 따라 데미지를 설정하고 싶을 때 `SetByCaller`를 사용한다. `SetByCaller`는 기본적으로 GameplayEffectSpec에 저장되는 `TMap<FGameplayTag, float>`다. Modifier는 Aggregator에게 지정된 GameplayTag와 연결된 `SetByCaller` 값을 찾으라고 지시한다. Modifier에서 사용하는 `SetByCaller`는 GameplayTag 버전만 사용 가능하며, FName 버전은 사용할 수 없다. Modifier가 `SetByCaller`로 설정되어 있는데 GameplayEffectSpec에 올바른 GameplayTag가 존재하지 않으면, 게임은 런타임 에러를 발생시키고 0을 반환한다. `Divide` 연산의 경우 이로 인한 문제가 생길 수 있으니 주의가 필요하다. 자세한 사용법은 `SetByCallers`를 참조 |
 
 <a name="concepts-ge-mods-multiplydivide"></a>
-##### 4.5.4.1 Multiply/Divide Modifier의 합산 방식
+##### Multiply Modifier 여러 개가 적용될 때 직관과 다르게 합산되는 이유는 무엇인가?
 
 기본적으로 모든 `Multiply`와 `Divide` Modifier는 Attribute의 BaseValue에 곱하거나 나누기 전에 **서로 더해진다**.
 
@@ -136,7 +136,7 @@ float FAggregatorModChannel::MultiplyMods(const TArray<FAggregatorMod>& InMods, 
 ```
 
 <a name="concepts-ge-mods-gameplaytags"></a>
-##### 4.5.4.2 Modifier의 GameplayTag 조건
+##### Modifier의 GameplayTag 조건은 언제 평가되며, Infinite GE에서 주의해야 할 점은 무엇인가?
 
 각 Modifier에 대해 `SourceTags`와 `TargetTags`를 지정할 수 있다. 이 태그들은 GameplayEffect의 `Application Tag Requirements`와 동일하게 동작한다. 즉, 태그 조건은 GE가 처음 적용되는 시점에만 평가된다. 다시 말해, 주기적으로 실행되는 Infinite GE의 경우, 최초 적용 시에는 태그 조건을 고려하지만 이후 각 주기 실행 시에는 재검사하지 않는다.
 
@@ -146,7 +146,7 @@ float FAggregatorModChannel::MultiplyMods(const TArray<FAggregatorMod>& InMods, 
 
 ---
 
-### Aggregator — Modifier를 모아 CurrentValue를 계산하는 객체
+### Aggregator란 무엇이며 Attribute 하나당 하나가 존재하는 이유는 무엇인가?
 
 > 소스: `GameplayEffectAggregator.h:278`, `GameplayEffect.h:1960`
 
@@ -159,7 +159,7 @@ TMap<FGameplayAttribute, FAggregatorRef> AttributeAggregatorMap;
 // AttributeAggregatorMap[MoveSpeed] → MoveSpeed Aggregator
 ```
 
-#### Aggregator 내부 구조
+#### Aggregator의 내부 구조는 어떻게 구성되어 있는가?
 
 ```cpp
 // GameplayEffectAggregator.h:278
@@ -172,7 +172,7 @@ struct FAggregator
 };
 ```
 
-#### GE Apply/Remove와 Aggregator
+#### GE를 적용/제거할 때 Aggregator는 어떻게 반응하며 Instant GE와 Duration GE는 어떻게 다른가?
 
 ```
 GE Apply  → AddAggregatorMod()    → Mod 추가 → OnDirty 발생 → CurrentValue 재계산
@@ -181,7 +181,7 @@ GE Remove → RemoveAggregatorMod() → Mod 제거 → OnDirty 발생 → Curren
 
 Instant GE는 Aggregator를 거치지 않고 `BaseValue`를 직접 영구 수정한다. Duration/Infinite GE만 Aggregator에 Modifier를 등록하며, 제거될 때 함께 빠진다.
 
-#### CurrentValue 계산 흐름
+#### Aggregator가 CurrentValue를 계산하는 흐름은 어떻게 되는가?
 
 ```
 Aggregator.Evaluate()
@@ -193,7 +193,7 @@ Aggregator.Evaluate()
 
 ---
 
-### 집산 공식과 연산 종류
+### UE 5.x에서 추가된 MultiplyCompound와 AddFinal을 포함한 집산 공식 전체는 어떻게 되는가?
 
 > 소스: `GameplayEffectTypes.h:112`, `GameplayEffectAggregator.cpp:76`
 
@@ -215,7 +215,7 @@ Aggregator.Evaluate()
 
 공식 자체를 바꾸려면 엔진 코드 수정이 필요하다.
 
-#### Override는 나머지를 전부 건너뛴다
+#### Override Modifier가 Add/Multiply 계산 전체를 건너뛰는 동작 방식과 여러 개일 때의 우선순위는?
 
 ```cpp
 // GameplayEffectAggregator.cpp:78
@@ -239,7 +239,7 @@ Override가 여러 개면 **먼저 Apply된 것(배열 앞쪽)** 이 이긴다. 
 
 ---
 
-### Channel — Modifier 계층을 직렬로 쌓는 것
+### Modifier Channel이란 무엇이며 여러 채널을 사용하면 어떤 효과가 있는가?
 
 > 소스: `GameplayEffectAggregator.h:181`, `GameplayEffectAggregator.cpp:250`
 
@@ -265,13 +265,13 @@ Channel0~Channel9까지 10개 슬롯이 있으며, `AbilitySystemGlobals`에서 
 
 ---
 
-### Modifier와 태그의 관계
+### Modifier와 GameplayTag는 어떤 두 가지 방식으로 상호작용하는가?
 
 > 소스: `GameplayEffectAggregator.h:55`, `GameplayEffectAggregator.cpp:28`
 
 태그와 Modifier의 관계는 두 종류다.
 
-#### 관계 1 — Modifier의 집산 포함 여부를 태그로 제어
+#### Source/Target 태그 조건으로 Modifier의 집산 포함 여부를 어떻게 제어하는가?
 
 `FAggregatorMod`(Aggregator에 쌓이는 Modifier 단위)는 태그 조건을 갖는다.
 
@@ -309,7 +309,7 @@ for (const FAggregatorMod& Mod : InMods)
 
 **사용 예**: "독 상태(Tag: Status.Poisoned)일 때만 방어력 감소 Modifier 적용"처럼 상황에 따라 Modifier를 선택적으로 켜고 끌 수 있다.
 
-#### 관계 2 — AttributeBased Modifier의 TagFilter
+#### AttributeBased Modifier의 TagFilter는 어떻게 특정 GE 기반 Modifier만 선별적으로 포함/제외하는가?
 
 `Attribute Based` Modifier가 Source Attribute 값을 읽을 때, 그 Attribute에 영향을 주는 Modifier 중 특정 태그를 가진 것만 포함하거나 제외하는 필터다.
 
@@ -322,7 +322,7 @@ bSourceFilterMet = (SourceTags && SourceTags->HasAll(Parameters.AppliedSourceTag
 
 **사용 예**: "내 공격력 계산 시 장비 버프 GE에서 온 Modifier만 제외하고 계산"처럼 세밀한 Attribute 값 필터링에 쓴다.
 
-#### 핵심 — 태그 조건 평가 타이밍
+#### Modifier의 태그 조건은 GE Apply 시점에만 평가되는데, 이후 태그 변화에 반응하려면 어떻게 해야 하는가?
 
 Modifier의 태그 조건은 **GE Apply 시점에 한 번만 평가**된다.
 

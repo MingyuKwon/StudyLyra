@@ -5,7 +5,7 @@
 ---
 
 <a name="concepts-gc-definition"></a>
-#### 4.8.1 GameplayCue 정의
+#### GameplayCue란 무엇이며 GameplayAbility·GE와 어떻게 연결되는가?
 
 `GameplayCues` (`GC`)는 사운드 이펙트, 파티클 이펙트, 카메라 흔들림 등 게임플레이와 직접 관련 없는 효과를 실행한다. `GameplayCues`는 명시적으로 로컬에서 `Executed`, `Added`, `Removed`되지 않는 한 일반적으로 복제(replicated)되며, 예측(predicted)도 지원한다.
 
@@ -31,7 +31,7 @@
 샘플 프로젝트에는 스턴과 스프린트 효과를 위한 `GameplayCueNotify_Actor`와, FireGun의 발사체 임팩트를 위한 `GameplayCueNotify_Static`이 포함되어 있다. 이 `GC`들은 `GE`를 통해 복제하는 대신 로컬에서 트리거하는 방식으로 추가 최적화가 가능하다. 샘플 프로젝트에서는 초보자 친화적인 방식을 보여주기 위해 이 방식을 선택했다.
 
 <a name="concepts-gc-trigger"></a>
-#### 4.8.2 GameplayCue 트리거
+#### GameplayCue는 GameplayEffect와 GameplayAbility에서 각각 어떻게 트리거하는가?
 
 `GameplayEffect`가 성공적으로 적용될 때(태그에 의해 차단되거나 면역 상태가 아닌 경우), 트리거되어야 하는 모든 `GameplayCue`의 `GameplayTag`를 `GameplayEffect` 내 `GameplayCue` 태그 컨테이너에 채워 넣는다.
 
