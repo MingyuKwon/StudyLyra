@@ -8,7 +8,7 @@
 
 **출처 (Lyra)**: `Player/LyraPlayerController.cpp:376-384`, `AbilitySystem/LyraAbilitySystemComponent.cpp:216`  
 **출처 (엔진 UE 5.7)**: `Engine/Source/Runtime/Engine/Private/PlayerController.cpp`, `Engine/Source/Runtime/Engine/Private/UserInterface/PlayerInput.cpp`  
-**상세 문서**: `unrealCore/input_pipeline.md`
+**상세 문서**: `unrealCore/input/engine/01_pipeline.md`
 
 ### 전체 호출 체인
 
@@ -60,7 +60,7 @@ else
 ## 13. Lyra 입력 시스템 전체 구조
 
 **출처**: `Input/LyraInputConfig.h`, `Input/LyraInputComponent.h/.cpp`, `Character/LyraHeroComponent.cpp`, `AbilitySystem/LyraAbilitySystemComponent.cpp:186-318`  
-**상세 문서**: `doc/LyraImpl/input/`
+**상세 문서**: `doc/unrealCore/input/lyra/`
 
 ### 핵심 클래스
 
@@ -86,7 +86,7 @@ else
 ## Enhanced Input — Subsystem vs Component 역할 분리
 
 > 출처: `Source/LyraGame/Character/LyraHeroComponent.cpp`  
-> 상세 문서: `doc/unrealCore/enhanced_input.md`
+> 상세 문서: `doc/unrealCore/input/engine/02_enhanced_input.md`
 
 - **UEnhancedInputLocalPlayerSubsystem**: LocalPlayer당 하나. 활성 IMC 목록 관리. 키 → InputAction 변환 담당.
 - **UEnhancedInputComponent**: Actor에 붙는 컴포넌트. InputAction → 콜백 함수 바인딩 담당.
@@ -110,7 +110,7 @@ BindAction 오버로드 구조:
 ### AbilitySpecInputPressed / AbilitySpecInputReleased
 
 > 출처: `LyraAbilitySystemComponent.cpp:150`, 엔진 `AbilitySystemComponent_Abilities.cpp:2879`  
-> 상세 문서: `doc/LyraImpl/input/README.md`
+> 상세 문서: `doc/unrealCore/input/lyra/README.md`
 
 **GA가 이미 활성 중일 때만** 호출된다. GA 발동(TryActivateAbility)과 다른 경로.
 

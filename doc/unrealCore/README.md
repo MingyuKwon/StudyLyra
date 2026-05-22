@@ -8,8 +8,7 @@ Lyra와 무관한 UE5 엔진 자체 시스템 분석 문서 모음.
 | [reflection/](reflection/README.md) | 리플렉션 시스템 — UHT 파이프라인, 타입 객체 계층, 지정자, GC/직렬화/Blueprint/RPC 활용 |
 | [actor/](actor/README.md) | Actor·Component 개념, SpawnActor 메커니즘, 생명주기 |
 | [collision/](collision/README.md) | Collision 시스템 — Block/Overlap/Ignore, CollisionEnabled 종류, 성능 최적화 |
-| [input_pipeline.md](input_pipeline.md) | PlayerController 틱 → ProcessAbilityInput까지 입력 처리 경로 |
-| [enhanced_input.md](enhanced_input.md) | UEnhancedInputLocalPlayerSubsystem(IMC 관리) vs UEnhancedInputComponent(Action 바인딩) 역할 분리 |
+| [input/](input/README.md) | 입력 시스템 전체 — 엔진 파이프라인, Enhanced Input, Lyra 구현, 콘솔 입력 |
 | [plugin/](plugin/README.md) | 엔진 공식 플러그인 분석 (ModularGameplay 등) |
 | [replication/](replication/README.md) | 복제 시스템 — NetDriver 파이프라인, Actor 복제, Shadow Buffer, Relevancy |
 | [network/](network/README.md) | 네트워크 기초 — RPC vs Property Replication Owner 체인 차이, Controller 없는 NPC 제약 |

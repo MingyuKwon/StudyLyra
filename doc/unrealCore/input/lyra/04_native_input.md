@@ -78,7 +78,7 @@ void ULyraHeroComponent::Input_LookStick(const FInputActionValue& InputActionVal
 ```
 
 마우스와의 차이: **DeltaSeconds를 곱해 프레임 독립적인 회전속도(deg/sec)로 변환**.  
-스틱은 절대 위치가 아니라 기울기 비율(-1~1)을 반환하므로 필요한 처리.
+스틱은 절대 위치가 아닌 기울기 비율(-1~1)을 반환하므로 필요한 처리.
 
 ---
 
