@@ -18,6 +18,7 @@ input/
 
 | 문서 | 내용 |
 |------|------|
+| [00. 입력이 도달하는 원리](engine/00_how_input_arrives.md) | OS(WM_KEYDOWN) → FWindowsApplication → FSlateApplication → UGameViewportClient → PlayerController → UPlayerInput, 패드 폴링 vs 키보드 이벤트 |
 | [01. 엔진 입력 파이프라인](engine/01_pipeline.md) | PlayerController 틱 → ProcessInputStack, Accumulator 패턴, bDown 홀드 유지 원리, BuildInputStack 우선순위 |
 | [02. Enhanced Input](engine/02_enhanced_input.md) | Subsystem vs Component 역할 분리, BindAction 오버로드 3종, FInputActionValue vs FInputActionInstance, VarTypes 태그 고정 패턴 |
 | [03. 패드(게임패드) 입력](engine/03_gamepad.md) | 아날로그 vs 디지털, 데드존(InputModifier), 진동/햅틱, 자이로스코프, 터치패드, DualSense 어댑티브 트리거, PS 버튼 명칭 혼란 |
