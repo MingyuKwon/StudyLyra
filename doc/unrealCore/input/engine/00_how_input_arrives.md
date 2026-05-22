@@ -56,6 +56,27 @@ case WM_KEYDOWN:
 `FWindowsApplication`이 `IMessageHandler`(= `FSlateApplication`)의 `OnKeyDown`을 호출한다.  
 `FSlateApplication::OnKeyDown` 내부에서 변환이 일어난다.
 
+### 왜 UI 프레임워크인 Slate가 입력을 받는가?
+
+직관적으로 이상하게 느껴질 수 있다. 이유는 하나다: **FSlateApplication이 OS 윈도우(HWND)를 소유하고 있기 때문이다.**
+
+OS 입력은 윈도우에 귀속된다. 키를 누르면 포커스를 가진 윈도우로 `WM_KEYDOWN`이 날아오는데, 그 윈도우를 만들고 관리하는 주체가 `FSlateApplication`이다. 윈도우 소유자니까 당연히 입력을 먼저 받는다.
+
+그리고 결정적으로 — **게임 뷰포트 자체가 Slate 위젯이다.**
+
+```
+Slate 위젯 트리
+  SWindow  (OS 윈도우 — FSlateApplication이 소유)
+    └─ SOverlay
+          ├─ SViewport  ← 게임 3D 화면이 여기에 렌더링됨
+          │    (FSceneViewport = UGameViewportClient의 Slate 측 짝)
+          └─ SCanvas    ← HUD, UMG 위젯들
+```
+
+`FSlateApplication` 입장에서는 게임 입력이든 UI 입력이든 동일하다 — "현재 포커스를 가진 Slate 위젯으로 이벤트를 라우팅"하면 끝이다.
+
+이 구조 덕분에 UI 창이 열리면 포커스가 UI 위젯으로 이동해서 게임 쪽으로 입력이 자연스럽게 차단된다. 별도의 "입력 잠금" 메커니즘이 필요 없다.
+
 ```cpp
 // SlateApplication.cpp:4863
 bool FSlateApplication::OnKeyDown(const int32 KeyCode, const uint32 CharacterCode, const bool IsRepeat)
