@@ -40,6 +40,6 @@ input/
 
 | 문서 | 내용 |
 |------|------|
-| (예정) 01. CVar / CCmd 시스템 | IConsoleManager, IConsoleVariable, DEFINE_CONSOLE_VARIABLE 매크로 |
-| (예정) 02. Exec 함수 체계 | UFUNCTION(Exec), 라우팅 체인 (PC → Pawn → HUD → GameMode) |
-| (예정) 03. GAS 디버그 명령어 | showdebug abilitysystem, AbilitySystem.Debug.* |
+| [01. CVar / CCmd 시스템](console/01_cvar_ccommand.md) | IConsoleManager, TAutoConsoleVariable, FAutoConsoleCommand, SetBy 우선순위, 콘솔 진입 경로 |
+| [02. Exec 함수 체계](console/02_exec_functions.md) | UFUNCTION(Exec), ProcessConsoleExec 라우팅 체인, showdebug 메커니즘 |
+| [03. GAS 디버그 명령어](console/03_gas_debug.md) | showdebug abilitysystem, AbilitySystem.Debug.*, 디버그 타깃 선택 원리 |

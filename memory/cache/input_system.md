@@ -127,3 +127,62 @@ ProcessAbilityInput에서의 분기:
 
 ### 복제
 `AbilitySpecInputPressed/Released`에서 `bReplicateInputDirectly` 미사용. `InvokeReplicatedEvent`로 처리 → `WaitInputPress/Release` AbilityTask와 호환.
+
+---
+
+## 콘솔 입력 시스템
+
+**출처**: `C:/UE_5.7/Engine/Source/Runtime/Core/Public/HAL/IConsoleManager.h`, `Engine/Private/UserInterface/Console.cpp`, `GameplayAbilities/Private/AbilitySystemComponent.cpp`  
+**상세 문서**: `doc/unrealCore/input/console/`
+
+### 구조 — 게임 입력과 완전히 분리된 별도 시스템
+
+| | 게임 입력 (Enhanced Input) | 콘솔 입력 |
+|---|---|---|
+| 진입점 | OS 키 이벤트 → PlayerInput | 텍스트 파싱 → IConsoleManager / Exec 체인 |
+| 처리 주기 | 매 틱 (Accumulator 패턴) | 즉시 실행 (이벤트 기반) |
+| 핵심 클래스 | UEnhancedInputComponent | IConsoleManager, ProcessConsoleExec |
+
+### CVar / CCommand 체계
+
+- **IConsoleManager** — 전역 싱글톤. CVar(값 변수)와 CCommand(콜백 함수)를 등록/관리.
+- **TAutoConsoleVariable<T>** — static 전역 객체로 선언, 생성자에서 자동 등록.
+  - `GetValueOnGameThread()` — 게임 스레드에서 값 읽기
+  - `Set(value, ECVF_SetByCode)` — C++에서 값 쓰기
+- **FAutoConsoleCommand / FAutoConsoleCommandWithWorldAndArgs** — 콜백 함수 명령어
+- **SetBy 우선순위** (낮음→높음): Constructor < Scalability < ini계열 < Code < Console
+
+### 콘솔 진입 경로
+
+```
+UConsole::ConsoleCommand()                 ← 콘솔 창에서 Enter
+    └─ APlayerController::ConsoleCommand()
+            └─ IConsoleManager::ProcessUserConsoleInput()
+                    ├─ CVar 이름 매칭 → GetInt/Set
+                    ├─ CCmd 이름 매칭 → Execute()
+                    └─ 매칭 없음 → Exec 체인으로 전달
+```
+
+### Exec 체인 (UFUNCTION(Exec))
+
+```
+APlayerController::ProcessConsoleExec()
+    ├─ UCheatManager
+    ├─ APawn
+    ├─ AHUD
+    ├─ AGameModeBase
+    ├─ AGameStateBase
+    ├─ UGameInstance
+    └─ UEngine::Exec()   ← showdebug 여기서 처리
+```
+
+각 단계에서 `true` 반환 시 체인 종료.
+
+### GAS 디버그 명령어 (출처: AbilitySystemComponent.cpp, AbilitySystemDebugHUD.cpp)
+
+- `showdebug abilitysystem` — HUD에 GAS 상태 오버레이 (Abilities/Attributes/GE/Tags 카테고리)
+- `AbilitySystem.Debug.NextCategory` — 카테고리 순환
+- `AbilitySystem.Debug.SetCategory <name>` — 특정 카테고리로 이동
+- `AbilitySystem.DebugAbilityTags [TagName]` — Actor에 태그 표시
+- `AbilitySystem.DebugAttribute [AttrName]` — Attribute 값 표시
+- 디버그 타깃: World 내 ASC 순회, 로컬 플레이어 소유 ASC 우선 선택
