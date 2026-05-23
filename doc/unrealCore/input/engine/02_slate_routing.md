@@ -9,7 +9,7 @@
 `FSlateApplication`은 포커스를 가진 위젯 계층으로 이벤트를 라우팅하는 **중앙 허브**다.  
 게임이 입력을 받으려면 `SViewport`가 포커스를 가져야 한다.
 
-InputPreProcessor 단계(위젯 라우팅 이전)는 [02_input_preprocessor.md](02_input_preprocessor.md) 참고.
+InputPreProcessor 단계(위젯 라우팅 이전)는 [01_input_preprocessor.md](01_input_preprocessor.md) 참고.
 
 ---
 
@@ -19,7 +19,7 @@ InputPreProcessor 단계(위젯 라우팅 이전)는 [02_input_preprocessor.md](
 // SlateApplication.cpp:4871
 bool FSlateApplication::ProcessKeyDownEvent(const FKeyEvent& InKeyEvent)
 {
-    // ① InputPreProcessor — 02_input_preprocessor.md 참고
+    // ① InputPreProcessor — 01_input_preprocessor.md 참고
     if (InputPreProcessors.HandleKeyDownEvent(*this, InKeyEvent))
         return true;
 
@@ -210,7 +210,7 @@ FReply SMyWidget::OnKeyDown(const FGeometry&, const FKeyEvent& KeyEvent)
 | 상황 | 작동하는 레이어 |
 |------|----------------|
 | 일반 게임 플레이 | Bubble → SViewport → UGameViewportClient |
-| Enhanced Input 처리 | PreProcessor (포커스 무관) → `02_input_preprocessor.md` |
+| Enhanced Input 처리 | PreProcessor (포커스 무관) → `01_input_preprocessor.md` |
 | 인벤토리 UI 열림 | 포커스가 UI 위젯으로 이동 → SViewport 키보드 차단 |
 | 컷신 중 입력 차단 | PreProcessor 등록, 특정 키만 허용 |
 | 일시 정지 메뉴 ESC | UI에서 `Handled()` 반환 → 게임으로 전파 안 됨 |
