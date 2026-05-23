@@ -231,23 +231,17 @@ return Character->GetActorLocation() + FVector::UpVector * HeightAdjustment;
 
 ---
 
-## 25. PlayerController vs LocalPlayer — 생존 범위 분리
+## 25. ULocalPlayer — 로컬 머신 플레이어 표현
 
-> 출처: `Source/LyraGame/Character/LyraHeroComponent.cpp`  
+> 출처: `C:/UE_5.7/Engine/Source/Runtime/Engine/Classes/Engine/LocalPlayer.h`  
 > 상세 문서: `doc/unrealCore/player_framework.md`
 
-| | PlayerController | LocalPlayer |
-|---|---|---|
-| 존재 위치 | 게임 월드 안 (Actor) | 엔진/플랫폼 레이어 |
-| 생존 범위 | 레벨 전환 시 소멸/재생성 | 게임 실행 내내 유지 |
-| 복제 | 서버↔클라이언트 | 복제 안 됨 (로컬 전용) |
-
-분리 이유:
-- **스플릿스크린**: 한 머신에 LocalPlayer 2개, 각자 PC 따로 가짐
-- **레벨 전환 데이터 유지**: PC는 소멸되지만 LocalPlayer는 살아있음
-- **서버에 LocalPlayer 없음**: 전용 서버는 뷰포트가 없으므로 LocalPlayer 미존재
-
-`PC->GetLocalPlayer()`로 LocalPlayer를 꺼내는 코드는 로컬 머신 전용 데이터(Enhanced Input 컨텍스트 등)에 접근하는 신호.
+- UObject (Actor 아님), 게임 월드 밖에 존재, 레벨 전환에도 유지, 전용 서버에는 없음
+- 들고 있는 것: `ViewportClient`(렌더 화면), `Origin`/`Size`(스플릿스크린 영역), `PlatformUserId`(입력 장치), `SubsystemCollection`(LocalPlayerSubsystem)
+- `UEnhancedInputLocalPlayerSubsystem`이 SubsystemCollection 안에 산다 → IMC 관리가 LocalPlayer 단위인 이유
+- 스플릿스크린: LocalPlayer[0]→PC[0], LocalPlayer[1]→PC[1] 로 입력 분기
+- `SpawnPlayActor()`로 레벨 전환마다 새 PlayerController를 만들어 연결
+- `PC->GetLocalPlayer()`로 꺼내는 코드 = 로컬 머신 전용 데이터(Enhanced Input 등)에 접근하는 신호
 
 ---
 
