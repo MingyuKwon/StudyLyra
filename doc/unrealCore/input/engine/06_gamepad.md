@@ -10,7 +10,7 @@
 ## 핵심 전제 — 패드도 같은 파이프라인을 쓴다
 
 패드 버튼과 스틱은 키보드 키와 동일하게 `FKey`로 추상화된다.  
-OS 이벤트 → `UPlayerInput::InputKey()` → `EventAccumulator` → 매 틱 flush 흐름이 **완전히 동일**하다.
+`UPlayerInput::InputKey()` → `EventAccumulator` → 매 틱 flush 흐름이 **완전히 동일**하다.
 
 ```cpp
 // InputCoreTypes.h — 패드 키 목록
@@ -21,6 +21,64 @@ FKey Gamepad_RightY              // 오른쪽 스틱 수직축 (-1 ~ 1)
 FKey Gamepad_LeftTriggerAxis     // L2 아날로그 (0 ~ 1)
 FKey Gamepad_LeftTrigger         // L2 디지털 (0 or 1) — 같은 하드웨어, 다른 해석
 ```
+
+---
+
+## FSlateApplication 진입 경로 — 키보드와의 차이
+
+### 트리거 시점
+
+키보드는 OS 메시지(비동기)가 밀어주지만, 패드는 엔진 틱이 매 프레임 XInput을 당겨온다.
+
+```
+[키보드]
+    OS WM_KEYDOWN (비동기)
+        → FWindowsApplication::ProcessMessage()
+        → FSlateApplication::OnKeyDown()
+        → ProcessKeyDownEvent()
+
+[패드]
+    FSlateApplication::Tick()           ← 매 틱 동기
+        → PlatformApplication->Tick()   ← XInput 폴링
+            → 버튼/아날로그 상태 변화 감지
+                → OnControllerButtonPressed() / OnControllerAnalog()
+```
+
+### 디지털 버튼 → ProcessKeyDownEvent (키보드와 동일)
+
+```cpp
+// SlateApplication.cpp:6560
+bool FSlateApplication::OnControllerButtonPressed(FGamepadKeyNames::Type KeyName, ...)
+{
+    FKey Key(KeyName);  // "Gamepad_FaceButton_Bottom" 등 FKey로 변환
+    FKeyEvent KeyEvent(Key, ...);
+    return ProcessKeyDownEvent(KeyEvent);  // 키보드와 완전히 동일한 함수
+}
+```
+
+`FKey` 값만 다를 뿐, 이후 `InputPreProcessor → Tunnel/Bubble → SViewport` 경로는 키보드와 동일하다.
+
+### 아날로그 (스틱, 트리거) → ProcessAnalogInputEvent (별도 경로)
+
+```cpp
+// SlateApplication.cpp:6547
+bool FSlateApplication::OnControllerAnalog(FGamepadKeyNames::Type KeyName, ..., float AnalogValue)
+{
+    FAnalogInputEvent AnalogInputEvent(Key, ..., AnalogValue);
+    return ProcessAnalogInputEvent(AnalogInputEvent);
+}
+```
+
+`ProcessAnalogInputEvent()`는 `ProcessKeyDownEvent()`와 구조가 같다.  
+InputPreProcessor의 `HandleAnalogInputEvent()`를 먼저 호출하고, 이후 Bubble 라우팅으로 위젯의 `OnAnalogValueChanged()`에 전달한다. Tunnel 단계는 없다.
+
+| | 디지털 버튼 | 아날로그 |
+|---|---|---|
+| **Slate 진입 함수** | `OnControllerButtonPressed()` | `OnControllerAnalog()` |
+| **처리 함수** | `ProcessKeyDownEvent()` | `ProcessAnalogInputEvent()` |
+| **InputPreProcessor** | `HandleKeyDownEvent()` | `HandleAnalogInputEvent()` |
+| **위젯 콜백** | `OnKeyDown()` | `OnAnalogValueChanged()` |
+| **Tunnel 단계** | 있음 | 없음 |
 
 ---
 
