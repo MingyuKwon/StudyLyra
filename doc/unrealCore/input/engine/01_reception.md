@@ -1,4 +1,4 @@
-# OS → PlayerInput 수신 경로
+# OS → PlayerInput 입력 수신 경로
 
 > 출처: `C:/UE_5.7/Engine/Source/Runtime/ApplicationCore/Private/Windows/WindowsApplication.cpp`  
 >        `C:/UE_5.7/Engine/Source/Runtime/Slate/Private/Framework/Application/SlateApplication.cpp`  
@@ -7,7 +7,27 @@
 >        `C:/UE_5.7/Engine/Source/Runtime/Engine/Private/PlayerController.cpp`  
 >        `C:/UE_5.7/Engine/Source/Runtime/Engine/Private/UserInterface/PlayerInput.cpp`
 
-FSlateApplication 내부 상세: [00_slate_routing.md](00_slate_routing.md)
+FSlateApplication 내부 라우팅 상세: [02_slate_routing.md](02_slate_routing.md)
+
+---
+
+## 큰 그림
+
+물리 키보드의 W키를 누르면, 그 정보가 `UPlayerInput`의 `EventAccumulator`에 도달하기까지 **5개 계층**을 거친다.
+
+```
+[물리 장치]
+    ↓
+OS (Windows 메시지 루프)
+    ↓
+FWindowsApplication   ← 플랫폼 추상화 레이어
+    ↓
+FSlateApplication     ← UI/입력 중앙 라우터
+    ↓
+UGameViewportClient   ← 게임 뷰포트 관문
+    ↓
+APlayerController → UPlayerInput   ← 여기서 EventAccumulator에 쌓임
+```
 
 ---
 
@@ -63,16 +83,21 @@ Slate 위젯 트리
 // SlateApplication.cpp:4863
 bool FSlateApplication::OnKeyDown(const int32 KeyCode, const uint32 CharacterCode, const bool IsRepeat)
 {
-    // VirtualKeyCode → FKey 변환 (FInputKeyManager가 매핑 테이블 보유)
     FKey const Key = FInputKeyManager::Get().GetKeyFromCodes(KeyCode, CharacterCode);
-
     FKeyEvent KeyEvent(Key, ModifierKeys, UserIndex, IsRepeat, CharacterCode, KeyCode);
-    return ProcessKeyDownEvent(KeyEvent);  // → 00_slate_routing.md 참고
+    return ProcessKeyDownEvent(KeyEvent);  // → 02_slate_routing.md 참고
 }
 ```
 
 `FInputKeyManager`가 VirtualKey → `FKey` 변환 테이블을 가지고 있다.  
 이 변환 이후부터는 플랫폼 독립적인 `FKey`(`EKeys::W`, `EKeys::SpaceBar` 등)로만 처리된다.
+
+---
+
+## 3단계 — FSlateApplication: UI 라우팅
+
+FSlateApplication 내부 동작(ProcessKeyDownEvent, Tunnel/Bubble, 가로채기 메커니즘)은 별도 문서에서 다룬다.  
+→ [02_slate_routing.md](02_slate_routing.md)
 
 ---
 
@@ -87,9 +112,6 @@ bool UGameViewportClient::InputKey(const FInputKeyEventArgs& InEventArgs)
     // 전체화면 토글 키 처리 (Alt+Enter 등)
     if (TryToggleFullscreenOnInputKey(...)) return true;
 
-    // PIE에서 패드를 두 번째 창으로 라우팅 (에디터 전용)
-    // ...
-
     // 개발자 콘솔로 먼저 전달 (~ 키 등)
     bool bResult = ViewportConsole ? ViewportConsole->InputKey(...) : false;
 
@@ -99,14 +121,13 @@ bool UGameViewportClient::InputKey(const FInputKeyEventArgs& InEventArgs)
         ULocalPlayer* TargetPlayer = GEngine->GetLocalPlayerFromInputDevice(this, EventArgs.InputDevice);
         if (TargetPlayer && TargetPlayer->PlayerController)
         {
-            bResult = TargetPlayer->PlayerController->InputKey(EventArgs);  // 다음 계층
+            bResult = TargetPlayer->PlayerController->InputKey(EventArgs);
         }
     }
     return bResult;
 }
 ```
 
-여기서 중요한 일이 두 가지 일어난다:
 - **콘솔 우선 처리**: `~` 키로 개발자 콘솔을 여는 것이 게임 입력보다 먼저다.
 - **InputDevice → LocalPlayer 매핑**: 스플릿스크린에서 어떤 패드가 어떤 플레이어 것인지 여기서 결정된다.
 
@@ -118,7 +139,6 @@ bool UGameViewportClient::InputKey(const FInputKeyEventArgs& InEventArgs)
 // PlayerController.cpp:2407
 bool APlayerController::InputKey(const FInputKeyEventArgs& Params)
 {
-    // 이 입력이 우리 플레이어 소유 장치에서 온 것인지 확인
     if (bFilterInputByPlatformUser && ...)
         return false;
 
@@ -154,3 +174,30 @@ bool UPlayerInput::InputKey(const FInputKeyEventArgs& Params)
 
 키보드는 이벤트 기반(눌렸을 때만 알림), 패드는 폴링 기반(매 틱 상태 조회)이다.  
 하지만 `UPlayerInput::InputKey()`에 도달한 이후는 **완전히 동일한 로직**으로 처리된다.
+
+---
+
+## 전체 흐름 요약
+
+```
+[W키 누름]
+    │
+    ▼  (비동기 — OS 이벤트 발생 시)
+WM_KEYDOWN
+    → FWindowsApplication::ProcessMessage()
+    → FSlateApplication::OnKeyDown()           VirtualKey → FKey 변환
+    → FSlateApplication::ProcessKeyDownEvent() InputPreProcessor 확인
+    → UGameViewportClient::InputKey()          콘솔 우선 / LocalPlayer 매핑
+    → APlayerController::InputKey()            장치 소유권 확인
+    → UPlayerInput::InputKey()
+    → KeyStateMap["W"].EventAccumulator 적재   ← 여기까지가 "수신"
+
+    │
+    ▼  (동기 — 다음 틱)
+APlayerController::PlayerTick()
+    → ProcessPlayerInput()
+    → PlayerInput->ProcessInputStack()
+    → EvaluateKeyMapState()                    Accumulator → EventCounts flush
+    → EvaluateInputDelegates()                 콜백 실행
+    → PostProcessInput()                       Lyra: ProcessAbilityInput
+```
