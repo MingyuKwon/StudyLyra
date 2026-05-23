@@ -124,9 +124,3 @@ BindAction(Action, TriggerEvent, UObject* Object, FName FunctionName)
 C++ 함수 포인터가 아닌 UFUNCTION 이름(문자열)으로 런타임에 함수를 찾는 Blueprint용 경로.
 타입 체크가 런타임에 일어나며 `DynamicSignature` 델리게이트를 사용한다.
 
----
-
-## 내 노트
-
-`AddMappingContext`를 Subsystem에 하는 이유: IMC는 로컬 플레이어 단위로 관리되기 때문.
-같은 머신에 플레이어가 2명(스플릿스크린)이면 각자 다른 IMC 세트를 가질 수 있다.

@@ -52,6 +52,8 @@ ProcessPlayerInput()                         ← PlayerController.cpp:2768
 
 ### 1단계: 이벤트 수집 (틱과 무관, OS 이벤트 발생 시)
 
+OS 이벤트 → Slate → `UGameViewportClient` → `APlayerController` → `UPlayerInput::InputKey()` 경로는 [03_viewport_to_playerinput.md](03_viewport_to_playerinput.md)에서 다룬다.
+
 ```cpp
 // PlayerInput.cpp:278
 bool UPlayerInput::InputKey(const FInputKeyEventArgs& Params)
@@ -62,8 +64,7 @@ bool UPlayerInput::InputKey(const FInputKeyEventArgs& Params)
 }
 ```
 
-- OS로부터 키 이벤트가 오면 `InputKey()`를 통해 `EventAccumulator`에 **누적만** 한다.
-- 이 시점에는 아무것도 실행되지 않는다.
+- `InputKey()`는 `EventAccumulator`에 **누적만** 한다. 이 시점에는 아무것도 실행되지 않는다.
 
 ### 2단계: 일괄 처리 (매 틱 — EvaluateKeyMapState)
 
