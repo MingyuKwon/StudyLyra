@@ -14,7 +14,7 @@ ProcessKeyDownEvent()
     │        true  반환 → 여기서 종료. 위젯 라우팅 실행 안 됨
     │        false 반환 → 위젯 라우팅 정상 진행
     │
-    └─ Tunnel/Bubble 위젯 라우팅   (→ 02_slate_routing.md)
+    └─ Tunnel/Bubble 위젯 라우팅   (→ background/01_slate_routing.md)
 ```
 
 **`false`가 기본값이다.** 대부분의 PreProcessor는 입력을 관찰하거나 변환만 하고 `false`를 반환한다. 위젯이 정상적으로 입력을 받는다.  

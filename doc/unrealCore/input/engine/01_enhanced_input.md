@@ -4,7 +4,7 @@
 
 Enhanced Input은 역할이 다른 두 클래스로 분리되어 있다.
 
-Slate와의 연결 방식(InputPreProcessor로 동작하는 이유): [01_input_preprocessor.md](01_input_preprocessor.md)
+Slate와의 연결 방식(InputPreProcessor로 동작하는 이유): [02_preprocessor.md](02_preprocessor.md)
 
 ---
 

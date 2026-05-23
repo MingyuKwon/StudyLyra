@@ -6,7 +6,7 @@
 
 ---
 
-Slate의 `SViewport::OnKeyDown()` → `FSceneViewport::OnKeyDown()` → `UGameViewportClient::InputKey()`까지는 [02_slate_routing.md](02_slate_routing.md)에서 다룬다.  
+Slate의 `SViewport::OnKeyDown()` → `FSceneViewport::OnKeyDown()` → `UGameViewportClient::InputKey()`까지는 [01_slate_routing.md](01_slate_routing.md)에서 다룬다.  
 이 문서는 `UGameViewportClient`에서 `UPlayerInput`의 `EventAccumulator`에 적재되기까지를 다룬다.
 
 ---
@@ -120,7 +120,7 @@ bool UPlayerInput::InputKey(const FInputKeyEventArgs& Params)
 ```
 
 이 시점에서는 아무 콜백도 실행되지 않는다. `EventAccumulator`에 이벤트 번호(`EventCount`)를 추가할 뿐이다.  
-실제 처리는 다음 틱의 `EvaluateKeyMapState()`에서 Accumulator를 flush할 때 일어난다. → [04_tick_pipeline.md](04_tick_pipeline.md)
+실제 처리는 다음 틱의 `EvaluateKeyMapState()`에서 Accumulator를 flush할 때 일어난다. → [../03_tick_and_gas.md](../03_tick_and_gas.md)
 
 ---
 
