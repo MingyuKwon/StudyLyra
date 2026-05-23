@@ -86,13 +86,20 @@ else
 ## Enhanced Input — Subsystem vs Component 역할 분리
 
 > 출처: `Source/LyraGame/Character/LyraHeroComponent.cpp`  
-> 상세 문서: `doc/unrealCore/input/engine/02_enhanced_input.md`
+> 상세 문서: `doc/unrealCore/input/engine/01_enhanced_input.md`
 
-- **UEnhancedInputLocalPlayerSubsystem**: LocalPlayer당 하나. 활성 IMC 목록 관리. 키 → InputAction 변환 담당.
+- **UEnhancedInputLocalPlayerSubsystem**: LocalPlayer당 하나. 활성 IMC 목록 관리. IInputProcessor가 아님.
+- **UEnhancedPlayerInput**: `PlayerController->PlayerInput`의 실제 클래스. UPlayerInput 서브클래스. IMC 기반 ActionMappings 처리, 콜백 발화 담당.
 - **UEnhancedInputComponent**: Actor에 붙는 컴포넌트. InputAction → 콜백 함수 바인딩 담당.
+- **FEnhancedInputWorldProcessor**: FSlateApplication에 등록된 실제 IInputProcessor. UEnhancedInputWorldSubsystem(월드 레벨, 플레이어 없는 엔티티용)에만 전달. LocalPlayer 콜백과 무관.
+
+Enhanced Input (LocalPlayer) 콜백 발화 위치: PlayerController Tick의 `UEnhancedPlayerInput::EvaluateInputDelegates()` 안 `EvaluateInputComponentDelegates()`. 레거시와 동일한 위치에서 다른 구현으로 실행됨.
 
 ```
-키 입력 → Subsystem(IMC로 Action 결정) → Component(Action에 바인딩된 함수 실행)
+키 누름 → SViewport → UGameViewportClient → UEnhancedPlayerInput::InputKey() (KeyStateMap 갱신)
+PlayerController Tick:
+    EvaluateKeyMapState() → PrepareInputDelegatesForEvaluation() (IMC → ActionMappings 처리)
+    → EvaluateInputDelegates() → EvaluateInputComponentDelegates() → Input_Move() 등 콜백 발화
 ```
 
 AddMappingContext는 Subsystem에, BindNativeAction은 Component에 — 둘 다 InitializePlayerInput에서 호출되지만 역할이 다르다.

@@ -1,28 +1,29 @@
 # 레거시 입력 vs Enhanced Input
 
 > 출처: `C:/UE_5.7/Engine/Source/Runtime/Engine/Private/UserInterface/PlayerInput.cpp`  
->        `C:/UE_5.7/Engine/Plugins/EnhancedInput/Source/EnhancedInput/Private/EnhancedInputSubsystems.cpp`
+>        `C:/UE_5.7/Engine/Plugins/EnhancedInput/Source/EnhancedInput/Private/EnhancedPlayerInput.cpp`  
+>        `C:/UE_5.7/Engine/Plugins/EnhancedInput/Source/EnhancedInput/Private/EnhancedInputWorldProcessor.cpp`
 
 ---
 
-Enhanced Input은 레거시 UPlayerInput 구조를 **교체한 것이 아니다.**  
-기존 파이프라인 위에 얹어서 자기 처리를 먼저 끝내고, 레거시 단계는 빈 껍데기로 통과시킨다.
+Enhanced Input은 레거시 `UPlayerInput`을 교체한 것이 아니다.  
+`PlayerController->PlayerInput`의 클래스를 `UEnhancedPlayerInput`으로 바꾸고, `ProcessInputStack` 안의 처리 함수들을 오버라이드하는 방식이다.  
+입력이 들어오는 경로와 콜백이 발화하는 위치 모두 레거시와 동일하다. 다른 것은 처리 로직이다.
 
 ---
 
 ## 레거시 구조
 
 ```
-[키 입력]
-    ↓
-UPlayerInput::InputKey()          ← EventAccumulator에 적재
-    ↓
+[키 누름] → SViewport → UGameViewportClient → APlayerController::InputKey()
+                → UPlayerInput::InputKey()             ← KeyStateMap 갱신
+
 APlayerController::PlayerTick()
     ProcessInputStack()
-        EvaluateKeyMapState()     ← Accumulator flush, bDown 갱신
-        EvaluateInputDelegates()  ← BindAction/BindAxis 콜백 실행
-        PostProcessInput()        ← 오버라이드 가능한 후처리 훅
-        FinishProcessingPlayerInput()  ← bDownPrevious = bDown
+        EvaluateKeyMapState()                          ← Accumulator flush, bDown 갱신
+        EvaluateInputDelegates()                       ← BindAction/BindAxis 콜백 실행
+        PostProcessInput()                             ← 오버라이드 가능한 훅
+        FinishProcessingPlayerInput()                  ← bDownPrevious = bDown
 ```
 
 `BindAction("Jump", IE_Pressed, this, &AMyCharacter::Jump)`처럼 키를 직접 함수에 연결한다.  
@@ -30,125 +31,134 @@ APlayerController::PlayerTick()
 
 ---
 
-## Enhanced Input 구조
+## Enhanced Input 구조 (LocalPlayer)
 
 ```
-[키 입력]
-    ↓
-FSlateApplication::Tick()
-    InputPreProcessors
-        UEnhancedInputLocalPlayerSubsystem::Tick()
-            활성 IMC로 키 → InputAction 변환
-            UEnhancedInputComponent 콜백 실행   ← 여기서 콜백 완료
-    ↓
+[키 누름] → SViewport → UGameViewportClient → APlayerController::InputKey()
+                → UEnhancedPlayerInput::InputKey()     ← KeyStateMap 갱신 (레거시와 동일)
+
 APlayerController::PlayerTick()
     ProcessInputStack()
-        EvaluateKeyMapState()                   ← 여전히 실행 (bDown 갱신)
-        EvaluateInputDelegates()                ← Enhanced IC는 추가 발화 없음 (빈 껍데기)
+        EvaluateKeyMapState()                          ← 동일 (bDown 갱신)
+        PrepareInputDelegatesForEvaluation()           ← Enhanced만: IMC → ActionMappings 처리, 모디파이어/트리거 평가
+        EvaluateInputDelegates()
+            Super::EvaluateInputDelegates()            ← 레거시 BindAction 경로 (Enhanced에서 빈 껍데기)
+            EvaluateInputComponentDelegates()          ← UEnhancedInputComponent 콜백 발화 ★
         PostProcessInput()
-            LyraASC->ProcessAbilityInput()      ← GAS 브릿지
+            LyraASC->ProcessAbilityInput()             ← GAS 브릿지
         FinishProcessingPlayerInput()
 ```
 
-콜백이 **PlayerController 틱이 아닌 Slate 틱**에서 실행된다.  
-IMC(Input Mapping Context)를 런타임에 추가/제거해서 활성 키 집합을 동적으로 바꿀 수 있다.
+콜백이 발화하는 위치는 레거시와 동일하다 — `EvaluateInputDelegates` 안, PlayerController 틱에서.  
+다른 것은 `UEnhancedPlayerInput`이 IMC 기반으로 키를 ActionMapping으로 변환하는 로직이 중간에 추가된다는 점이다.
 
 ---
 
 ## 두 구조 비교
 
-| | 레거시 | Enhanced Input |
+| | 레거시 | Enhanced Input (LocalPlayer) |
 |---|---|---|
-| **콜백 실행 위치** | PlayerController 틱 — EvaluateInputDelegates | Slate 틱 — PreProcessor::Tick |
+| **PlayerInput 클래스** | `UPlayerInput` | `UEnhancedPlayerInput` |
+| **콜백 발화 위치** | `EvaluateInputDelegates` (레거시 경로) | `EvaluateInputDelegates` (Enhanced 경로) — 같은 함수, 다른 구현 |
 | **키 → 함수 연결** | 코드 하드코딩 (`BindAction("Jump", ...)`) | IMC 에셋 (런타임 교체 가능) |
-| **UPlayerInput 사용** | 사용 | 여전히 사용 |
-| **KeyStateMap / bDown** | EvaluateInputDelegates가 직접 참조 | Enhanced가 직접 참조 안 함 — 하지만 갱신은 됨 |
-| **포커스 의존** | SViewport가 포커스를 가져야 UPlayerInput::InputKey() 도달 | PreProcessor는 포커스 무관 실행 |
+| **포커스 의존** | SViewport 포커스 필요 | SViewport 포커스 필요 (동일) |
+| **PreProcessor 역할** | 없음 | WorldSubsystem 전달용 — LocalPlayer 콜백과 무관 |
 | **GAS 연결** | 없음 (수동 구현 필요) | PostProcessInput → ProcessAbilityInput |
 
 ---
 
-## UPlayerInput이 여전히 살아있는 이유
+## EvaluateInputDelegates 내부 — 레거시 경로와 Enhanced 경로
 
-Enhanced Input을 사용해도 `UPlayerInput::InputKey()`는 계속 호출되고 `KeyStateMap`이 갱신된다.
-
-```
-SViewport::OnKeyDown()
-    → UGameViewportClient::InputKey()
-        → APlayerController::InputKey()
-            → UPlayerInput::InputKey()   ← Enhanced Input 사용 여부와 무관하게 실행
-```
-
-Enhanced Input PreProcessor가 `false`를 반환하므로 Slate 위젯 라우팅이 계속 진행되고,  
-결국 `SViewport → UGameViewportClient → UPlayerInput`까지 도달한다.
-
-`UPlayerInput`의 `bDown`은 "이 키가 현재 눌려있는가"를 추적하는 상태다.  
-Enhanced Input 콜백과는 별개로 이 상태 자체는 계속 정확하게 유지된다.
-
----
-
-## EvaluateInputDelegates가 빈 껍데기인 이유
-
-레거시에서는 `UInputComponent`에 `BindAction/BindAxis`로 등록한 델리게이트를 이 단계에서 실행한다.
-
-Enhanced Input에서는 `UEnhancedInputComponent`가 InputComponent 스택에 있지만,  
-콜백이 이미 PreProcessor 단계에서 실행됐으므로 이 단계에서 추가로 발화할 것이 없다.  
-`EvaluateInputDelegates()`는 돌지만 아무것도 실행하지 않고 통과한다.
-
----
-
-## PostProcessInput은 레거시 구조가 아니다
+`UEnhancedPlayerInput::EvaluateInputDelegates()`는 두 단계로 나뉜다.
 
 ```cpp
-// 레거시 PlayerController — PostProcessInput 오버라이드 없음
-// → 기본 구현 (빈 함수)
-
-// Lyra PlayerController — GAS 브릿지로 오버라이드
-void ALyraPlayerController::PostProcessInput(const float DeltaTime, const bool bGamePaused)
+// EnhancedPlayerInput.cpp:339
+void UEnhancedPlayerInput::EvaluateInputDelegates(...)
 {
-    if (ULyraAbilitySystemComponent* LyraASC = GetLyraAbilitySystemComponent())
-        LyraASC->ProcessAbilityInput(DeltaTime, bGamePaused);
-    Super::PostProcessInput(DeltaTime, bGamePaused);
+    Super::EvaluateInputDelegates(...);   // ① 레거시 경로
+    // ② Enhanced 경로
+    for (UInputComponent* IC : InputComponentStack)
+    {
+        if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(IC))
+            EvaluateInputComponentDelegates(EIC, ...);   // 콜백 발화
+    }
 }
 ```
 
-`PostProcessInput`은 레거시 콜백 단계(`EvaluateInputDelegates`)가 끝난 뒤에 불리는 **훅**이다.  
-Lyra는 이 훅을 GAS 연결 지점으로 활용한다. 레거시 입력과는 무관하다.
+- ① 레거시 경로: `BindAction/BindAxis`로 등록된 콜백 실행. `UEnhancedInputComponent`는 여기서 처리되지 않으므로 빈 껍데기.
+- ② Enhanced 경로: `UEnhancedInputComponent`에 바인딩된 `Input_Move()`, `AbilityInputTagPressed()` 등 실행.
 
-Enhanced Input PreProcessor가 `AbilityInputTagPressed()`를 호출해서 `InputPressedSpecHandles`에 적재해두면,  
-`PostProcessInput`에서 그 핸들을 읽어 `TryActivateAbility()`를 실행한다.
+---
+
+## AbilityInputTagPressed가 적재되는 타이밍
+
+```
+EvaluateInputDelegates()
+    → UEnhancedInputComponent 콜백
+        → AbilityInputTagPressed(Tag)    ← InputPressedSpecHandles에 추가
+    (콜백 완료)
+PostProcessInput()
+    → ProcessAbilityInput()
+        → InputPressedSpecHandles 읽기 → TryActivateAbility()
+```
+
+`AbilityInputTagPressed()`는 `EvaluateInputDelegates` 안에서 호출되고,  
+`ProcessAbilityInput()`은 같은 틱의 `PostProcessInput`에서 handles를 읽는다.  
+적재와 소비가 같은 PlayerController 틱 안에서 일어난다.
+
+---
+
+## FEnhancedInputWorldProcessor — PreProcessor의 실제 역할
+
+`FSlateApplication`에 등록된 Enhanced Input PreProcessor는 `FEnhancedInputWorldProcessor`다.  
+`UEnhancedInputLocalPlayerSubsystem`이 아니다.
+
+```cpp
+// EnhancedInputWorldProcessor.cpp:15
+bool FEnhancedInputWorldProcessor::HandleKeyDownEvent(...)
+{
+    InputKeyToSubsystem(Params);   // UEnhancedInputWorldSubsystem에만 전달
+    return false;                  // 항상 false — 위젯 라우팅 계속
+}
+```
+
+`InputKeyToSubsystem`은 `UEnhancedInputWorldSubsystem`(월드 레벨 서브시스템)을 순회한다.  
+이것은 PlayerController 없이 월드 액터들이 Enhanced Input을 쓸 수 있게 하는 별도 경로다.  
+**LocalPlayer(Lyra)의 콜백과는 무관하다.**
 
 ---
 
 ## 두 시스템이 공존하는 방식 — 타임라인
 
 ```
-Slate Tick
-  [1] EnhancedInput PreProcessor::Tick()
-        키 → InputAction 변환
-        Input_Move() 콜백 실행           ← Native 입력 완료
-        AbilityInputTagPressed() 호출    ← handles 적재
-
+Slate Tick (OS 메시지 처리)
+  [1] FEnhancedInputWorldProcessor::HandleKeyDownEvent()
+        → UEnhancedInputWorldSubsystem 전달     ← WorldSubsystem 경로만
+        → return false
   [2] 위젯 라우팅 (Tunnel/Bubble)
-        SViewport::OnKeyDown()
-        UPlayerInput::InputKey()         ← KeyStateMap 갱신
+        → SViewport::OnKeyDown()
+        → UGameViewportClient::InputKey()
+        → UEnhancedPlayerInput::InputKey()       ← KeyStateMap 갱신
 
-PlayerController Tick
-  [3] EvaluateKeyMapState()              ← Accumulator flush, bDown 갱신
-  [4] EvaluateInputDelegates()           ← 빈 껍데기 통과
-  [5] PostProcessInput()
-        ProcessAbilityInput()            ← TryActivateAbility 실행
-  [6] FinishProcessingPlayerInput()      ← bDownPrevious = bDown
+PlayerController Tick (콜백 발화)
+  [3] EvaluateKeyMapState()                      ← Accumulator flush, bDown 갱신
+  [4] PrepareInputDelegatesForEvaluation()       ← IMC → ActionMappings, 모디파이어/트리거 계산
+  [5] EvaluateInputDelegates()
+        Input_Move() 등 콜백 발화               ← Native 입력 완료
+        AbilityInputTagPressed()                 ← GAS handles 적재
+  [6] PostProcessInput()
+        ProcessAbilityInput()                    ← TryActivateAbility
+  [7] FinishProcessingPlayerInput()              ← bDownPrevious = bDown
 ```
 
-[1]과 [2]는 같은 Slate Tick 안에서 순서대로 일어난다.  
-[3]~[6]은 그다음 PlayerController Tick에서 일어난다.
+[1][2]는 Slate Tick(같은 프레임 내 OS 메시지 처리), [3]~[7]은 PlayerController Tick.  
+콜백이 발화하는 [5]는 레거시도 Enhanced도 같은 위치다.
 
 ---
 
 ## 관련 문서
 
 - [01_enhanced_input.md](01_enhanced_input.md) — Subsystem/Component 역할 분리
-- [02_preprocessor.md](02_preprocessor.md) — PreProcessor 등록 · 포커스 무관 실행 원리
+- [02_preprocessor.md](02_preprocessor.md) — PreProcessor 등록 패턴, 커스텀 차단 예시
 - [03_tick_and_gas.md](03_tick_and_gas.md) — PostProcessInput → ProcessAbilityInput 상세
 - [background/03_legacy_tick_detail.md](background/03_legacy_tick_detail.md) — Accumulator 패턴, bDown, EvaluateInputDelegates 상세

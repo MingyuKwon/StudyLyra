@@ -37,26 +37,36 @@ public:
 
 ---
 
-## Enhanced Input은 false를 반환한다
+## Enhanced Input과 PreProcessor
 
-`UEnhancedInputLocalPlayerSubsystem`이 `IInputProcessor`를 구현하고 스스로 등록한다.
+`FSlateApplication`에 등록된 Enhanced Input PreProcessor는 `FEnhancedInputWorldProcessor`다.  
+`UEnhancedInputLocalPlayerSubsystem`이 아니다.
 
-Enhanced Input이 W키를 받으면:
-1. W → `InputAction "Move"` 변환 → `UEnhancedInputComponent` 콜백 호출
-2. **`false` 반환** — 위젯 라우팅 계속 진행
+```cpp
+// EnhancedInputWorldProcessor.cpp:15
+bool FEnhancedInputWorldProcessor::HandleKeyDownEvent(...)
+{
+    InputKeyToSubsystem(Params);   // UEnhancedInputWorldSubsystem에만 전달
+    return false;                  // 항상 false — 위젯 라우팅 계속
+}
+```
+
+`InputKeyToSubsystem`은 `UEnhancedInputWorldSubsystem`(PlayerController 없는 월드 액터용 별도 경로)을 순회한다.  
+**LocalPlayer(Lyra)의 Enhanced Input 콜백은 이 PreProcessor에서 실행되지 않는다.**
+
+LocalPlayer의 콜백은 PlayerController 틱의 `UEnhancedPlayerInput::EvaluateInputDelegates()`에서 실행된다.  
+→ 상세는 [05_legacy_vs_enhanced.md](05_legacy_vs_enhanced.md)
+
+W키가 눌렸을 때:
 
 ```
 W키 누름
-    → Enhanced Input PreProcessor
-          W → "Move" 액션 변환, 콜백 실행
-          return false
+    → FEnhancedInputWorldProcessor::HandleKeyDownEvent()
+          WorldSubsystem 전달, return false
     → Bubble 위젯 라우팅
-          SViewport → UGameViewportClient → PlayerInput 적재
+          SViewport → UGameViewportClient → UEnhancedPlayerInput::InputKey() 적재
+    (PlayerController Tick에서 콜백 발화)
 ```
-
-두 경로가 동시에 일어난다. Enhanced Input을 써도 위젯은 정상적으로 입력을 받는다.
-
-Enhanced Input이 PreProcessor인 이유는 포커스와 무관하게 실행되어야 하기 때문이다. Tunnel/Bubble은 포커스 경로 위젯에만 전달된다. UI가 열려 있을 때도 게임 입력이 처리되어야 하므로 위젯 라우팅 밖에 위치한다.
 
 ---
 
@@ -104,7 +114,7 @@ public:
 // 등록 — TSharedPtr로 보관해야 나중에 해제 가능
 TSharedPtr<FMyInputPreProcessor> MyProcessor = MakeShared<FMyInputPreProcessor>();
 FSlateApplication::Get().RegisterInputPreProcessor(MyProcessor.ToSharedRef(), 0);
-// Index: 낮을수록 먼저 실행. Enhanced Input보다 앞에 두려면 0.
+// Index: 낮을수록 먼저 실행. 0이면 가장 먼저 실행.
 
 // 해제
 FSlateApplication::Get().UnregisterInputPreProcessor(MyProcessor);
@@ -148,4 +158,4 @@ public:
 | **실행 조건** | 무조건 (포커스 무관) | 포커스 경로 위젯에만 |
 | **목적** | 위젯 시스템 진입 전 처리/차단 | 어느 위젯이 처리할지 결정 |
 | **반환값** | true=차단, false=통과 | Handled()=중단, Unhandled()=전파 |
-| **대표 사용처** | Enhanced Input, 커스텀 필터 | UI 위젯, SViewport |
+| **대표 사용처** | WorldSubsystem Enhanced Input, 커스텀 필터 | UI 위젯, SViewport |
