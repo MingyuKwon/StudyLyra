@@ -55,3 +55,22 @@ UPlayerInput            EventAccumulator에 적재 (처리는 다음 틱)
 | [03. 틱 처리 파이프라인](03_tick_pipeline.md) | PlayerController 틱 → ProcessInputStack, Accumulator 패턴, bDown 홀드 유지 원리, BuildInputStack 우선순위 |
 | [04. Enhanced Input](04_enhanced_input.md) | Subsystem vs Component 역할 분리, BindAction 오버로드 3종, FInputActionValue vs FInputActionInstance |
 | [05. 게임패드 입력](05_gamepad.md) | 아날로그 vs 디지털, 데드존(InputModifier), 진동/햅틱, DualSense 어댑티브 트리거 |
+
+---
+
+## GAS 개발자 시작점
+
+01, 02 문서(Slate 라우팅)는 입력이 왜 이렇게 동작하는지 이해하기 위한 배경 지식이다.  
+GAS와 입력이 실제로 연결되는 지점은 틱 처리 파이프라인 끝이다.
+
+```
+03_tick_pipeline.md
+    PostProcessInput()
+        ↓
+    ProcessAbilityInput()          ← Lyra 구현
+        ↓
+    lyra/03_ability_input.md
+        AbilityInputTagPressed → TryActivateAbility
+```
+
+GAS 입력 연동을 파악하려면 **03 → lyra/03** 순서로 읽는 것이 가장 직접적이다.
