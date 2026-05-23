@@ -278,3 +278,39 @@ return Character->GetActorLocation() + FVector::UpVector * HeightAdjustment;
 ### Lyra 활용
 - `LyraHealthSet::PostGameplayEffectExecute` → `BroadcastMessage(TAG_Lyra_Damage_Message, FLyraVerbMessage)`
 - AttributeSet은 수신자를 모름. HUD·킬피드 등이 각자 RegisterListener로 구독
+
+---
+
+## 26. FSlateApplication::ProcessKeyDownEvent — Tunnel/Bubble 라우팅 상세
+
+> 출처: `C:/UE_5.7/Engine/Source/Runtime/Slate/Private/Framework/Application/SlateApplication.cpp:4871`  
+> `C:/UE_5.7/Engine/Source/Runtime/Slate/Private/Widgets/SViewport.cpp:286`  
+> `C:/UE_5.7/Engine/Source/Runtime/Engine/Private/Slate/SceneViewport.cpp:1072`  
+> 상세 문서: `doc/unrealCore/input/engine/00_how_input_arrives.md` 3단계
+
+### 실행 순서
+
+1. **InputPreProcessors.HandleKeyDownEvent()** (4892) — `true` 반환 시 이후 전체 건너뜀. Enhanced Input이 여기서 처리됨.
+2. **드래그 중 ESC** (4902) — `CancelDragDrop()` 호출 후 Handled 반환.
+3. **SlateUser->GetFocusPath()** (4928) — 포커스 경로(FWidgetPath) 조회. 루트 SWindow부터 포커스 위젯까지의 배열.
+4. **Tunnel 단계** (4935) — `FTunnelPolicy`: index 0→N-1, 각 위젯 `OnPreviewKeyDown()` 호출. 부모가 자식보다 먼저 개입.
+5. **Bubble 단계** (4957) — `FBubblePolicy`: index N-1→0, 각 위젯 `OnKeyDown()` 호출. `Handled()` 반환 시 중단.
+6. **UnhandledKeyDownEventHandler** (4979) — 아무도 처리 안 했을 때 폴백.
+
+### SViewport → FSceneViewport → UGameViewportClient 연결
+
+```
+SViewport::OnKeyDown()                    ← Slate 위젯 (SViewport.cpp:286)
+    └─ ViewportInterface.Pin()->OnKeyDown()   ← ISlateViewport = FSceneViewport
+            └─ ViewportClient->InputKey()        ← UGameViewportClient (SceneViewport.cpp:1088)
+```
+
+- `FSceneViewport`가 `ISlateViewport` 구현체 — Slate ↔ 엔진 브릿지 역할.
+- `FSceneViewport::OnKeyDown`이 `KeyStateMap.Add(Key, true)`로 자체 상태도 갱신.
+- `UGameViewportClient::InputKey()`가 `false` 반환하면 `FReply::Unhandled()` 반환.
+
+### FTunnelPolicy vs FBubblePolicy 구조
+
+- `FTunnelPolicy::Next()` → `++WidgetIndex` (루트→리프)
+- `FBubblePolicy::Next()` → `--WidgetIndex` (리프→루트)
+- Tunnel이 `Handled()` 반환 시 → Bubble 단계 전체 건너뜀
