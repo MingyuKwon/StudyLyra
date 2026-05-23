@@ -40,9 +40,9 @@ APlayerController::PlayerTick()
 APlayerController::PlayerTick()
     ProcessInputStack()
         EvaluateKeyMapState()                          ← 동일 (bDown 갱신)
-        PrepareInputDelegatesForEvaluation()           ← Enhanced만: IMC → ActionMappings 처리, 모디파이어/트리거 평가
-        EvaluateInputDelegates()
-            Super::EvaluateInputDelegates()            ← 레거시 BindAction 경로 (Enhanced에서 빈 껍데기)
+        EvaluateInputDelegates()                       ← UEnhancedPlayerInput 오버라이드
+            PrepareInputDelegatesForEvaluation()       ← Enhanced만: IMC → ActionMappings, 모디파이어/트리거 평가
+            Super::EvaluateInputDelegates() 내부 처리  ← 레거시 BindAction (Enhanced에서 빈 껍데기)
             EvaluateInputComponentDelegates()          ← UEnhancedInputComponent 콜백 발화 ★
         PostProcessInput()
             LyraASC->ProcessAbilityInput()             ← GAS 브릿지
@@ -69,23 +69,33 @@ APlayerController::PlayerTick()
 
 ## EvaluateInputDelegates 내부 — 레거시 경로와 Enhanced 경로
 
-`UEnhancedPlayerInput::EvaluateInputDelegates()`는 두 단계로 나뉜다.
+`UEnhancedPlayerInput::EvaluateInputDelegates()`는 `Super`를 먼저 호출하고 이후 Enhanced 콜백을 발화한다.
+
+`Super::EvaluateInputDelegates()` 내부에서 `PrepareInputDelegatesForEvaluation()`이 호출된다 (`PlayerInput.cpp:1449`).  
+Enhanced는 이 가상 함수를 오버라이드해서 IMC → ActionMappings 처리, 모디파이어/트리거 평가를 수행한다.
 
 ```cpp
-// EnhancedPlayerInput.cpp:339
+// PlayerInput.cpp:1443 — 기반 클래스 EvaluateInputDelegates 내부
+void UPlayerInput::EvaluateInputDelegates(...)
+{
+    PrepareInputDelegatesForEvaluation(...);   // Enhanced가 오버라이드한 가상 함수
+    // 이후 레거시 BindAction/BindAxis 처리
+}
+
+// EnhancedPlayerInput.cpp:339 — Enhanced 오버라이드
 void UEnhancedPlayerInput::EvaluateInputDelegates(...)
 {
-    Super::EvaluateInputDelegates(...);   // ① 레거시 경로
-    // ② Enhanced 경로
+    Super::EvaluateInputDelegates(...);   // ① PrepareInputDelegatesForEvaluation + 레거시 처리
+    // ② Enhanced 콜백 발화
     for (UInputComponent* IC : InputComponentStack)
     {
         if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(IC))
-            EvaluateInputComponentDelegates(EIC, ...);   // 콜백 발화
+            EvaluateInputComponentDelegates(EIC, ...);   // Input_Move() 등 실행
     }
 }
 ```
 
-- ① 레거시 경로: `BindAction/BindAxis`로 등록된 콜백 실행. `UEnhancedInputComponent`는 여기서 처리되지 않으므로 빈 껍데기.
+- ① Super 내부 레거시 경로: `BindAction/BindAxis`로 등록된 콜백 실행. `UEnhancedInputComponent`는 여기서 처리되지 않으므로 빈 껍데기.
 - ② Enhanced 경로: `UEnhancedInputComponent`에 바인딩된 `Input_Move()`, `AbilityInputTagPressed()` 등 실행.
 
 ---
@@ -142,13 +152,13 @@ Slate Tick (OS 메시지 처리)
 
 PlayerController Tick (콜백 발화)
   [3] EvaluateKeyMapState()                      ← Accumulator flush, bDown 갱신
-  [4] PrepareInputDelegatesForEvaluation()       ← IMC → ActionMappings, 모디파이어/트리거 계산
-  [5] EvaluateInputDelegates()
-        Input_Move() 등 콜백 발화               ← Native 입력 완료
-        AbilityInputTagPressed()                 ← GAS handles 적재
-  [6] PostProcessInput()
+  [4] EvaluateInputDelegates()                   ← UEnhancedPlayerInput 오버라이드
+        PrepareInputDelegatesForEvaluation()     ← IMC → ActionMappings, 모디파이어/트리거 계산
+        (Super 내부: 레거시 BindAction — 빈 껍데기)
+        EvaluateInputComponentDelegates()        ← Input_Move() 등 콜백 발화 / AbilityInputTagPressed()
+  [5] PostProcessInput()
         ProcessAbilityInput()                    ← TryActivateAbility
-  [7] FinishProcessingPlayerInput()              ← bDownPrevious = bDown
+  [6] FinishProcessingPlayerInput()              ← bDownPrevious = bDown
 ```
 
 [1][2]는 Slate Tick(같은 프레임 내 OS 메시지 처리), [3]~[7]은 PlayerController Tick.  

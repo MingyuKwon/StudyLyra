@@ -6,39 +6,38 @@
 
 ---
 
-Enhanced Input의 콜백(`Input_Move` 등)은 PreProcessor 단계(Slate 틱)에서 이미 실행된다.  
-이 문서는 그 이후 — **GAS Ability 입력이 매 틱 처리되는 경로**를 다룬다.
+이 문서는 **GAS Ability 입력이 매 틱 처리되는 경로**를 다룬다.
 
 ---
 
 ## Enhanced Input 관점의 틱 흐름
 
 ```
-[엔진 틱]
-    ↓
-FSlateApplication::Tick()
-    PlatformApplication->Tick()          ← 패드 폴링
-    InputPreProcessors.Tick()            ← Enhanced Input Subsystem Tick
-        Enhanced Input: 이번 틱 Triggered/Completed 상태 갱신
-        → Input_Move() 등 Native 콜백 실행  ← 여기서 이동/시점 처리 끝
-    ↓
-APlayerController::PlayerTick()
-    TickPlayerInput()
-        ProcessPlayerInput()
-            ProcessInputStack()
-                EvaluateKeyMapState()        ← bDown 상태 갱신
-                EvaluateInputDelegates()     ← 레거시 BindAction 콜백 (Enhanced 미사용)
-                PostProcessInput()  ★       ← Lyra: ProcessAbilityInput
+[Slate Tick — 입력 수집]
+    FSlateApplication::Tick()
+        PlatformApplication->Tick()          ← 패드 폴링
+        InputPreProcessors.Tick()            ← FEnhancedInputWorldProcessor (WorldSubsystem용 마우스 누적)
+        위젯 라우팅 (키/패드 이벤트 발생 시)
+            SViewport → UGameViewportClient
+                → UEnhancedPlayerInput::InputKey()   ← KeyStateMap 갱신
+
+[PlayerController Tick — 콜백 발화]
+    APlayerController::PlayerTick()
+        ProcessInputStack()
+            EvaluateKeyMapState()        ← bDown 상태 갱신
+            EvaluateInputDelegates()     ← Input_Move() 등 Enhanced 콜백 실행 ★
+                                         ← AbilityInputTagPressed() 호출 → handles 적재
+            PostProcessInput()  ★       ← Lyra: ProcessAbilityInput → TryActivateAbility
     ↓
 GAS Ability 활성화/해제
 ```
 
-Native 입력(이동, 시점)과 GAS Ability 입력의 처리 시점이 다르다.
+Native 입력(`Input_Move` 등)과 GAS Ability 입력 모두 **PlayerController 틱**에서 처리된다.
 
-| 경로 | 처리 시점 | 담당 |
+| 경로 | 처리 위치 | 담당 |
 |---|---|---|
-| Native (`Input_Move` 등) | Slate 틱 — PreProcessor | Enhanced Input |
-| GAS Ability 활성화 | PlayerController 틱 — PostProcessInput | ProcessAbilityInput |
+| Native (`Input_Move` 등) | `EvaluateInputDelegates` — UEnhancedPlayerInput | Enhanced Input |
+| GAS Ability 활성화 | `PostProcessInput` | ProcessAbilityInput |
 
 ---
 
@@ -121,4 +120,4 @@ void APlayerController::BuildInputStack(TArray<UInputComponent*>& InputStack)
 | 5 | `PushInputComponent()`로 수동 추가된 컴포넌트 (최우선) |
 
 Enhanced Input에서 `UEnhancedInputComponent`는 Pawn에 붙어 스택 하단에 위치한다.  
-단, `EvaluateInputDelegates`에서 Enhanced Input 콜백을 실행하는 것은 아니다 — 콜백은 이미 PreProcessor 단계에서 끝났다.
+`UEnhancedPlayerInput::EvaluateInputDelegates()`가 스택을 순회하며 `UEnhancedInputComponent`를 찾아 콜백을 발화한다.

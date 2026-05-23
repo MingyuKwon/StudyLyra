@@ -210,7 +210,7 @@ FReply SMyWidget::OnKeyDown(const FGeometry&, const FKeyEvent& KeyEvent)
 | 상황 | 작동하는 레이어 |
 |------|----------------|
 | 일반 게임 플레이 | Bubble → SViewport → UGameViewportClient |
-| Enhanced Input 처리 | PreProcessor (포커스 무관) → `../02_preprocessor.md` |
+| Enhanced Input 처리 | Bubble → SViewport → UGameViewportClient → UEnhancedPlayerInput 적재 → PlayerController 틱에서 콜백 |
 | 인벤토리 UI 열림 | 포커스가 UI 위젯으로 이동 → SViewport 키보드 차단 |
 | 컷신 중 입력 차단 | PreProcessor 등록, 특정 키만 허용 |
 | 일시 정지 메뉴 ESC | UI에서 `Handled()` 반환 → 게임으로 전파 안 됨 |

@@ -122,5 +122,7 @@ EvaluateInputDelegates(InputComponentStack, KeysWithEvents)
             Delegate.Execute(Value)         ← BindAxis 콜백 실행
 ```
 
-Enhanced Input을 사용하면 이 단계는 사실상 빈 껍데기다.  
-Enhanced Input 콜백은 이미 PreProcessor 단계(Slate 틱)에서 실행됐고, `UEnhancedInputComponent`는 스택에 있지만 이 단계에서 추가 콜백을 발화하지 않는다.
+Enhanced Input을 사용할 때 이 단계(`UPlayerInput::EvaluateInputDelegates`)의 **레거시 경로**는 빈 껍데기다.  
+`UEnhancedPlayerInput`은 `EvaluateInputDelegates`를 오버라이드해서 Enhanced 콜백을 별도로 발화한다.  
+즉 `EvaluateInputDelegates` 자체는 빈 껍데기가 아니라, 레거시 부분(BindAction 경로)만 빈 껍데기다.  
+→ 상세는 [../05_legacy_vs_enhanced.md](../05_legacy_vs_enhanced.md)

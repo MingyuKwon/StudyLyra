@@ -10,22 +10,25 @@
 [키 입력 / 패드 폴링]
     ↓
 FSlateApplication::Tick()
-    InputPreProcessors — UEnhancedInputLocalPlayerSubsystem
-        IMC로 키 → InputAction 변환
-        UEnhancedInputComponent 콜백 실행
-            → Input_Move(), Input_LookMouse() 등  ← Native 입력 처리 완료
-            → AbilityInputTagPressed()             ← Ability 입력 큐에 적재
+    위젯 라우팅 (키 이벤트 발생 시)
+        SViewport → UGameViewportClient
+            → UEnhancedPlayerInput::InputKey()   ← KeyStateMap 갱신
     ↓
 APlayerController::PlayerTick()
     ProcessInputStack()
+        EvaluateKeyMapState()            ← bDown 갱신
+        EvaluateInputDelegates()  ★
+            → Input_Move(), Input_LookMouse() 등  ← Native 입력 처리 완료
+            → AbilityInputTagPressed()             ← Ability 입력 큐에 적재
         PostProcessInput()  ★
             LyraASC->ProcessAbilityInput()
                 InputPressedSpecHandles → TryActivateAbility()
                 InputHeldSpecHandles → WhileInputActive GA 매 틱 실행
 ```
 
-**Native 입력(이동/시점)**: Slate 틱 — PreProcessor 단계에서 처리 완료  
-**GAS Ability 입력**: PlayerController 틱 — PostProcessInput에서 처리
+**Native 입력(이동/시점)**: PlayerController 틱 — `EvaluateInputDelegates`에서 처리  
+**GAS Ability 입력**: PlayerController 틱 — `PostProcessInput`에서 처리  
+두 경로 모두 같은 PlayerController 틱 안에서, `EvaluateInputDelegates` → `PostProcessInput` 순으로 실행된다.
 
 ---
 
