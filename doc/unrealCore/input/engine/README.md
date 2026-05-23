@@ -122,47 +122,63 @@ LocalPlayer 입력과는 무관하다.
 
 ## 전체 큰그림 — 레거시와 Enhanced 비교
 
+### 레거시 입력
+
 ```
-─────────────────────────────────────────────────────────────────
-                    레거시 입력                Enhanced Input
-─────────────────────────────────────────────────────────────────
-[OS 이벤트]
+[키/패드 이벤트]
     ↓
-FSlateApplication
-  InputPreProcessors       (없음)          FEnhancedInputWorldProcessor
-                                           → WorldSubsystem 전달 (return false)
-  위젯 라우팅
-    SViewport → UGameViewportClient → PlayerController::InputKey()
-         ↓
-  UPlayerInput::InputKey()          UEnhancedPlayerInput::InputKey()
-    (동일 구조 — KeyStateMap 갱신)
+FSlateApplication::ProcessKeyDownEvent()
+    InputPreProcessors  (없음)
+    위젯 라우팅 → SViewport → UGameViewportClient
+        ↓
+UPlayerInput::InputKey()             ← KeyStateMap 갱신
 
-─────────────────────────────────────────────────────────────────
-[PlayerController Tick]
-  EvaluateKeyMapState()              EvaluateKeyMapState()
-    Accumulator flush, bDown 갱신      + Enhanced 키 상태 추적
-
-  EvaluateInputDelegates()           EvaluateInputDelegates() ★
-    BindAction/BindAxis 콜백 실행      PrepareInputDelegatesForEvaluation()
-    (코드 하드코딩 → 직접 실행)          → IMC로 ActionMappings 빌드
-                                      → Modifier / Trigger 평가
-                                     EvaluateInputComponentDelegates()
-                                      → Input_Move() 등 콜백 실행
-                                      → AbilityInputTagPressed()
-
-  PostProcessInput()                 PostProcessInput() ★ (Lyra 오버라이드)
-    (기본: 빈 함수)                     → ProcessAbilityInput()
-                                         → TryActivateAbility()
-
-  FinishProcessingPlayerInput()      FinishProcessingPlayerInput()
-    bDownPrevious = bDown              (동일)
-─────────────────────────────────────────────────────────────────
+APlayerController::PlayerTick()
+    EvaluateKeyMapState()            ← Accumulator flush, bDown 갱신
+    EvaluateInputDelegates()         ← BindAction/BindAxis 콜백 (코드 하드코딩)
+    PostProcessInput()               ← 빈 함수
+    FinishProcessingPlayerInput()    ← bDownPrevious = bDown
 ```
 
-핵심 차이는 `EvaluateInputDelegates` 하나다.  
-레거시는 코드에 직접 등록한 키-함수 쌍을 실행하고,  
-Enhanced는 IMC → ActionMappings → Modifier/Trigger → InputAction → 콜백 체인을 실행한다.  
-나머지 파이프라인은 동일하다.
+### Enhanced Input
+
+```
+[키/패드 이벤트]
+    ↓
+FSlateApplication::ProcessKeyDownEvent()
+    InputPreProcessors
+        FEnhancedInputWorldProcessor::HandleKeyDownEvent()
+            → UEnhancedInputWorldSubsystem 전달  ← WorldSubsystem 전용 경로
+            return false                          ← 위젯 라우팅 계속 진행
+    위젯 라우팅 → SViewport → UGameViewportClient
+        ↓
+UEnhancedPlayerInput::InputKey()     ← KeyStateMap 갱신 (레거시와 동일)
+
+APlayerController::PlayerTick()
+    EvaluateKeyMapState()            ← 동일 + Enhanced 키 상태 추적
+    EvaluateInputDelegates()  ★      ← UEnhancedPlayerInput 오버라이드
+        PrepareInputDelegatesForEvaluation()
+            → IMC → ActionMappings 빌드
+            → Modifier / Trigger 평가
+        EvaluateInputComponentDelegates()
+            → Input_Move() 등 콜백 실행
+            → AbilityInputTagPressed()   ← handles 적재
+    PostProcessInput()  ★            ← Lyra 오버라이드
+        ProcessAbilityInput()
+            → TryActivateAbility()
+    FinishProcessingPlayerInput()    ← 동일
+```
+
+### 핵심 차이
+
+| 단계 | 레거시 | Enhanced Input |
+|------|--------|----------------|
+| PlayerInput 클래스 | `UPlayerInput` | `UEnhancedPlayerInput` |
+| PreProcessor 역할 | 없음 | `FEnhancedInputWorldProcessor` — WorldSubsystem 전달만 (LocalPlayer와 무관) |
+| 키 → 함수 연결 | 코드 하드코딩 (`BindAction("Jump", ...)`) | IMC 에셋 (런타임 교체 가능) |
+| `EvaluateInputDelegates` | BindAction/BindAxis 콜백 직접 실행 | IMC → ActionMappings → Modifier/Trigger → 콜백 체인 |
+| `PostProcessInput` | 빈 함수 | `ProcessAbilityInput()` → `TryActivateAbility()` |
+| GAS 연결 | 없음 (수동 구현 필요) | `PostProcessInput` → `ProcessAbilityInput` |
 
 ---
 
