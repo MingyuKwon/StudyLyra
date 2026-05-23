@@ -18,8 +18,8 @@ UGameViewportClient::InputKey()          ← GameViewportClient.cpp:696
     │
     ├─ TryToggleFullscreenOnInputKey()   ← Alt+Enter 등 처리, true면 이후 없음
     ├─ RemapControllerInput()            ← 컨트롤러 키 리매핑
-    ├─ IgnoreInput() 확인                ← true면 콘솔에만 전달하고 종료
-    ├─ ViewportConsole->InputKey()       ← 콘솔 입력 우선 처리
+    ├─ IgnoreInput() 확인                ← true면 개발자 콘솔에만 전달하고 종료
+    ├─ ViewportConsole->InputKey()       ← 개발자 콘솔 우선 처리 (` 키로 여는 텍스트 입력창)
     └─ GEngine->GetLocalPlayerFromInputDevice()  ← InputDevice → LocalPlayer 매핑
             └─ PlayerController->InputKey()      ← PlayerController.cpp:2407
                     └─ PlayerInput->InputKey()   ← PlayerInput.cpp:278
@@ -42,14 +42,14 @@ bool UGameViewportClient::InputKey(const FInputKeyEventArgs& InEventArgs)
     RemapControllerInput(EventArgs);
 
     // 3. IgnoreInput 플래그 — true면 게임 PC로 전달 안 함
-    //    ViewportConsole에는 전달 (콘솔은 항상 작동)
+    //    개발자 콘솔(UConsole)에는 전달 (개발자 콘솔은 항상 작동)
     if (IgnoreInput())
         return ViewportConsole ? ViewportConsole->InputKey(...) : false;
 
-    // 4. 콘솔 우선 처리 (` 키 등)
+    // 4. 개발자 콘솔 우선 처리 (` 키로 여는 텍스트 입력창 — showdebug 등)
     bool bResult = ViewportConsole ? ViewportConsole->InputKey(...) : false;
 
-    // 5. 콘솔이 소비 안 했으면 InputDevice → LocalPlayer → PlayerController로 전달
+    // 5. 개발자 콘솔이 소비 안 했으면 InputDevice → LocalPlayer → PlayerController로 전달
     if (!bResult)
     {
         ULocalPlayer* TargetPlayer = GEngine->GetLocalPlayerFromInputDevice(this, EventArgs.InputDevice);
@@ -60,7 +60,7 @@ bool UGameViewportClient::InputKey(const FInputKeyEventArgs& InEventArgs)
 }
 ```
 
-**콘솔 우선**: `ViewportConsole->InputKey()`가 `true`를 반환하면 PlayerController에 도달하지 않는다.  
+**개발자 콘솔 우선**: `ViewportConsole->InputKey()`가 `true`를 반환하면 PlayerController에 도달하지 않는다. `ViewportConsole`은 `UConsole` 타입으로, 게임 콘솔(PS5/Xbox)과 무관하다.  
 **LocalPlayer 매핑**: `InputDevice`(패드 인덱스 등)를 기준으로 어느 LocalPlayer에게 보낼지 결정한다. 스플릿스크린에서 패드1/패드2가 각자의 PlayerController로 분기되는 지점이다.
 
 ---
@@ -127,7 +127,7 @@ bool UPlayerInput::InputKey(const FInputKeyEventArgs& Params)
 ## IgnoreInput 플래그
 
 `UGameViewportClient::SetIgnoreInput(true)`로 세팅하면 `IgnoreInput()`이 `true`를 반환한다.  
-콘솔 입력은 여전히 통과하지만 게임 PlayerController로의 전달이 차단된다.  
+개발자 콘솔 입력은 여전히 통과하지만 게임 PlayerController로의 전달이 차단된다.  
 로딩 화면, 컷신 등에서 게임 입력을 막는 방법 중 하나다.
 
 InputPreProcessor를 쓴 차단 방식과의 차이:
@@ -135,5 +135,5 @@ InputPreProcessor를 쓴 차단 방식과의 차이:
 | | IgnoreInput | InputPreProcessor (true 반환) |
 |---|---|---|
 | **차단 위치** | UGameViewportClient | FSlateApplication |
-| **콘솔 통과** | 통과함 | 막힘 |
+| **개발자 콘솔 통과** | 통과함 | 막힘 |
 | **UI 위젯** | Slate 라우팅은 이미 끝난 뒤 — UI는 정상 작동 | Tunnel/Bubble 전에 차단 — UI도 막힘 |
