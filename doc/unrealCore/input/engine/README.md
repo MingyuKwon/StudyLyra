@@ -52,9 +52,10 @@ UPlayerInput            EventAccumulator에 적재 (처리는 다음 틱)
 |------|------|
 | [01. InputPreProcessor](01_input_preprocessor.md) | 위젯 라우팅 이전 단계 — IInputProcessor 인터페이스, Enhanced Input이 여기 속하는 이유 |
 | [02. FSlateApplication 위젯 라우팅](02_slate_routing.md) | FWidgetPath, Tunnel/Bubble 두 단계(설계 이유 포함), SViewport→FSceneViewport 브릿지, 포커스/FReply 가로채기 |
-| [03. 틱 처리 파이프라인](03_tick_pipeline.md) | PlayerController 틱 → ProcessInputStack, Accumulator 패턴, bDown 홀드 유지 원리, BuildInputStack 우선순위 |
-| [04. Enhanced Input](04_enhanced_input.md) | Subsystem vs Component 역할 분리, BindAction 오버로드 3종, FInputActionValue vs FInputActionInstance |
-| [05. 게임패드 입력](05_gamepad.md) | 아날로그 vs 디지털, 데드존(InputModifier), 진동/햅틱, DualSense 어댑티브 트리거 |
+| [03. ViewportClient → PlayerInput](03_viewport_to_playerinput.md) | UGameViewportClient 처리 순서(콘솔 우선/LocalPlayer 매핑/IgnoreInput), APlayerController 필터링, UPlayerInput::EventAccumulator 적재 |
+| [04. 틱 처리 파이프라인](04_tick_pipeline.md) | PlayerController 틱 → ProcessInputStack, Accumulator 패턴, bDown 홀드 유지 원리, BuildInputStack 우선순위 |
+| [05. Enhanced Input](05_enhanced_input.md) | Subsystem vs Component 역할 분리, BindAction 오버로드 3종, FInputActionValue vs FInputActionInstance |
+| [06. 게임패드 입력](06_gamepad.md) | 아날로그 vs 디지털, 데드존(InputModifier), 진동/햅틱, DualSense 어댑티브 트리거 |
 
 ---
 
@@ -64,7 +65,7 @@ UPlayerInput            EventAccumulator에 적재 (처리는 다음 틱)
 GAS와 입력이 실제로 연결되는 지점은 틱 처리 파이프라인 끝이다.
 
 ```
-03_tick_pipeline.md
+04_tick_pipeline.md
     PostProcessInput()
         ↓
     ProcessAbilityInput()          ← Lyra 구현
@@ -73,4 +74,4 @@ GAS와 입력이 실제로 연결되는 지점은 틱 처리 파이프라인 끝
         AbilityInputTagPressed → TryActivateAbility
 ```
 
-GAS 입력 연동을 파악하려면 **03 → lyra/03** 순서로 읽는 것이 가장 직접적이다.
+GAS 입력 연동을 파악하려면 **04 → lyra/03** 순서로 읽는 것이 가장 직접적이다.
