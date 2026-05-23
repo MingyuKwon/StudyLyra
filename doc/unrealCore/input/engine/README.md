@@ -37,6 +37,7 @@ APlayerController::PlayerTick()
 | [02. InputPreProcessor](02_preprocessor.md) | Enhanced Input이 IInputProcessor를 구현하는 이유, 커스텀 PreProcessor 패턴 |
 | [03. 틱 처리 · GAS 연결](03_tick_and_gas.md) | PostProcessInput → ProcessAbilityInput, bDown 홀드 유지, BuildInputStack |
 | [04. 게임패드](04_gamepad.md) | 디지털/아날로그 분기, FSlateApplication 진입 경로, 데드존, 진동 |
+| [05. 레거시 vs Enhanced Input](05_legacy_vs_enhanced.md) | 두 구조 비교, UPlayerInput이 여전히 살아있는 이유, 공존 방식 |
 
 ---
 
