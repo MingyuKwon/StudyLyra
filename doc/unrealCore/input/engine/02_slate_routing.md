@@ -13,6 +13,40 @@
 
 ---
 
+## InputPreProcessor vs Tunnel/Bubble — 두 레이어의 차이
+
+`ProcessKeyDownEvent` 안에는 성격이 다른 두 레이어가 존재한다.
+
+| | 질문 | 대상 |
+|---|---|---|
+| **InputPreProcessor** | "이 입력이 위젯 시스템에 들어가야 하는가?" | 애플리케이션 레벨 |
+| **Tunnel/Bubble** | "위젯 계층 중 누가 이 입력을 처리하는가?" | 위젯 레벨 |
+
+```
+ProcessKeyDownEvent()
+    ├─ ① InputPreProcessors   ← 위젯 시스템 진입 여부를 결정하는 게이트
+    │        true  반환 → 위젯 라우팅 전체 생략
+    │        false 반환 → 아래로 계속
+    │
+    └─ ② Tunnel/Bubble 라우팅  ← 어느 위젯이 처리할지 결정
+```
+
+### 왜 Enhanced Input이 PreProcessor인가
+
+`UEnhancedInputLocalPlayerSubsystem`은 UI 위젯이 아니다. 게임 입력을 변환하는 레이어다.  
+PreProcessor로 등록하는 이유는 두 가지다.
+
+**포커스와 무관하게 항상 실행되어야 한다.**  
+Tunnel/Bubble은 포커스 경로 위젯에만 전달된다. UI가 열려서 포커스가 `SViewport`를 벗어나도, Enhanced Input은 모든 키를 계속 받아야 한다.
+
+**결과물이 위젯이 아닌 게임 코드로 간다.**  
+W키 → `InputAction "Move"` 변환 → `UEnhancedInputComponent` 콜백 호출. Slate 위젯과 무관한 경로다.
+
+**`false`를 반환해 위젯 라우팅도 계속 진행한다.**  
+Enhanced Input은 키를 처리한 뒤 `false`를 반환한다. 덕분에 같은 키가 Enhanced Input 변환과 Bubble 라우팅을 동시에 거친다.
+
+---
+
 ## ProcessKeyDownEvent 내부 흐름
 
 ```cpp
