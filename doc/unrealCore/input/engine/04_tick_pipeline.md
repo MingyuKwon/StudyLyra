@@ -22,9 +22,10 @@ APlayerController::TickActor()          ← 엔진이 Actor Tick으로 호출
     ▼
 APlayerController::PlayerTick()         ← PlayerController.cpp:2309
     │
-    ├─ TickPlayerInput(DeltaTime, bGamePaused)    ← :2326
+    ├─ TickPlayerInput(DeltaTime, bGamePaused)    ← :5320
     │       │
     │       ├─ PlayerInput->Tick()               ← 제스처 인식 등
+    │       ├─ [마우스 오버 이벤트 처리]
     │       ├─ ProcessPlayerInput()              ← 핵심 처리
     │       └─ ProcessForceFeedbackAndHaptics()
     │
@@ -37,11 +38,68 @@ ProcessPlayerInput()                         ← PlayerController.cpp:2768
     ├─ BuildInputStack(InputStack)           ← InputComponent 목록 구성
     └─ PlayerInput->ProcessInputStack(...)   ← PlayerInput.cpp:1239
             │
-            ├─ PreProcessInput()             ← virtual 훅 (처리 전)
-            ├─ EvaluateKeyMapState()         ← Accumulator → EventCounts 복사
-            ├─ EvaluateInputDelegates()      ← 바인딩된 액션/축 델리게이트 실행
-            ├─ PostProcessInput()            ← virtual 훅 (처리 후) ← Lyra가 여기를 오버라이드
-            └─ FinishProcessingPlayerInput()
+            ├─ PlayerController->PreProcessInput()   ← virtual 훅 (처리 전)
+            ├─ EvaluateKeyMapState()                 ← Accumulator → EventCounts flush
+            ├─ EvaluateInputDelegates()              ← 바인딩된 액션/축 델리게이트 실행
+            ├─ PlayerController->PostProcessInput()  ← virtual 훅 ★ Lyra 오버라이드
+            └─ FinishProcessingPlayerInput()         ← bDownPrevious 갱신
+```
+
+---
+
+## 실제 코드 — TickPlayerInput
+
+```cpp
+// PlayerController.cpp:5320
+void APlayerController::TickPlayerInput(const float DeltaSeconds, const bool bGamePaused)
+{
+    check(PlayerInput);
+    PlayerInput->Tick(DeltaSeconds);   // 제스처 인식, 스무딩 등
+
+    if (ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
+    {
+        // 마우스 오버 이벤트 — 커서 아래 컴포넌트 추적
+        if (bEnableMouseOverEvents)
+        {
+            // ... GetHitResultAtScreenPosition → DispatchMouseOverEvents
+        }
+    }
+
+    ProcessPlayerInput(DeltaSeconds, bGamePaused);
+    ProcessForceFeedbackAndHaptics(DeltaSeconds, bGamePaused);
+}
+```
+
+`PlayerInput`이 없으면 `check`에서 터진다. 로컬 `PlayerController`만 `PlayerInput`을 가지므로, 서버 전용 PC에서는 이 경로 자체가 호출되지 않는다.
+
+---
+
+## 실제 코드 — ProcessPlayerInput / ProcessInputStack
+
+```cpp
+// PlayerController.cpp:2768
+void APlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
+{
+    static TArray<UInputComponent*> InputStack;
+    check(IsInGameThread() && !InputStack.Num());  // 재진입 방지
+
+    BuildInputStack(InputStack);                              // 우선순위 스택 구성
+    PlayerInput->ProcessInputStack(InputStack, DeltaTime, bGamePaused);
+    InputStack.Reset();
+}
+
+// PlayerInput.cpp:1239
+void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputComponentStack,
+                                     const float DeltaTime, const bool bGamePaused)
+{
+    APlayerController* PC = GetOuterAPlayerController();
+
+    PC->PreProcessInput(DeltaTime, bGamePaused);          // virtual 훅 (기본 구현 비어있음)
+    EvaluateKeyMapState(DeltaTime, bGamePaused, KeysWithEvents);   // Accumulator flush
+    EvaluateInputDelegates(InputComponentStack, DeltaTime, bGamePaused, KeysWithEvents);
+    PC->PostProcessInput(DeltaTime, bGamePaused);          // virtual 훅 ★
+    FinishProcessingPlayerInput();                          // bDownPrevious 갱신
+}
 ```
 
 ---
@@ -69,39 +127,85 @@ bool UPlayerInput::InputKey(const FInputKeyEventArgs& Params)
 ### 2단계: 일괄 처리 (매 틱 — EvaluateKeyMapState)
 
 ```cpp
-// PlayerInput.cpp:1281 — 매 틱 호출
-for (TMap<FKey,FKeyState>::TIterator It(KeyStateMap); It; ++It)
+// PlayerInput.cpp:1273
+void UPlayerInput::EvaluateKeyMapState(const float DeltaTime, const bool bGamePaused,
+                                        TArray<TPair<FKey, FKeyState*>>& KeysWithEvents)
 {
-    // Accumulator → EventCounts 로 이동 (flush)
-    Exchange(KeyState->EventCounts[EventIndex], KeyState->EventAccumulator[EventIndex]);
+    for (TMap<FKey,FKeyState>::TIterator It(KeyStateMap); It; ++It)
+    {
+        FKeyState* const KeyState = &It.Value();
+        const FKey& Key = It.Key();
 
-    // Accumulator 초기화
-    KeyState->RawValueAccumulator = FVector(0.f, 0.f, 0.f);
+        // Accumulator → EventCounts 로 swap (flush)
+        for (uint8 EventIndex = 0; EventIndex < IE_MAX; ++EventIndex)
+        {
+            KeyState->EventCounts[EventIndex].Reset();
+            Exchange(KeyState->EventCounts[EventIndex], KeyState->EventAccumulator[EventIndex]);
+
+            if (KeyState->EventCounts[EventIndex].Num() > 0)
+                KeysWithEvents.Emplace(Key, KeyState);  // 이번 틱에 이벤트 있는 키만 따로 모음
+        }
+
+        // RawValue 갱신 (아날로그 값)
+        KeyState->RawValue = KeyState->RawValueAccumulator;
+
+        // bDown 상태 갱신
+        ProcessNonAxesKeys(Key, KeyState);
+
+        // Accumulator 초기화
+        KeyState->RawValueAccumulator = FVector(0.f, 0.f, 0.f);
+        KeyState->SampleCountAccumulator = 0;
+    }
 }
 ```
 
-- 매 틱, 누적된 `EventAccumulator`를 `EventCounts`로 **한 번에 flush**한다.
-- 이 배열이 비어 있어도(이번 틱에 입력 없음) 함수는 돈다.
+- `KeyStateMap` 전체를 순회 — 이번 틱 이벤트가 없어도 모든 키를 처리한다.
+- `Exchange()`로 Accumulator와 EventCounts를 **swap**한다. Accumulator는 비워지고 EventCounts에 이벤트가 들어온다.
+- 이벤트가 있는 키만 `KeysWithEvents`에 담아 `EvaluateInputDelegates`에 넘긴다.
 
 ---
 
-## 키 홀드 상태가 유지되는 원리
+## 키 홀드 상태가 유지되는 원리 — ProcessNonAxesKeys / FinishProcessingPlayerInput
 
 ```cpp
-// PlayerInput.cpp:1220 (ProcessNonAxesKeys 내부)
-if (KeyState->EventCounts[IE_Pressed].Num() > 0)
+// PlayerInput.cpp:1210
+void UPlayerInput::ProcessNonAxesKeys(FKey InKey, FKeyState* KeyState)
 {
-    KeyState->bDown = true;
+    int32 const PressDelta = KeyState->EventCounts[IE_Pressed].Num()
+                           - KeyState->EventCounts[IE_Released].Num();
+
+    if (PressDelta < 0)
+        KeyState->bDown = false;        // Released가 더 많음 → 확실히 뗐다
+    else if (PressDelta > 0)
+        KeyState->bDown = true;         // Pressed가 더 많음 → 확실히 눌렀다
+    else
+        KeyState->bDown = KeyState->bDownPrevious;  // 이벤트 없음 → 이전 상태 유지
 }
-else
+
+// PlayerInput.cpp:1747
+void UPlayerInput::FinishProcessingPlayerInput()
 {
-    KeyState->bDown = KeyState->bDownPrevious;  // 이전 프레임 상태 유지
+    for (TMap<FKey,FKeyState>::TIterator It(KeyStateMap); It; ++It)
+    {
+        FKeyState& KeyState = It.Value();
+        KeyState.bDownPrevious = KeyState.bDown;  // 다음 틱을 위해 현재 상태를 저장
+        KeyState.bConsumed = false;
+    }
 }
 ```
 
-- 이번 틱에 새 이벤트가 없으면 `bDown = bDownPrevious`로 **이전 상태를 그대로 복사**.
-- 키를 계속 누르고 있으면 매 틱 `bDown == true` 상태가 유지된다.
-- 이것이 `WhileInputActive` 정책이 동작하는 근거다.
+매 틱 `bDown`이 결정되는 흐름:
+
+```
+EvaluateKeyMapState()
+    → ProcessNonAxesKeys()
+        PressDelta == 0 (이번 틱 이벤트 없음)
+            → bDown = bDownPrevious   ← 이전 틱 상태 복사
+    → FinishProcessingPlayerInput()
+        → bDownPrevious = bDown       ← 다음 틱을 위해 보존
+```
+
+키를 계속 누르고 있으면 OS에서 Repeat 이벤트가 오기도 하지만, 그것과 무관하게 `bDownPrevious` 복사만으로 매 틱 `bDown == true`가 유지된다. 이것이 `WhileInputActive` 정책이 동작하는 근거다.
 
 ---
 
