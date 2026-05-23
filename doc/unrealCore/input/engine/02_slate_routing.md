@@ -80,10 +80,10 @@ FWidgetPath (포커스 경로 예시 — 게임 플레이 중)
 
 Slate의 키보드 이벤트는 항상 두 단계로 라우팅된다.
 
-| 단계 | 방향 | 호출 함수 | 목적 |
-|------|------|-----------|------|
-| Tunnel (`FTunnelPolicy`) | 루트 → 리프 (index 0 → N-1) | `OnPreviewKeyDown()` | 부모가 자식보다 먼저 개입할 기회 |
-| Bubble (`FBubblePolicy`) | 리프 → 루트 (index N-1 → 0) | `OnKeyDown()` | 실제 처리. `Handled()` 반환 시 전파 중단 |
+| 단계 | 방향 | 호출 함수 | 우선권 |
+|------|------|-----------|--------|
+| Tunnel (`FTunnelPolicy`) | 루트 → 리프 (index 0 → N-1) | `OnPreviewKeyDown()` | 부모 우선 |
+| Bubble (`FBubblePolicy`) | 리프 → 루트 (index N-1 → 0) | `OnKeyDown()` | 자식 우선 |
 
 ```cpp
 // FTunnelPolicy — WidgetIndex를 0부터 증가
@@ -97,6 +97,79 @@ void Next() { --WidgetIndex; }
 
 Tunnel 단계에서 `OnPreviewKeyDown()`이 `Handled()`를 반환하면 Bubble 단계 자체가 건너뛰어진다.  
 Bubble 단계에서 어떤 위젯이 `Handled()`를 반환하면 그 위젯에서 전파가 멈춘다.
+
+---
+
+### 왜 두 단계로 나뉘어져 있는가
+
+두 단계는 **"누가 먼저 처리할 권한을 갖는가"** 문제를 해결���기 위해 존재한다.
+
+이런 위젯 트리가 있다고 하자.
+
+```
+SWindow [0]
+  SDialog [1]
+    SButton [2]  ← 포커스
+```
+
+이 구조에서 상충되는 두 요구가 생긴다.
+
+- **부모가 먼저 처리해야 하는 경우**: `SDialog`가 Escape로 창을 닫아야 한다. `SButton`이 먼저 받으면 안 된다.
+- **자식이 먼저 처리해야 하는 경우**: `SButton`이 Enter로 클릭 동작을 수행한다. `SDialog`가 가로채면 안 된다.
+
+이 두 요구를 단일 방향으로는 동시에 만족시킬 수 없다. 그래서 단계를 분리한 것이다.
+
+---
+
+### 왜 방향이 반대인가
+
+**Tunnel (루트→리프) = 부모 우선권**
+
+부모가 자식보다 먼저 이벤트를 본다. 필요하면 `Handled()`로 자식에게 도달하기 전에 차단할 수 있다.
+
+```cpp
+// SDialog가 Escape를 Tunnel에서 가로채는 예시
+FReply SDialog::OnPreviewKeyDown(const FGeometry&, const FKeyEvent& KeyEvent)
+{
+    if (KeyEvent.GetKey() == EKeys::Escape)
+    {
+        CloseDialog();
+        return FReply::Handled();  // Bubble 단��� 자체가 실행되지 않음 — SButton은 보지 못함
+    }
+    return FReply::Unhandled();
+}
+```
+
+**Bubble (리프→루트) = 자식 우선권**
+
+포커스를 가진 가장 구체적인 위젯이 먼저 처리한다. 처리 못하면 부모로 올라간다.
+
+```cpp
+// SButton이 Enter를 Bubble에서 먼저 처리하는 예시
+FReply SButton::OnKeyDown(const FGeometry&, const FKeyEvent& KeyEvent)
+{
+    if (KeyEvent.GetKey() == EKeys::Enter)
+    {
+        OnClicked.ExecuteIfBound();
+        return FReply::Handled();  // SDialog, SWindow는 이 이벤트를 보지 못함
+    }
+    return FReply::Unhandled();   // 처리 못하면 SDialog로 올라감
+}
+```
+
+**방향이 반대인 이유는 두 단계가 서로 반대 우선권을 구현하기 때문이다.**  
+Tunnel이 루트→리프여야 부모가 먼저 개입할 수 있고, Bubble이 리프→루트여야 자식이 먼저 처리할 수 있다.
+
+---
+
+### 두 단계가 커버하는 시나리오
+
+| 시나리오 | 처리 단계 |
+|----------|----------|
+| 부모가 특정 키를 자식보다 먼저 가로채야 할 때 | Tunnel — `OnPreviewKeyDown`에서 `Handled()` |
+| 포커스 위젯이 이벤트를 직접 처리할 때 | Bubble — `OnKeyDown`에서 `Handled()` |
+| 자식이 처리 못한 이벤트를 부모가 받아야 할 때 | Bubble — 자식이 `Unhandled()` → 부모로 올라감 |
+| 아무도 처리 못한 이벤트 | `UnhandledKeyDownEventHandler` 폴백 |
 
 ---
 
