@@ -9,9 +9,6 @@
 
 **그렇다.** 입력 파이프라인은 하드웨어 이벤트와 무관하게 **매 틱 무조건 실행**된다.
 
-> **📌 내 노트**  
->
-
 ---
 
 ## 전체 호출 체인
@@ -46,9 +43,6 @@ ProcessPlayerInput()                         ← PlayerController.cpp:2768
             ├─ PostProcessInput()            ← virtual 훅 (처리 후) ← Lyra가 여기를 오버라이드
             └─ FinishProcessingPlayerInput()
 ```
-
-> **📌 내 노트**  
->
 
 ---
 
@@ -88,9 +82,6 @@ for (TMap<FKey,FKeyState>::TIterator It(KeyStateMap); It; ++It)
 - 매 틱, 누적된 `EventAccumulator`를 `EventCounts`로 **한 번에 flush**한다.
 - 이 배열이 비어 있어도(이번 틱에 입력 없음) 함수는 돈다.
 
-> **📌 내 노트**  
->
-
 ---
 
 ## 키 홀드 상태가 유지되는 원리
@@ -110,9 +101,6 @@ else
 - 이번 틱에 새 이벤트가 없으면 `bDown = bDownPrevious`로 **이전 상태를 그대로 복사**.
 - 키를 계속 누르고 있으면 매 틱 `bDown == true` 상태가 유지된다.
 - 이것이 `WhileInputActive` 정책이 동작하는 근거다.
-
-> **📌 내 노트**  
->
 
 ---
 
@@ -135,9 +123,6 @@ void APlayerController::BuildInputStack(TArray<UInputComponent*>& InputStack)
 
 `bConsumed` 플래그가 세워진 입력은 스택 아래쪽으로 전파되지 않는다.
 
-> **📌 내 노트**  
->
-
 ---
 
 ## PostProcessInput이 매 틱 불리는 이유 요약
@@ -157,9 +142,6 @@ ProcessInputStack() 내부 구조:
 - 축(Axis) 값 업데이트 (0으로 초기화 포함)
 - `WhileInputActive`처럼 상태 기반 처리를 위해 현재 상태를 매 틱 확인해야 함
 
-> **📌 내 노트**  
->
-
 ---
 
 ## GAS 연결 지점
@@ -177,10 +159,3 @@ void ALyraPlayerController::PostProcessInput(const float DeltaTime, const bool b
 ```
 
 `ProcessAbilityInput` 내부에서는 이번 틱에 쌓인 `InputPressedSpecHandles` / `InputReleasedSpecHandles`를 소화하고, `WhileInputActive` 정책의 GA는 `bDown` 상태를 보고 매 틱 활성화를 시도한다.
-
-> **📌 내 노트**  
->
-
----
-
-## 내 노트
