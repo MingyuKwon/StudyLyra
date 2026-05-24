@@ -32,161 +32,76 @@
 
 ---
 
-## 1단계 — 키 누름 → ASC에 등록
+## 핸들 등록 — AbilityInputTagPressed
+
+입력이 왔을 때 즉시 GA를 활성화하지 않고 Handle만 배열에 쌓는다. 실제 처리는 매 틱 `ProcessAbilityInput`에서 일괄 처리.
 
 ```cpp
-// HeroComponent.cpp:343
-void ULyraHeroComponent::Input_AbilityInputTagPressed(FGameplayTag InputTag)
-{
-    if (ULyraAbilitySystemComponent* LyraASC = ...)
-        LyraASC->AbilityInputTagPressed(InputTag);
-}
-
 // LyraAbilitySystemComponent.cpp:186
 void ULyraAbilitySystemComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 {
     for (const FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
     {
-        // DynamicSpecSourceTags에 InputTag가 있는 Spec을 찾음
         if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
         {
             InputPressedSpecHandles.AddUnique(AbilitySpec.Handle);
-            InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);   // 홀드 목록에도 추가
+            InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);
         }
     }
 }
 ```
 
-입력이 왔을 때 즉시 GA를 활성화하지 않고, **Handle만 배열에 쌓아둔다**. 실제 처리는 매 틱 `ProcessAbilityInput`에서 일괄 처리.
+---
+
+## ProcessAbilityInput (매 틱)
+
+`TAG_Gameplay_AbilityInputBlocked` 태그가 ASC에 붙어 있으면 3개 배열을 모두 초기화하고 즉시 리턴한다. 컷씬, UI 모달 등 입력을 막을 때 이 태그를 부여한다.
+
+3개 배열을 순서대로 처리한 뒤 Held/Press 목록을 합산해 `TryActivateAbility`를 한 번에 실행한다.  
+한 번에 실행하는 이유: Hold로 이미 활성화된 GA에 Press 이벤트가 중복 전달되는 것을 방지.
+
+| 배열 | 처리 | 추가 시점 | 제거 시점 |
+|------|------|-----------|-----------|
+| `InputHeldSpecHandles` | WhileInputActive 정책 GA 활성화 (이미 실행 중이면 스킵) | 키 누름 | 키 뗌 |
+| `InputPressedSpecHandles` | OnInputTriggered GA 활성화 / 이미 활성 → InputPressed 이벤트 | 키 누름 | 매 틱 끝 |
+| `InputReleasedSpecHandles` | 이미 활성 → InputReleased 이벤트 | 키 뗌 | 매 틱 끝 |
 
 ---
 
-## 2단계 — ProcessAbilityInput (매 틱)
+## 이미 실행 중인 GA에 입력이 오면
 
-```cpp
-// LyraAbilitySystemComponent.cpp:216
-void ULyraAbilitySystemComponent::ProcessAbilityInput(float DeltaTime, bool bGamePaused)
-{
-    // AbilityInputBlocked 태그가 있으면 모두 무시
-    if (HasMatchingGameplayTag(TAG_Gameplay_AbilityInputBlocked))
-    {
-        ClearAbilityInput();
-        return;
-    }
+`InputPressedSpecHandles` 처리 시 `AbilitySpec->IsActive() == true`이면 `TryActivateAbility` 대신 `AbilitySpecInputPressed()`를 호출한다.
+
+이 경로는 **GA 내부에서 WaitInputPress/Release Task를 대기시켜 두고 다음 입력 이벤트를 받는** 패턴에 쓰인다.
+
+### 연결 체인
+
+```
+AbilitySpecInputPressed(*AbilitySpec)
+    → Super::AbilitySpecInputPressed()        ← GA InputPressed() 가상함수
+    → InvokeReplicatedEvent(InputPressed, handle, predKey)
+        → GenericEvents[InputPressed].Delegate.Broadcast()
+            → WaitInputPress::OnPressCallback()
+                → OnPress.Broadcast(ElapsedTime)   ← GA 콜백 실행
+                → (IsPredictingClient) ServerSetReplicatedEvent()
+                → EndTask()
 ```
 
-### InputHeldSpecHandles — WhileInputActive 처리
+`bReplicateInputDirectly` 대신 `InvokeReplicatedEvent`를 쓰는 이유: WaitInputPress/Release Task는 ASC의 `GenericEvents` 슬롯을 통해야 네트워크 환경에서 올바르게 동작하기 때문.
+
+### WaitInputPress / WaitInputRelease 사용법
+
+GA 활성화 시점에 Task를 생성하고 `ReadyForActivation()`을 호출하면, Task가 `GenericEvents[InputPressed]` 슬롯에 자신의 콜백을 등록한다. 이후 버튼 입력이 오면 위 체인을 통해 콜백이 실행된다.
 
 ```cpp
-for (const FGameplayAbilitySpecHandle& SpecHandle : InputHeldSpecHandles)
-{
-    const ULyraGameplayAbility* LyraAbilityCDO = Cast<ULyraGameplayAbility>(AbilitySpec->Ability);
-    if (LyraAbilityCDO->GetActivationPolicy() == ELyraAbilityActivationPolicy::WhileInputActive)
-    {
-        if (!AbilitySpec->IsActive())   // 아직 실행 중이 아닐 때만
-            AbilitiesToActivate.Add(AbilitySpec->Handle);
-    }
-}
-```
-
-키를 누르고 있는 동안 매 틱 활성화를 시도한다. 이미 실행 중이면 재활성화하지 않는다.
-
-### InputPressedSpecHandles — OnInputTriggered 처리
-
-```cpp
-for (const FGameplayAbilitySpecHandle& SpecHandle : InputPressedSpecHandles)
-{
-    AbilitySpec->InputPressed = true;
-
-    if (AbilitySpec->IsActive())
-    {
-        // 이미 실행 중 → InputPressed 이벤트만 전달 (WaitInputPress Task 등에서 수신)
-        AbilitySpecInputPressed(*AbilitySpec);
-    }
-    else
-    {
-        if (LyraAbilityCDO->GetActivationPolicy() == ELyraAbilityActivationPolicy::OnInputTriggered)
-            AbilitiesToActivate.Add(AbilitySpec->Handle);
-    }
-}
-```
-
-이미 활성화된 GA에게는 `InputPressed` 이벤트를 보낸다 → `WaitInputPress` AbilityTask가 이를 수신.
-
-### 일괄 TryActivateAbility
-
-```cpp
-for (const FGameplayAbilitySpecHandle& Handle : AbilitiesToActivate)
-{
-    TryActivateAbility(Handle);
-}
-```
-
-Hold와 Press 목록을 합산해 **한 번에 활성화**. 이렇게 하는 이유: Hold로 이미 활성화된 GA에 Press 이벤트가 중복 전달되는 것을 방지.
-
-### InputReleasedSpecHandles — 뗌 처리
-
-```cpp
-for (const FGameplayAbilitySpecHandle& SpecHandle : InputReleasedSpecHandles)
-{
-    AbilitySpec->InputPressed = false;
-    if (AbilitySpec->IsActive())
-        AbilitySpecInputReleased(*AbilitySpec);  // WaitInputRelease Task 등에서 수신
-}
-
-// Pressed/Released만 초기화. Held는 키를 뗄 때까지 유지.
-InputPressedSpecHandles.Reset();
-InputReleasedSpecHandles.Reset();
-```
-
----
-
-## 3개 배열의 생명주기
-
-| 배열 | 추가 시점 | 제거 시점 |
-|------|-----------|-----------|
-| `InputPressedSpecHandles` | 키 누름 | 매 틱 ProcessAbilityInput 끝 |
-| `InputReleasedSpecHandles` | 키 뗌 | 매 틱 ProcessAbilityInput 끝 |
-| `InputHeldSpecHandles` | 키 누름 | 키 뗌 (`AbilityInputTagReleased`) |
-
----
-
-## AbilitySpecInputPressed / Released — 복제 처리
-
-```cpp
-// LyraAbilitySystemComponent.cpp:155
-void ULyraAbilitySystemComponent::AbilitySpecInputPressed(FGameplayAbilitySpec& Spec)
-{
-    Super::AbilitySpecInputPressed(Spec);
-    // bReplicateInputDirectly 미사용. 대신 ReplicatedEvent 사용.
-    if (Spec.IsActive())
-        InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed,
-            Spec.Handle, OriginalPredictionKey);
-}
-```
-
-`bReplicateInputDirectly`를 사용하지 않고 `InvokeReplicatedEvent`로 처리한다.  
-이 방식이어야 `WaitInputPress` / `WaitInputRelease` AbilityTask가 네트워크 환경에서 올바르게 동작한다.
-
----
-
-## WaitInputPress / WaitInputRelease AbilityTask
-
-### 무엇인가
-
-GA가 이미 활성화된 상태에서 내부에 생성하는 Task다.  
-"이 GA가 실행 중인 동안, 다음 버튼 누름(또는 뗌)을 기다린다"는 선언이다.
-
-```cpp
-// GA 내부 — 충전 스킬 예시
+// 충전 스킬 예시
 void UMyChargeAbility::ActivateAbility(...)
 {
     StartCharging();
 
-    // 버튼을 뗄 때까지 대기
     UAbilityTask_WaitInputRelease* Task = UAbilityTask_WaitInputRelease::WaitInputRelease(this);
     Task->OnRelease.AddDynamic(this, &ThisClass::OnReleased);
-    Task->ReadyForActivation();  // Task 시작
+    Task->ReadyForActivation();
 }
 
 void UMyChargeAbility::OnReleased(float HeldTime)
@@ -196,50 +111,5 @@ void UMyChargeAbility::OnReleased(float HeldTime)
 }
 ```
 
-### 어떻게 깨어나는가 — InvokeReplicatedEvent 연결
-
-`AbilitySpecInputPressed()` 가 호출되면 내부에서 `InvokeReplicatedEvent(InputPressed, ...)` 를 호출한다.  
-이 함수는 ASC의 `GenericEvents[InputPressed]` 슬롯에 바인딩된 Delegate를 Broadcast한다.
-
-WaitInputPress Task는 `Activate()` 시점에 바로 이 슬롯에 자신의 콜백을 등록해 둔다.
-
-```
-[ProcessAbilityInput]
-AbilitySpec->IsActive() == true
-    → AbilitySpecInputPressed(*AbilitySpec)
-        → Super::AbilitySpecInputPressed()        ← GA의 InputPressed() 가상함수 호출
-        → InvokeReplicatedEvent(InputPressed, handle, predKey)
-            → GenericEvents[InputPressed].Delegate.Broadcast()
-                → WaitInputPress::OnPressCallback()
-                    → OnPress.Broadcast(ElapsedTime)   ← GA 콜백 실행
-                    → (IsPredictingClient) ServerSetReplicatedEvent()
-                    → EndTask()
-```
-
-### 타이밍 레이스 처리
-
-Task가 생성되기 전에 이미 InvokeReplicatedEvent가 호출된 경우를 대비해,  
-Task `Activate()` 안에서 `CallReplicatedEventDelegateIfSet()`으로 사후 처리를 시도한다.
-
-```cpp
-// WaitInputPress::Activate()
-ASC->AbilityReplicatedEventDelegate(InputPressed, handle, predKey)
-    .AddUObject(this, &ThisClass::OnPressCallback);
-
-// 이미 발동됐을 경우 즉시 처리
-if (IsForRemoteClient())
-    ASC->CallReplicatedEventDelegateIfSet(InputPressed, handle, predKey);
-```
-
-### WaitInputRelease는 동일한 구조
-
-슬롯만 `EAbilityGenericReplicatedEvent::InputReleased`로 바뀐다.  
-`AbilitySpecInputReleased()` → `InvokeReplicatedEvent(InputReleased, ...)` 경로도 동일하다.
-
----
-
-## TAG_Gameplay_AbilityInputBlocked
-
-`ProcessAbilityInput` 진입 시 가장 먼저 확인하는 태그.  
-이 태그가 ASC에 붙어 있으면 **모든 입력을 무시**하고 3개 배열을 모두 초기화한다.  
-컷씬 재생, UI 모달 등 입력을 막아야 하는 상황에서 이 태그를 부여하는 방식으로 제어한다.
+Task 생성 전에 이미 이벤트가 발동된 경우, `Activate()` 내에서 `CallReplicatedEventDelegateIfSet()`으로 사후 처리한다.  
+WaitInputRelease는 슬롯만 `EAbilityGenericReplicatedEvent::InputReleased`로 바뀐다.
