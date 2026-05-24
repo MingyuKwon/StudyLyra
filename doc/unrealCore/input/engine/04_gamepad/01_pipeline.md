@@ -70,6 +70,23 @@ PlayStation 패드는 XInput이 아닌 별도 경로(HID 또는 플랫폼 SDK)�
 패드 버튼을 누른 시점이 아니라 **다음 틱에서야** 엔진이 인지한다.  
 `PlatformApplication->Tick()` 내부가 매 틱 `XInputGetState()`를 호출해 직전 프레임 상태와 비교하고, 변화가 있으면 합성 이벤트를 발생시킨다.
 
+### 플랫폼 무관 — PlatformApplication 추상화
+
+플랫폼(Xbox, PlayStation, Switch 등)에 상관없이 `FSlateApplication::Tick()` → `PlatformApplication->Tick()` 진입 경로는 동일하다.  
+다른 건 `PlatformApplication->Tick()` **내부**다.
+
+```
+FSlateApplication::Tick()
+    → PlatformApplication->Tick()
+        [Windows/Xbox]  XInputGetState() 폴링
+        [PlayStation]   Sony SDK 폴링
+        [Switch]        Nintendo SDK 폴링
+        → 변화 감지 시 OnControllerButtonPressed() / OnControllerAnalog() 호출
+    → 이후는 전부 동일 (ProcessKeyDownEvent 등)
+```
+
+`PlatformApplication`이 플랫폼별로 다른 구현체로 교체되는 구조라 Slate 위쪽 코드는 플랫폼을 신경 쓰지 않아도 된다.
+
 ### 디지털 버튼 → ProcessKeyDownEvent (키보드와 동일)
 
 ```cpp
