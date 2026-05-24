@@ -34,8 +34,21 @@ FKey Gamepad_LeftTrigger         // L2 디지털 (0 or 1) — 같은 하드웨�
 엔진이 폴링하지 않아도 OS가 먼저 알려준다.
 
 **패드(XInput)** — 엔진 폴링 기반  
+XInput은 Microsoft가 만든 **Windows 게임패드 입력 전용 API**다. Xbox 컨트롤러를 PC에서 지원하면서 만들어져 이름이 X(box)Input이다. 아날로그 스틱만을 가리키는 게 아니라 버튼·스틱·트리거 등 패드의 모든 입력을 읽는 API 전체를 뜻한다.
+
 XInput API 자체가 폴링 방식이다. `XInputGetState()`를 호출해야만 현재 상태를 알 수 있다.  
 OS가 버튼 이벤트를 생성하지 않는다.
+
+```cpp
+XINPUT_STATE state;
+XInputGetState(0, &state);          // 0번 컨트롤러 상태 전체를 한 번에 읽음
+state.Gamepad.wButtons              // 디지털 버튼 비트마스크 (A, B, LB, RB ...)
+state.Gamepad.sThumbLX              // 왼쪽 스틱 X축 (-32768 ~ 32767)
+state.Gamepad.bLeftTrigger          // L2 트리거 (0 ~ 255)
+```
+
+PlayStation 패드는 XInput이 아닌 별도 경로(HID 또는 플랫폼 SDK)로 읽는다.  
+언리얼이 내부적으로 추상화해서 두 패드 모두 같은 `FKey`로 통일해준다.
 
 ```
 [키보드 A 누름]
