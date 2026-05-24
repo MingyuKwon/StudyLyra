@@ -6,132 +6,42 @@
 
 ---
 
-## 레거시 입력 파이프라인
+## 도입 배경
 
-언리얼의 기본 입력 파이프라인이다. Enhanced Input 이전, 그리고 Enhanced Input 이후에도 이 골격은 그대로 유지된다.
-
-### 이벤트 수집 — OS → UPlayerInput
-
-```
-[OS 키 이벤트 (비동기)]
-    → FSlateApplication::ProcessKeyDownEvent()
-        → InputPreProcessors.HandleKeyDownEvent()    ← 등록된 PreProcessor들 실행
-        → Tunnel/Bubble 위젯 라우팅
-            → SViewport::OnKeyDown()
-            → FSceneViewport::OnKeyDown()
-            → UGameViewportClient::InputKey()
-            → APlayerController::InputKey()
-            → UPlayerInput::InputKey()
-                    KeyStateMap에 이벤트 적재        ← EventAccumulator에 추가만 함, 콜백 없음
-
-[패드 폴링 (동기, 매 Slate Tick)]
-    FSlateApplication::Tick()
-        → PlatformApplication->Tick()               ← XInput 폴링
-            → OnControllerButtonPressed()  → ProcessKeyDownEvent()   (위와 동일 경로)
-            → OnControllerAnalog()         → ProcessAnalogInputEvent()
-```
-
-### 콜백 처리 — PlayerController Tick
-
-```
-APlayerController::PlayerTick()
-    → TickPlayerInput()
-        → ProcessInputStack()
-            EvaluateKeyMapState()           ← EventAccumulator → EventCounts flush, bDown 갱신
-            EvaluateInputDelegates()        ← BindAction / BindAxis 콜백 실행
-            PostProcessInput()              ← 오버라이드 가능한 후처리 훅 (기본은 빈 함수)
-            FinishProcessingPlayerInput()   ← bDownPrevious = bDown
-```
-
-키 이벤트 수집과 콜백 실행이 분리된 구조다.  
-이벤트는 OS 타이밍에 맞춰 Accumulator에 쌓이고, 처리는 매 PlayerController 틱에서 일괄 실행된다.
-
-### 레거시의 한계
+언리얼 레거시 입력은 키와 함수를 코드에 직접 연결한다.
 
 ```cpp
-// 키 → 함수를 코드에 직접 작성
 PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
-PlayerInputComponent->BindAxis("MoveForward", this, &ACharacter::MoveForward);
 ```
 
-- **키-함수 하드코딩**: 런타임에 키 변경 불가, 리매핑 어려움
+- **키-함수 하드코딩**: 런타임 리매핑 불가
 - **컨텍스트 없음**: 메뉴 / 전투 / 탈것 상황별 입력 세트 전환이 어려움
-- **모디파이어 없음**: 데드존, 감도 배율, 축 변환을 직접 구현해야 함
-- **트리거 없음**: 홀드, 탭, 더블탭, 코드(Chord) 조합을 직접 구현해야 함
+- **모디파이어 없음**: 데드존, 감도, 축 변환을 직접 구현해야 함
+- **트리거 없음**: 홀드, 탭, 더블탭, Chord 조합을 직접 구현해야 함
 
----
-
-## Enhanced Input — 도입 이유와 방식
-
-### 왜 도입했는가
-
-현대 게임은 상황에 따라 다른 입력 세트가 필요하다.
-
-```
-전투 중:   W → 이동,  LMB → 공격
-차량 탑승: W → 가속,  LMB → 경적
-메뉴 열림: W → 메뉴 이동,  Esc → 닫기
-```
-
-레거시에서 이를 처리하려면 코드에 상태 분기를 직접 작성해야 했다.  
-Enhanced Input은 이 문제를 **IMC(Input Mapping Context)** 로 해결한다.
+Enhanced Input은 **IMC(Input Mapping Context)** 로 이 문제를 해결한다.
 
 | 개념 | 역할 |
 |------|------|
-| **InputAction** | 물리 키와 분리된 추상 액션 (예: `IA_Move`, `IA_Jump`) |
-| **IMC** | "어떤 키가 어떤 Action으로 바뀌는가"를 정의하는 에셋 |
+| **InputAction** | 물리 키와 분리된 추상 액션 (`IA_Move`, `IA_Jump`) |
+| **IMC** | "어떤 키가 어떤 Action인가"를 정의하는 에셋 |
 | **Modifier** | 값 변환 (데드존, 스케일, DeltaTime 곱, 축 교체 등) |
 | **Trigger** | 발화 조건 (Pressed / Released / Hold / Tap / Chord 등) |
 
-런타임에 IMC를 추가/제거해서 현재 상황에 맞는 입력 세트로 즉시 전환할 수 있다.
-
-### 어떻게 도입했는가 — 기존 파이프라인의 확장
-
-Enhanced Input은 레거시 파이프라인을 **교체하지 않았다.** 클래스 교체와 오버라이드로 기존 골격 위에 얹었다.
-
-#### 1. UEnhancedPlayerInput — UPlayerInput 교체
-
-`PlayerController->PlayerInput`의 클래스가 `UPlayerInput` → `UEnhancedPlayerInput`으로 바뀐다.
-
-| 오버라이드 함수 | 추가 동작 |
-|----------------|----------|
-| `EvaluateKeyMapState()` | Enhanced 키 상태 추가 추적 |
-| `PrepareInputDelegatesForEvaluation()` | IMC → ActionMappings 빌드, 모디파이어/트리거 평가 |
-| `EvaluateInputDelegates()` | Super(레거시) 호출 후 `UEnhancedInputComponent` 콜백 발화 |
-
-이벤트 수집(`InputKey()` → KeyStateMap), Accumulator flush(`EvaluateKeyMapState` 기반), `PostProcessInput` 훅 — 모두 기존 골격을 그대로 사용한다.
-
-#### 2. UEnhancedInputLocalPlayerSubsystem — IMC 관리
-
-LocalPlayer당 하나 생성되는 서브시스템.  
-`AddMappingContext()` / `RemoveMappingContext()`로 활성 IMC를 관리한다.  
-`UEnhancedPlayerInput`은 매 틱 이 IMC 목록을 읽어 ActionMappings를 구성한다.
-
-#### 3. UEnhancedInputComponent — InputAction → 콜백
-
-`UInputComponent`를 상속한다. Pawn에 붙어 `BuildInputStack`에 올라간다.  
-`BindAction(IA_Move, Triggered, this, &Input_Move)` 형태로 InputAction과 함수를 연결한다.
-
-#### 4. FEnhancedInputWorldProcessor — WorldSubsystem 경로
-
-PlayerController가 없는 월드 액터들을 위한 별도 경로.  
-`IInputProcessor`로 등록되어 키 이벤트를 `UEnhancedInputWorldSubsystem`에 전달한다.  
-LocalPlayer 입력과는 무관하다.
+런타임에 IMC를 교체하면 입력 세트가 즉시 바뀐다. Enhanced Input은 레거시를 교체하지 않고 **서브클래싱과 오버라이드**로 기존 골격 위에 얹었다.
 
 ---
 
-## 전체 큰그림 — 레거시와 Enhanced 비교
+## 파이프라인 비교
 
-### 레거시 입력
+### 레거시
 
 ```
 [키/패드 이벤트]
     ↓
-FSlateApplication::ProcessKeyDownEvent()
-    InputPreProcessors  (없음)
-    위젯 라우팅 → SViewport → UGameViewportClient
-        ↓
-UPlayerInput::InputKey()             ← KeyStateMap 갱신
+FSlateApplication → SViewport → UGameViewportClient
+    ↓
+UPlayerInput::InputKey()             ← KeyStateMap 갱신 (콜백 없음)
 
 APlayerController::PlayerTick()
     EvaluateKeyMapState()            ← Accumulator flush, bDown 갱신
@@ -164,58 +74,63 @@ APlayerController::PlayerTick()
         EvaluateInputComponentDelegates()
             → UEnhancedInputComponent 바인딩 실행  ← BindNativeAction 바인딩 여기서 소비
             → Input_Move() 등 콜백 실행
-            → AbilityInputTagPressed()   ← handles 적재
+            → AbilityInputTagPressed()            ← handles 적재
     PostProcessInput()  ★            ← Lyra 오버라이드
         ProcessAbilityInput()
             → TryActivateAbility()
     FinishProcessingPlayerInput()    ← 동일
 ```
 
-### 설정값 소비 시점 요약
+### 왜 EvaluateKeyMapState와 EvaluateInputDelegates를 분리했는가
+
+두 함수의 책임이 다르다. **"상태 확정"과 "반응"을 의도적으로 분리한 것이다.**
+
+**EvaluateKeyMapState** — 이번 틱의 상태를 확정(스냅샷)한다.
+
+```
+EventAccumulator (OS 이벤트가 비동기로 쌓이는 곳)
+    → EventCounts로 이동 후 Accumulator 초기화
+    → bDown, bDownPrevious 갱신
+```
+
+이 함수가 끝나면 "W가 눌렸는가 / 홀드 중인가 / 떼어졌는가"가 이번 틱 기준으로 확정된다.
+
+**EvaluateInputDelegates** — 확정된 상태에 반응한다.
+
+확정된 EventCounts / bDown을 읽어 등록된 콜백을 실행한다.
+
+분리하지 않으면 콜백 실행 도중 새 OS 이벤트가 들어와 상태가 바뀔 수 있다.
+
+```
+[OS 이벤트 — 비동기]          [게임 틱 — 동기]
+키 이벤트 → Accumulator       EvaluateKeyMapState()    → 스냅샷 확정
+                              EvaluateInputDelegates() → 콜백 실행
+키 이벤트 → Accumulator  ←── 이 시점에 새 이벤트가 들어와도 이번 틱에 영향 없음
+```
+
+`EvaluateKeyMapState`가 Accumulator를 비워 스냅샷을 만드는 순간, 이후 OS 이벤트는 다음 틱 Accumulator에만 쌓인다. Enhanced Input이 `EvaluateInputDelegates()` 안에 `PrepareInputDelegatesForEvaluation()`을 끼워 넣을 수 있는 것도 이 구조 덕분이다.
+
+### 설정값 소비 시점
 
 | 설정값 | 저장 위치 | 소비 단계 |
 |---|---|---|
 | `AddMappingContext` | Subsystem의 ActiveIMC 목록 | `PrepareInputDelegatesForEvaluation()` — 키 → Action 변환 |
 | `BindNativeAction` | Component의 델리게이트 맵 | `EvaluateInputComponentDelegates()` — Action → 콜백 실행 |
 
-Subsystem이 먼저 "이 키가 어떤 Action인가"를 결정하고, 그 결과를 Component가 받아 "이 Action이면 이 함수"를 실행한다. 같은 `EvaluateInputDelegates()` 호출 안에서 순서대로 실행된다.
+Subsystem이 먼저 "이 키가 어떤 Action인가"를 결정하고, 그 결과를 Component가 받아 "이 Action이면 이 함수"를 실행한다.
 
 ---
 
-### 핵심 차이
+## 핵심 차이
 
 | 단계 | 레거시 | Enhanced Input |
 |------|--------|----------------|
 | PlayerInput 클래스 | `UPlayerInput` | `UEnhancedPlayerInput` |
 | PreProcessor 역할 | 없음 | `FEnhancedInputWorldProcessor` — WorldSubsystem 전달만 (LocalPlayer와 무관) |
-| 키 → 함수 연결 | 코드 하드코딩 (`BindAction("Jump", ...)`) | IMC 에셋 (런타임 교체 가능) |
+| 키 → 함수 연결 | 코드 하드코딩 | IMC 에셋 (런타임 교체 가능) |
 | `EvaluateInputDelegates` | BindAction/BindAxis 콜백 직접 실행 | IMC → ActionMappings → Modifier/Trigger → 콜백 체인 |
 | `PostProcessInput` | 빈 함수 | `ProcessAbilityInput()` → `TryActivateAbility()` |
 | GAS 연결 | 없음 (수동 구현 필요) | `PostProcessInput` → `ProcessAbilityInput` |
-
----
-
-## 현재 흐름 (Enhanced Input 적용)
-
-```
-[키 입력 / 패드 폴링]
-    ↓
-FSlateApplication::Tick()
-    위젯 라우팅 (이벤트 발생 시)
-        SViewport → UGameViewportClient
-            → UEnhancedPlayerInput::InputKey()   ← KeyStateMap 갱신
-    ↓
-APlayerController::PlayerTick()
-    ProcessInputStack()
-        EvaluateKeyMapState()            ← bDown 갱신
-        EvaluateInputDelegates()  ★
-            → Input_Move(), Input_LookMouse() 등  ← Native 입력 처리 완료
-            → AbilityInputTagPressed()             ← Ability 입력 큐에 적재
-        PostProcessInput()  ★
-            LyraASC->ProcessAbilityInput()
-                InputPressedSpecHandles → TryActivateAbility()
-                InputHeldSpecHandles → WhileInputActive GA 매 틱 실행
-```
 
 ---
 
