@@ -29,97 +29,37 @@ FKey Gamepad_LeftTrigger         // L2 디지털 (0 or 1) — 같은 하드웨�
 
 키보드와 패드는 엔진에 입력이 전달되는 방식 자체가 다르다.
 
-**키보드** — OS 인터럽트 기반  
-버튼을 누르는 순간 OS가 `WM_KEYDOWN` 메시지를 생성해서 메시지 큐에 밀어넣는다.  
-엔진이 폴링하지 않아도 OS가 먼저 알려준다.
-
-**패드(XInput)** — 엔진 폴링 기반  
-XInput은 Microsoft가 만든 **Windows 게임패드 입력 전용 API**다. Xbox 컨트롤러를 PC에서 지원하면서 만들어져 이름이 X(box)Input이다. 아날로그 스틱만을 가리키는 게 아니라 버튼·스틱·트리거 등 패드의 모든 입력을 읽는 API 전체를 뜻한다.
-
-XInput API 자체가 폴링 방식이다. `XInputGetState()`를 호출해야만 현재 상태를 알 수 있다.  
-OS가 버튼 이벤트를 생성하지 않는다.
-
-```cpp
-XINPUT_STATE state;
-XInputGetState(0, &state);          // 0번 컨트롤러 상태 전체를 한 번에 읽음
-state.Gamepad.wButtons              // 디지털 버튼 비트마스크 (A, B, LB, RB ...)
-state.Gamepad.sThumbLX              // 왼쪽 스틱 X축 (-32768 ~ 32767)
-state.Gamepad.bLeftTrigger          // L2 트리거 (0 ~ 255)
+```
+[키보드]  누름 → OS WM_KEYDOWN → ProcessKeyDownEvent()        (Tick과 무관, 즉시)
+[패드]    누름 → (침묵) → 다음 Tick → PlatformApplication->Tick()
+                              → XInputGetState() → 변화 감지
+                              → OnControllerButtonPressed() → ProcessKeyDownEvent()
 ```
 
-PlayStation 패드는 XInput이 아닌 별도 경로(HID 또는 플랫폼 SDK)로 읽는다.  
-언리얼이 내부적으로 추상화해서 두 패드 모두 같은 `FKey`로 통일해준다.
+키보드는 OS가 이벤트를 밀어주고, 패드는 엔진이 매 틱 직접 당겨온다.  
+패드 버튼을 누른 시점이 아니라 **다음 틱에서야** 엔진이 인지한다.
+
+**XInput** — Microsoft의 Windows 게임패드 입력 API. `XInputGetState()` 한 번 호출로 버튼·스틱·트리거 전부를 반환한다. OS 이벤트가 없으니 매 틱 직접 호출해서 이전 값과 비교하는 방식이다.
+
+플랫폼별로 내부 구현만 다르고 이후 경로는 동일하다.
 
 ```
-[키보드 A 누름]
-    OS WM_KEYDOWN → 메시지 큐 → FWindowsApplication::ProcessMessage()
-    → FSlateApplication::OnKeyDown() → ProcessKeyDownEvent()
-    ← Tick과 무관하게 즉시 처리
-
-[패드 A 누름]
-    (아무것도 안 일어남)
-        ↓
-    다음 FSlateApplication::Tick()
-        PlatformApplication->Tick()
-            XInputGetState() 호출 → 이전 프레임 상태와 비교 → 변화 감지
-            OnControllerButtonPressed() 합성 이벤트 발생
-        → ProcessKeyDownEvent()
-    ← 다음 틱에서야 처리
+FSlateApplication::Tick() → PlatformApplication->Tick()
+    [Windows/Xbox]  XInputGetState() 폴링
+    [PlayStation]   Sony SDK 폴링
+    [Switch]        Nintendo SDK 폴링
+    → OnControllerButtonPressed() / OnControllerAnalog()  ← 여기서부터 동일
 ```
 
-패드 버튼을 누른 시점이 아니라 **다음 틱에서야** 엔진이 인지한다.  
-`PlatformApplication->Tick()` 내부가 매 틱 `XInputGetState()`를 호출해 직전 프레임 상태와 비교하고, 변화가 있으면 합성 이벤트를 발생시킨다.
+### 디지털 vs 아날로그 처리 경로
 
-### 플랫폼 무관 — PlatformApplication 추상화
-
-플랫폼(Xbox, PlayStation, Switch 등)에 상관없이 `FSlateApplication::Tick()` → `PlatformApplication->Tick()` 진입 경로는 동일하다.  
-다른 건 `PlatformApplication->Tick()` **내부**다.
-
-```
-FSlateApplication::Tick()
-    → PlatformApplication->Tick()
-        [Windows/Xbox]  XInputGetState() 폴링
-        [PlayStation]   Sony SDK 폴링
-        [Switch]        Nintendo SDK 폴링
-        → 변화 감지 시 OnControllerButtonPressed() / OnControllerAnalog() 호출
-    → 이후는 전부 동일 (ProcessKeyDownEvent 등)
-```
-
-`PlatformApplication`이 플랫폼별로 다른 구현체로 교체되는 구조라 Slate 위쪽 코드는 플랫폼을 신경 쓰지 않아도 된다.
-
-### 디지털 버튼 → ProcessKeyDownEvent (키보드와 동일)
-
-```cpp
-// SlateApplication.cpp:6560
-bool FSlateApplication::OnControllerButtonPressed(FGamepadKeyNames::Type KeyName, ...)
-{
-    FKey Key(KeyName);
-    FKeyEvent KeyEvent(Key, ...);
-    return ProcessKeyDownEvent(KeyEvent);  // 키보드와 완전히 동일한 함수
-}
-```
-
-`FKey` 값만 다를 뿐, 이후 `InputPreProcessor → Tunnel/Bubble → SViewport` 경로는 키보드와 동일하다.
-
-### 아날로그 (스틱, 트리거) → ProcessAnalogInputEvent (별도 경로)
-
-```cpp
-// SlateApplication.cpp:6547
-bool FSlateApplication::OnControllerAnalog(FGamepadKeyNames::Type KeyName, ..., float AnalogValue)
-{
-    FAnalogInputEvent AnalogInputEvent(Key, ..., AnalogValue);
-    return ProcessAnalogInputEvent(AnalogInputEvent);
-}
-```
-
-아날로그는 "변화 감지"가 아니라 매 틱 현재 값을 그대로 `OnControllerAnalog()`로 보낸다.
+변화 감지 후 디지털/아날로그 여부에 따라 분기된다.
 
 | | 디지털 버튼 | 아날로그 |
 |---|---|---|
-| **Slate 진입 함수** | `OnControllerButtonPressed()` | `OnControllerAnalog()` |
-| **처리 함수** | `ProcessKeyDownEvent()` | `ProcessAnalogInputEvent()` |
-| **InputPreProcessor** | `HandleKeyDownEvent()` | `HandleAnalogInputEvent()` |
-| **위젯 콜백** | `OnKeyDown()` | `OnAnalogValueChanged()` |
+| **감지 방식** | 이전 프레임과 비교, 변화 시만 발생 | 매 틱 현재 값 그대로 전송 |
+| **Slate 진입** | `OnControllerButtonPressed()` | `OnControllerAnalog()` |
+| **처리 함수** | `ProcessKeyDownEvent()` — 키보드와 동일 | `ProcessAnalogInputEvent()` — 별도 |
 | **Tunnel 단계** | 있음 | 없음 |
 
 ---
