@@ -19,6 +19,7 @@
 | [02_actor_replication.md](02_actor_replication.md) | Actor 복제 상세 — bReplicates, Relevancy, Priority, 프로퍼티 Diff, Shadow Buffer |
 | [03_rpc.md](03_rpc.md) | RPC — ProcessEvent 흐름, Server/Client/Multicast, Reliable/Unreliable, Validation |
 | [04_actor_channel.md](04_actor_channel.md) | UActorChannel — Channel 구조, FObjectReplicator, OpenPacketId, CloseReason별 동작 |
+| [05_gas_prediction.md](05_gas_prediction.md) | GAS 네트워크 동기화 원칙 — 이벤트성(RPC+예측) vs 상태성(레플리케이션), 취소 방법별 RPC 경로 |
 | [net_serialize/](net_serialize/README.md) | 직렬화/역직렬화 — FArchive·FBitWriter/Reader, NetSerialize, TStructOpsTypeTraits, FFastArraySerializer |
 
 ---
