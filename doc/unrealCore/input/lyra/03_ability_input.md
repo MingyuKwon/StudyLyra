@@ -170,6 +170,74 @@ void ULyraAbilitySystemComponent::AbilitySpecInputPressed(FGameplayAbilitySpec& 
 
 ---
 
+## WaitInputPress / WaitInputRelease AbilityTask
+
+### 무엇인가
+
+GA가 이미 활성화된 상태에서 내부에 생성하는 Task다.  
+"이 GA가 실행 중인 동안, 다음 버튼 누름(또는 뗌)을 기다린다"는 선언이다.
+
+```cpp
+// GA 내부 — 충전 스킬 예시
+void UMyChargeAbility::ActivateAbility(...)
+{
+    StartCharging();
+
+    // 버튼을 뗄 때까지 대기
+    UAbilityTask_WaitInputRelease* Task = UAbilityTask_WaitInputRelease::WaitInputRelease(this);
+    Task->OnRelease.AddDynamic(this, &ThisClass::OnReleased);
+    Task->ReadyForActivation();  // Task 시작
+}
+
+void UMyChargeAbility::OnReleased(float HeldTime)
+{
+    FireCharged(HeldTime);
+    EndAbility(...);
+}
+```
+
+### 어떻게 깨어나는가 — InvokeReplicatedEvent 연결
+
+`AbilitySpecInputPressed()` 가 호출되면 내부에서 `InvokeReplicatedEvent(InputPressed, ...)` 를 호출한다.  
+이 함수는 ASC의 `GenericEvents[InputPressed]` 슬롯에 바인딩된 Delegate를 Broadcast한다.
+
+WaitInputPress Task는 `Activate()` 시점에 바로 이 슬롯에 자신의 콜백을 등록해 둔다.
+
+```
+[ProcessAbilityInput]
+AbilitySpec->IsActive() == true
+    → AbilitySpecInputPressed(*AbilitySpec)
+        → Super::AbilitySpecInputPressed()        ← GA의 InputPressed() 가상함수 호출
+        → InvokeReplicatedEvent(InputPressed, handle, predKey)
+            → GenericEvents[InputPressed].Delegate.Broadcast()
+                → WaitInputPress::OnPressCallback()
+                    → OnPress.Broadcast(ElapsedTime)   ← GA 콜백 실행
+                    → (IsPredictingClient) ServerSetReplicatedEvent()
+                    → EndTask()
+```
+
+### 타이밍 레이스 처리
+
+Task가 생성되기 전에 이미 InvokeReplicatedEvent가 호출된 경우를 대비해,  
+Task `Activate()` 안에서 `CallReplicatedEventDelegateIfSet()`으로 사후 처리를 시도한다.
+
+```cpp
+// WaitInputPress::Activate()
+ASC->AbilityReplicatedEventDelegate(InputPressed, handle, predKey)
+    .AddUObject(this, &ThisClass::OnPressCallback);
+
+// 이미 발동됐을 경우 즉시 처리
+if (IsForRemoteClient())
+    ASC->CallReplicatedEventDelegateIfSet(InputPressed, handle, predKey);
+```
+
+### WaitInputRelease는 동일한 구조
+
+슬롯만 `EAbilityGenericReplicatedEvent::InputReleased`로 바뀐다.  
+`AbilitySpecInputReleased()` → `InvokeReplicatedEvent(InputReleased, ...)` 경로도 동일하다.
+
+---
+
 ## TAG_Gameplay_AbilityInputBlocked
 
 `ProcessAbilityInput` 진입 시 가장 먼저 확인하는 태그.  
