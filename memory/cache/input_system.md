@@ -13,6 +13,8 @@
 - **Pawn**: `Possess()` → `DispatchRestart()` → `PawnClientRestart()` → `CreatePlayerInputComponent()` → `SetupPlayerInputComponent()` (로컬 PC일 때만)
 - 기본 클래스: `UInputSettings::GetDefaultInputComponentClass()` — Project Settings에서 결정. Enhanced Input 활성화 시 `UEnhancedInputComponent`
 - `EnableInput/DisableInput`: `bInputEnabled` 플래그만 변경. BuildInputStack이 이 플래그 보고 스킵.
+- **수집 대상 5곳 고정**: Pawn->InputComponent(멤버), Pawn GetComponents() Cast, LevelScriptActor, PC->InputComponent(멤버), CurrentInputStack(PushInputComponent). 이 5곳 밖은 수집 안 됨.
+- **입력 소비**: `bConsumeInput`(바인딩 단위, 해당 키만 bConsumed=true) / `bBlockInput`(컴포넌트 단위, 이하 전체 차단 + EvaluateBlockedInputComponent로 Axis=0)
 
 ---
 
