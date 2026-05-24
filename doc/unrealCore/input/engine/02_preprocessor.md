@@ -62,11 +62,53 @@ W키가 눌렸을 때:
 ```
 W키 누름
     → FEnhancedInputWorldProcessor::HandleKeyDownEvent()
-          WorldSubsystem 전달, return false
+          WorldSubsystem 전달, return false       ← 차단 아님, 계속 진행
     → Bubble 위젯 라우팅
           SViewport → UGameViewportClient → UEnhancedPlayerInput::InputKey() 적재
     (PlayerController Tick에서 콜백 발화)
 ```
+
+`return false` 이므로 두 경로가 **동시에** 실행된다.  
+WorldSubsystem 전달과 LocalPlayer 경로는 서로를 막지 않는다.
+
+PlayerController 없는 엔티티는 `UEnhancedInputWorldSubsystem`에 바인딩해두면 입력을 받는다.
+
+```cpp
+UEnhancedInputWorldSubsystem* Sub = GetWorld()->GetSubsystem<UEnhancedInputWorldSubsystem>();
+Sub->AddMappingContext(IMC, Priority);
+Sub->BindAction(IA_Something, Triggered, this, &MyFunc);
+// 키가 눌리면 FEnhancedInputWorldProcessor가 여기로 전달
+```
+
+LocalPlayer가 `UEnhancedInputLocalPlayerSubsystem`을 쓰는 것과 대칭 구조다.
+
+| | LocalPlayer | Controller 없는 엔티티 |
+|---|---|---|
+| **입력 진입** | PlayerController Tick | FEnhancedInputWorldProcessor |
+| **구독 대상** | UEnhancedInputLocalPlayerSubsystem | UEnhancedInputWorldSubsystem |
+
+---
+
+## 스플릿스크린 — 여러 LocalPlayer의 입력 분기
+
+로컬 2인 플레이에서 키 이벤트는 `UGameViewportClient` 단계에서 이미 플레이어별로 분기된다.  
+키 이벤트에는 **어느 장치에서 왔는가** (`ControllerId` / `PlatformUserId`) 가 담겨 있다.
+
+```
+[키 이벤트 (ControllerId = 1)]
+    ↓
+UGameViewportClient::InputKey()
+    GEngine->GetLocalPlayerFromControllerId(ControllerId = 1)
+        → LocalPlayer[1] 찾음
+        → LocalPlayer[1]->PlayerController->InputKey()
+            → LocalPlayer[1]의 UEnhancedPlayerInput::InputKey() 적재
+```
+
+`LocalPlayer[0]`의 `UEnhancedPlayerInput`에는 신호가 가지 않는다.  
+각 플레이어는 자신의 장치 이벤트만 받는다.
+
+`FEnhancedInputWorldProcessor`는 `UGameViewportClient` 분기 이전 단계라 **모든 플레이어의 입력을 다 받는다.**  
+WorldSubsystem은 플레이어 구분이 없는 월드 레벨 처리이므로 문제없다.
 
 ---
 
