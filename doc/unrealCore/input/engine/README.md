@@ -158,9 +158,11 @@ APlayerController::PlayerTick()
     EvaluateKeyMapState()            ← 동일 + Enhanced 키 상태 추적
     EvaluateInputDelegates()  ★      ← UEnhancedPlayerInput 오버라이드
         PrepareInputDelegatesForEvaluation()
+            → Subsystem->GetActiveIMCs() 읽음  ← AddMappingContext 값 여기서 소비
             → IMC → ActionMappings 빌드
             → Modifier / Trigger 평가
         EvaluateInputComponentDelegates()
+            → UEnhancedInputComponent 바인딩 실행  ← BindNativeAction 바인딩 여기서 소비
             → Input_Move() 등 콜백 실행
             → AbilityInputTagPressed()   ← handles 적재
     PostProcessInput()  ★            ← Lyra 오버라이드
@@ -168,6 +170,17 @@ APlayerController::PlayerTick()
             → TryActivateAbility()
     FinishProcessingPlayerInput()    ← 동일
 ```
+
+### 설정값 소비 시점 요약
+
+| 설정값 | 저장 위치 | 소비 단계 |
+|---|---|---|
+| `AddMappingContext` | Subsystem의 ActiveIMC 목록 | `PrepareInputDelegatesForEvaluation()` — 키 → Action 변환 |
+| `BindNativeAction` | Component의 델리게이트 맵 | `EvaluateInputComponentDelegates()` — Action → 콜백 실행 |
+
+Subsystem이 먼저 "이 키가 어떤 Action인가"를 결정하고, 그 결과를 Component가 받아 "이 Action이면 이 함수"를 실행한다. 같은 `EvaluateInputDelegates()` 호출 안에서 순서대로 실행된다.
+
+---
 
 ### 핵심 차이
 
