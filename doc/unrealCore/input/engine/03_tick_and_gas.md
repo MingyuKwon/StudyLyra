@@ -121,3 +121,66 @@ void APlayerController::BuildInputStack(TArray<UInputComponent*>& InputStack)
 
 Enhanced Input에서 `UEnhancedInputComponent`는 Pawn에 붙어 스택 하단에 위치한다.  
 `UEnhancedPlayerInput::EvaluateInputDelegates()`가 스택을 순회하며 `UEnhancedInputComponent`를 찾아 콜백을 발화한다.
+
+---
+
+## InputComponent란 무엇인가
+
+`UInputComponent`는 Actor가 "나는 이 입력들에 관심있다"고 등록하는 **바인딩 컨테이너**다.  
+`BindAction`, `BindAxis` 호출 결과(델리게이트 목록)를 저장하는 것이 전부다.
+
+```
+UEnhancedInputComponent (Pawn에 붙음)
+    ├── BindAction(IA_Move, Triggered, this, &Input_Move)
+    ├── BindAction(IA_Jump, Started,   this, &Input_Jump)
+    └── BindAction(IA_Fire, Triggered, this, &Input_AbilityPressed, Tag_Fire)
+```
+
+PlayerController는 `SetupInputComponent()`에서 자신의 InputComponent를 생성한다.  
+Pawn은 `SetupPlayerInputComponent()`에서 자신의 것을 생성한다.  
+둘 다 `BuildInputStack`에 올라가 `ProcessInputStack`이 순서대로 처리한다.
+
+---
+
+## 왜 여러 InputComponent + 스택인가 — IMC 교체로 충분하지 않은가
+
+IMC 교체와 InputComponent 스택은 **해결하는 문제가 다르다.**
+
+**IMC 교체** — 같은 Actor 안에서 "어떤 키가 어떤 Action인가"를 바꾼다.
+
+```
+전투 IMC: W → IA_Move
+메뉴 IMC: W → IA_MenuUp
+```
+
+처리 주체는 바뀌지 않는다. 같은 Pawn의 같은 InputComponent가 처리한다.
+
+**InputComponent 스택** — **서로 다른 Actor/시스템** 중 누가 처리할지를 결정한다.
+
+```
+예: 차량 탑승
+    Pawn->InputComponent: 탑승/하차 키 바인딩
+    차량->InputComponent: 가속/조향 바인딩 (PushInputComponent로 추가)
+    → 두 시스템이 동시에 독립적으로 입력을 처리
+```
+
+상위 InputComponent가 입력을 **소비(consume)** 하면 하위에 전달되지 않는다.  
+PlayerController의 InputComponent가 상위에 있으므로, PC가 처리한 키는 Pawn에 내려가지 않는다.
+
+```
+스택 처리 순서 (위 → 아래)
+    [5] PushInputComponent 추가분     ← 먼저 처리, 소비하면 아래 안 내려감
+    [4] PlayerController->InputComponent
+    [3] LevelScriptActor->InputComponent
+    [1] Pawn->InputComponent          ← 마지막에 처리
+```
+
+### 결론
+
+| | IMC 교체 | InputComponent 스택 |
+|---|---|---|
+| **목적** | 같은 Actor의 키-Action 매핑 전환 | 어느 Actor/시스템이 처리할지 라우팅 |
+| **언제** | 전투/메뉴/탈것 컨텍스트 전환 | 차량 탑승, UI 가로채기, 모달 입력 |
+| **처리 주체** | 변하지 않음 | 동적으로 추가/제거 가능 |
+
+Lyra는 두 가지를 함께 쓴다. 컨텍스트 전환은 IMC로, 특수 상황의 입력 가로채기는 `PushInputComponent`로 한다.
