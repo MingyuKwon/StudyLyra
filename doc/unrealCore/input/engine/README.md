@@ -138,6 +138,7 @@ Subsystem이 먼저 "이 키가 어떤 Action인가"를 결정하고, 그 결과
 
 | 문서 | 내용 |
 |------|------|
+| [00. InputComponent](00_input_component.md) | InputComponent 개념, PC/Pawn 생성 위치, 기본 클래스 결정, EnableInput |
 | [01. Enhanced Input](01_enhanced_input.md) | Subsystem vs Component 역할 분리, IMC, BindAction 오버로드 3종 |
 | [02. InputPreProcessor](02_preprocessor.md) | FEnhancedInputWorldProcessor 역할, 커스텀 PreProcessor 패턴 |
 | [03. 틱 처리 · GAS 연결](03_tick_and_gas.md) | PostProcessInput → ProcessAbilityInput, bDown 홀드 유지, BuildInputStack |

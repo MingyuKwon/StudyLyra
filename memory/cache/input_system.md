@@ -4,6 +4,18 @@
 
 ---
 
+## InputComponent 초기화 흐름
+
+**출처**: `C:/UE_5.7/Engine/Source/Runtime/Engine/Private/PlayerController.cpp:760,2675`, `Pawn.cpp:480`  
+**상세 문서**: `doc/unrealCore/input/engine/00_input_component.md`
+
+- **PlayerController**: `SetPlayer(LocalPlayer)` → `InitInputSystem()` → `SetupInputComponent()` → `NewObject<UInputComponent>(GetDefaultInputComponentClass())`
+- **Pawn**: `Possess()` → `DispatchRestart()` → `PawnClientRestart()` → `CreatePlayerInputComponent()` → `SetupPlayerInputComponent()` (로컬 PC일 때만)
+- 기본 클래스: `UInputSettings::GetDefaultInputComponentClass()` — Project Settings에서 결정. Enhanced Input 활성화 시 `UEnhancedInputComponent`
+- `EnableInput/DisableInput`: `bInputEnabled` 플래그만 변경. BuildInputStack이 이 플래그 보고 스킵.
+
+---
+
 ## 12. 언리얼 입력 파이프라인 & ProcessAbilityInput 호출 경로
 
 **출처 (Lyra)**: `Player/LyraPlayerController.cpp:376-384`, `AbilitySystem/LyraAbilitySystemComponent.cpp:216`  

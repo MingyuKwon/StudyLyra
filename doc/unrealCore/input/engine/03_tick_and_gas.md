@@ -124,25 +124,9 @@ Enhanced Input에서 `UEnhancedInputComponent`는 Pawn에 붙어 스택 하단�
 
 ---
 
-## InputComponent란 무엇인가
-
-`UInputComponent`는 Actor가 "나는 이 입력들에 관심있다"고 등록하는 **바인딩 컨테이너**다.  
-`BindAction`, `BindAxis` 호출 결과(델리게이트 목록)를 저장하는 것이 전부다.
-
-```
-UEnhancedInputComponent (Pawn에 붙음)
-    ├── BindAction(IA_Move, Triggered, this, &Input_Move)
-    ├── BindAction(IA_Jump, Started,   this, &Input_Jump)
-    └── BindAction(IA_Fire, Triggered, this, &Input_AbilityPressed, Tag_Fire)
-```
-
-PlayerController는 `SetupInputComponent()`에서 자신의 InputComponent를 생성한다.  
-Pawn은 `SetupPlayerInputComponent()`에서 자신의 것을 생성한다.  
-둘 다 `BuildInputStack`에 올라가 `ProcessInputStack`이 순서대로 처리한다.
-
----
-
 ## 왜 여러 InputComponent + 스택인가 — IMC 교체로 충분하지 않은가
+
+> InputComponent 개념과 기본 생성 위치 → [00_input_component.md](00_input_component.md)
 
 IMC 교체와 InputComponent 스택은 **해결하는 문제가 다르다.**
 
