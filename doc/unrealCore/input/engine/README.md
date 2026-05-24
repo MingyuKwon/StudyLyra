@@ -142,7 +142,7 @@ Subsystem이 먼저 "이 키가 어떤 Action인가"를 결정하고, 그 결과
 | [01. Enhanced Input](01_enhanced_input.md) | Subsystem vs Component 역할 분리, IMC, BindAction 오버로드 3종 |
 | [02. InputPreProcessor](02_preprocessor.md) | FEnhancedInputWorldProcessor 역할, 커스텀 PreProcessor 패턴 |
 | [03. 틱 처리 · GAS 연결](03_tick_and_gas.md) | PostProcessInput → ProcessAbilityInput, bDown 홀드 유지, BuildInputStack |
-| [04. 게임패드](04_gamepad.md) | 디지털/아날로그 분기, FSlateApplication 진입 경로, 데드존, 진동 |
+| [04. 게임패드](04_gamepad/README.md) | 폴링 vs 인터럽트, 디지털/아날로그, 데드존, Modifier, 진동, 플랫폼 특수 기능 |
 | [05. 레거시 vs Enhanced Input](05_legacy_vs_enhanced.md) | 두 구조 상세 비교, PrepareInputDelegatesForEvaluation 위치, 공존 타임라인 |
 
 ---
