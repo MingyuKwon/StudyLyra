@@ -124,3 +124,55 @@ BindAction(Action, TriggerEvent, UObject* Object, FName FunctionName)
 C++ 함수 포인터가 아닌 UFUNCTION 이름(문자열)으로 런타임에 함수를 찾는 Blueprint용 경로.
 타입 체크가 런타임에 일어나며 `DynamicSignature` 델리게이트를 사용한다.
 
+---
+
+### 오버로드 3개가 필터링하는 원리
+
+`BindAction`에 함수를 넘기면 해당 함수가 실제로 바인딩 가능한지를 **컴파일 타임에** 걸러낸다. 런타임 체크나 if 분기가 없다.
+
+핵심은 `BindUObject` 함수 포인터 파라미터 타입에 델리게이트 시그니처가 이미 박혀 있다는 것이다.
+
+```cpp
+// TDelegate<void(FInputActionValue&)> 내부의 BindUObject
+template<class UserClass, typename... VarTypes>
+void BindUObject(
+    UserClass* Object,
+    void (UserClass::*Func)(FInputActionValue&, VarTypes...),  // ← 시그니처 고정
+    VarTypes... Payload
+);
+```
+
+맞지 않는 함수를 넘기면 **템플릿 인자 추론 자체가 실패**해서 컴파일 에러가 난다.
+
+```cpp
+void Input_Move(const FInputActionValue& Value) { ... }
+void Input_Jump() { ... }
+
+BindAction(IA_Move, Triggered, this, &Input_Move);
+// 함수 포인터 타입: void(*)(FInputActionValue&) → ValueSignature 오버로드 ✔
+
+BindAction(IA_Jump, Triggered, this, &Input_Move);
+// 함수 포인터 타입: void(*)(FInputActionValue&) → HandlerSignature 오버로드에 맞지 않음
+// → 템플릿 인자 추론 실패, 컴파일 에러 ✘
+```
+
+### 왜 오버로드인가 — 템플릿 특수화가 아닌 이유
+
+템플릿 특수화는 하나의 primary template을 특정 타입에 대해 다르게 구현하는 것이다.
+
+```cpp
+// 특수화라면 이런 모습
+template<typename T> void Func(T);   // primary
+template<> void Func<int>(int);      // int 특수화
+```
+
+`BindAction` 3개는 함수 포인터 파라미터 타입 자체가 처음부터 다르다.
+
+```
+HandlerSignature  버전: Func(VarTypes...)
+ValueSignature    버전: Func(FInputActionValue&, VarTypes...)
+InstanceSignature 버전: Func(FInputActionInstance&, VarTypes...)
+```
+
+특수화할 primary template이 존재하지 않는다. `DEFINE_BIND_ACTION` 매크로를 3번 전개해서 이름은 같지만 파라미터 타입이 다른 **별개의 함수 3개**를 만드는 것이다.
+
