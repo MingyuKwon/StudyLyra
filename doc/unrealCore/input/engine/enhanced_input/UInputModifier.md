@@ -110,19 +110,28 @@ IA_Look (Axis2D)
 - `UpperThreshold` — 이 이상은 1.0으로 처리 (기본 1.0)
 - `Type`:
   - `Axial` — X, Y 축 각각 독립적으로 처리. 코너에서 값이 잘릴 수 있음
-  - `Radial` — 벡터 전체 크기로 판단. 원형 데드존. 자연스러운 스틱 감도
+  - `Radial` — 벡터 전체 크기로 판단. 원형 데드존. 자연스럽고 부드러운 스틱 감도
+  - `UnscaledRadial` — Radial과 같이 전체 크기로 판단하되, 평활화 없음. LowerThreshold 이하면 즉시 0, 이상이면 그대로. 값이 0에서 LowerThreshold로 즉시 점프하는 "튀는" 느낌이 있을 수 있음
 
 ### Negate
-입력값의 부호를 반전한다(`value * -1`).
+입력값의 부호를 축별로 반전한다. bX/bY/bZ로 반전할 축을 선택할 수 있다(기본 전체 true).
 
 - WASD에서 S키를 "후진(-)"으로 만들 때
-- 마우스 Y축 반전 옵션 구현 시
+- 마우스 Y축만 반전하는 옵션 구현 시
 
 ### Scalar
-입력값에 스칼라를 곱한다. 감도 조절에 사용.
+입력값에 축별 스칼라를 곱한다. 감도 조절에 사용.
 
 ```cpp
-FVector ScaleVector = FVector(1.f, 1.f, 1.f);  // 축별 배율
+FVector Scalar = FVector(1.f, 1.f, 1.f);  // 축별 배율
+```
+
+### ScaleByDeltaTime
+입력값에 이번 틱의 DeltaTime을 곱한다. 프레임레이트와 무관하게 일정한 속도로 값을 누적할 때 사용.
+
+```
+// 예: 캐릭터 회전량을 프레임레이트 독립적으로 만들기
+RotationSpeed * DeltaTime  ← ScaleByDeltaTime이 이 역할을 Modifier로 처리
 ```
 
 ### SwizzleInputAxisValues
@@ -135,32 +144,42 @@ SwizzleAxis(YXZ) 적용 후: (0, 1, 0) — W키를 Y축(전진)으로 변환
 
 | Order | 결과 |
 |---|---|
-| `XYZ` | 변환 없음 |
 | `YXZ` | X↔Y 교환. W키 전진에 사용 |
 | `ZYX` | X↔Z 교환 |
+| `XZY` | Y↔Z 교환 |
+| `YZX` | X→Z→Y→X 순환 |
+| `ZXY` | X→Y→Z→X 순환 |
 
-### Normalize
-입력값을 단위 벡터(크기 1)로 정규화한다. 대각 이동 시 속도가 빨라지는 문제 방지.
+### Smooth
+여러 프레임에 걸친 입력 평균으로 값을 평활화한다. 빠른 입력 변화를 시간에 걸쳐 부드럽게 만든다.
+
+SmoothDelta와 달리 내부적으로 샘플 평균을 누적하는 방식이다. 입력이 0이 되면 누적 샘플을 초기화한다.
 
 ### SmoothDelta
-현재 틱과 이전 틱 값의 차이를 평활화한다. 급격한 입력 변화를 부드럽게 만든다.
+현재 틱과 이전 틱 값의 차이(delta)를 보간 함수로 평활화한다. 급격한 입력 변화를 부드럽게 만든다.
 
-- `SmoothingMethod` — Lerp, Interp_To, Interp_Circular 등 다양한 보간 방식
+- `SmoothingMethod` — Lerp / Interp_To / Interp_Constant_To / Interp_Circular / Interp_Ease / Interp_Expo / Interp_Sin 등
+- `Speed` — 보간 속도 또는 알파값 (기본 0.5). 0이면 즉시 목표값으로 점프
+- `EasingExponent` — Ease 계열 보간 함수의 곡선 강도 (기본 2.0)
 
 ### ResponseCurveExponential
 지수 응답 곡선을 적용한다. 스틱의 미세 조작 영역을 더 세밀하게, 큰 입력은 더 빠르게.
 
+- `CurveExponent` — 축별 지수값 (기본 FVector::OneVector = 선형)
+
 ### ResponseCurveUser
-에디터에서 편집 가능한 커스텀 커브 에셋으로 응답 곡선을 정의한다.
+에디터에서 편집 가능한 커스텀 커브 에셋으로 축별 응답 곡선을 정의한다.
+
+- `ResponseX`, `ResponseY`, `ResponseZ` — 각 축에 적용할 UCurveFloat 에셋
 
 ### FOVScaling
 현재 카메라 FOV에 비례해서 입력값을 보정한다. 줌 인 시 마우스 감도를 자동으로 낮춘다.
 
-### ToWorldSpace
-카메라 방향을 기준으로 입력값을 월드 공간 벡터로 변환한다.
+- `FOVScale` — FOV 스케일에 추가로 곱할 배율 (기본 1.0)
+- `FOVScalingType` — `Standard` / `UE4_BackCompat` (UE4 호환용, 신규 프로젝트에서는 사용 금지)
 
-### Collection
-다른 Modifier 목록을 하나의 Modifier로 묶어 재사용 가능한 그룹으로 만든다.
+### ToWorldSpace
+카메라 방향을 기준으로 입력값을 월드 공간 벡터로 변환한다. 2D 입력의 상하를 월드 X(전진), 좌우를 월드 Y(오른쪽)로 매핑한다.
 
 ---
 
