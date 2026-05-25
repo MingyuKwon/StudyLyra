@@ -97,10 +97,42 @@ else
 
 ---
 
-## Enhanced Input — Subsystem vs Component 역할 분리
+## Enhanced Input — 엔진 구현 상세
 
-> 출처: `Source/LyraGame/Character/LyraHeroComponent.cpp`  
-> 상세 문서: `doc/unrealCore/input/engine/01_enhanced_input.md`
+> 출처: `C:/UE_5.7/Engine/Plugins/EnhancedInput/Source/EnhancedInput/Private/EnhancedPlayerInput.cpp`  
+> 상세 문서: `doc/unrealCore/input/engine/enhanced_input/`
+
+### PrepareInputDelegatesForEvaluation 흐름
+
+1. DeltaTime에서 TimeDilation 제거 (`NonDilatedDeltaTime`)
+2. `EnhancedActionMappings` 순회 → 키별 `EKeyEvent` 결정(None/Actuated/Held)
+3. `ProcessActionMappingEvent`: Mapping 레벨 Modifier → Trigger → 값 누적(AccumulationBehavior)
+4. Post-tick: Action 레벨 Modifier → Trigger → `GetTriggerStateChangeEvent`로 ETriggerEvent 확정
+5. 매핑 제거 시 `Canceled` 이벤트 발송 후 인스턴스 삭제
+
+### Trigger 체계
+
+- `ETriggerState`: None/Ongoing/Triggered — 개별 Trigger 상태
+- `ETriggerType`: Explicit(하나 발동)/Implicit(전부 발동)/Blocker(전부 차단) — 복수 Trigger 결합 규칙
+- `ETriggerEvent`: Started/Ongoing/Canceled/Triggered/Completed — 상태 전환 이벤트
+- `None→Triggered` 단일 틱 전환 = `StartedAndTriggered` (내부 enum), 바인딩 실행 시 Started 먼저 인위적 처리
+- Chord: ChordAction(Implicit) + 자동 삽입 ChordBlocker(Blocker)로 조합키 구현
+
+### Modifier 체계
+
+- 두 레벨: Mapping 레벨(키 매핑별) → Action 레벨(IA 에셋별) 순서로 적용
+- `ApplyModifiers`: 배열 순서대로 체인 실행. 반환값 타입은 항상 원본 ValueType으로 강제 복원
+- 내장: DeadZone / Negate / Scalar / SwizzleInputAxisValues / Normalize / SmoothDelta / ResponseCurve / FOVScaling / ToWorldSpace
+
+### FInputActionValue / FInputActionInstance
+
+- `FInputActionValue`: 내부는 항상 FVector, ValueType(Boolean/Axis1D/Axis2D/Axis3D)으로 논리 타입 결정
+- `EInputActionAccumulationBehavior`: TakeHighestAbsoluteValue(기본, 절댓값 큰 쪽) / Cumulative(합산)
+- `FInputActionInstance`: Value + ElapsedProcessedTime + ElapsedTriggeredTime + LastTriggeredWorldTime
+
+### Subsystem vs Component 역할 분리
+
+> Lyra 출처: `Source/LyraGame/Character/LyraHeroComponent.cpp`
 
 - **UEnhancedInputLocalPlayerSubsystem**: LocalPlayer당 하나. 활성 IMC 목록 관리. IInputProcessor가 아님.
 - **UEnhancedPlayerInput**: `PlayerController->PlayerInput`의 실제 클래스. UPlayerInput 서브클래스. IMC 기반 ActionMappings 처리, 콜백 발화 담당.
