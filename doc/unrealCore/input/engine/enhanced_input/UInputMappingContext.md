@@ -217,13 +217,35 @@ IMC 자체는 에셋이므로 런타임에 값을 가지지 않는다. 값·상�
 ### IMC 교체 패턴
 
 ```cpp
-// 전투 → 탈것 전환
+// 완전 교체 — 기존 IMC를 제거하고 새 IMC로 전환
 Subsystem->RemoveMappingContext(CombatIMC);
 Subsystem->AddMappingContext(VehicleIMC, Priority);
 
-// 오버레이 추가 (기존 유지 + 새 컨텍스트 추가)
+// 오버레이 — 기존 IMC를 유지하면서 새 IMC를 위에 추가
 Subsystem->AddMappingContext(SprintOverlayIMC, HighPriority);
 ```
+
+### Overlay — 높은 우선순위 IMC는 자신이 매핑한 키만 차단한다
+
+IMC를 교체하지 않고 위에 추가(overlay)하면, 높은 우선순위 IMC가 **명시적으로 매핑한 키만** 하위 IMC에서 차단된다. 매핑하지 않은 키는 하위 IMC로 그대로 통과된다.
+
+```
+IMC_Base (P0):    IA_Move → WASD,  IA_Jump → Space,  IA_Interact → F
+IMC_Vehicle (P10): IA_Accelerate → W,  IA_Brake → S
+
+W 입력 → IMC_Vehicle이 소비 → IMC_Base의 IA_Move 차단
+Space  → IMC_Vehicle에 매핑 없음 → IMC_Base의 IA_Jump 그대로 발동
+F      → IMC_Vehicle에 매핑 없음 → IMC_Base의 IA_Interact 그대로 발동
+```
+
+**Overlay vs 완전 교체 선택 기준**:
+
+| 패턴 | 언제 쓰는가 |
+|------|------------|
+| Overlay (Add만) | 일부 키만 덮어쓰고 나머지는 유지하고 싶을 때 (스프린트, 줌 등) |
+| 완전 교체 (Remove + Add) | 입력 세트를 통째로 바꾸고 싶을 때 (도보 → 탈것 전환 등) |
+
+탈것 탑승 시 Space(점프)까지 막으려면 Overlay로는 부족하고 완전 교체를 해야 한다.
 
 ---
 
