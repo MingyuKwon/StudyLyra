@@ -73,6 +73,27 @@ IA_HeavyAttack
        → 예: HeavyAttack은 어떤 키든 1초 Hold 필요
 ```
 
+### Modifier와 다른 점 — 두 레벨이 상충할 수 있다
+
+Modifier는 앞 레벨의 결과를 뒤 레벨이 이어받는 **체인**이라 충돌이 없다. Trigger는 두 레벨이 **각자 독립적으로 평가되고 AND로 결합**하기 때문에, 조합에 따라 동시 충족이 불가능한 경우가 생긴다.
+
+```
+Tap(Mapping) + Hold(Action)
+  → Tap이 Triggered되려면 짧게 떼야 함
+    Hold가 Triggered되려면 길게 눌러야 함
+    두 조건을 동시에 충족하는 입력은 존재하지 않음
+    → 영원히 발동 안 됨
+```
+
+| Mapping 레벨 | Action 레벨 | 결과 |
+|---|---|---|
+| `Down` | `Hold(1s)` | 호환. 1초 후 Down도 Triggered, Hold도 Triggered → 발동 |
+| `Hold(1s)` | `Hold(2s)` | 호환. 2초 시점에 둘 다 Triggered → 2초 후 발동 |
+| `Tap` | `Hold` | **상충. 영원히 발동 안 됨** |
+| `Pressed` | `Hold` | **상충. Pressed는 누르는 순간만 Triggered, Hold 완료 시점에는 이미 None** |
+
+두 레벨에 Trigger를 분산할 때는 **두 조건이 동시에 Triggered 상태가 될 수 있는지** 반드시 확인해야 한다.
+
 ---
 
 ## 인터페이스
