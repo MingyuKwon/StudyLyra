@@ -36,6 +36,36 @@ class UInputMappingContext : public UDataAsset
 };
 ```
 
+### MappingProfileOverrides — 플레이어 키 커스터마이징
+
+```cpp
+TMap<FString, FInputMappingContextMappingData> MappingProfileOverrides;
+//   프로파일 ID            └── TArray<FEnhancedActionKeyMapping>
+```
+
+플레이어가 키 설정 화면에서 키를 바꿨을 때 저장되는 데이터다. `DefaultKeyMappings`의 Action은 그대로 두고, 어떤 물리 키가 그 Action을 발동하는지만 프로파일별로 다르게 저장한다.
+
+```
+DefaultKeyMappings:
+  IA_Jump → SpaceBar
+  IA_Move → WASD
+
+MappingProfileOverrides["Player_1"]:
+  IA_Jump → LeftCtrl     ← Player_1이 SpaceBar를 LeftCtrl로 바꾼 것
+  IA_Move → 화살표키
+```
+
+런타임에 특정 프로파일 ID를 활성화하면 `DefaultKeyMappings` 대신 해당 프로파일의 매핑이 사용된다. Action 목록과 Trigger/Modifier는 변하지 않는다. 달라지는 것은 `FEnhancedActionKeyMapping.Key` 필드뿐이다.
+
+**IMC 교체와의 차이**:
+
+| | 무엇을 바꾸는가 | 언제 쓰는가 |
+|---|---|---|
+| `MappingProfileOverrides` | 어떤 키가 Action을 발동하는가 | 플레이어 키 커스터마이징 |
+| IMC 교체 | 어떤 Action들이 활성화되는가 | 게임플레이 상황 전환 |
+
+`MappingProfileOverrides`로는 Action 자체를 교체할 수 없다. 도보 Action을 탈것 Action으로 바꾸는 것은 반드시 IMC 교체로 해야 한다.
+
 ---
 
 ## FEnhancedActionKeyMapping — 키 하나의 매핑 정보
