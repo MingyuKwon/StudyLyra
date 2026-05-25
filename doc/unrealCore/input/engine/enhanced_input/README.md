@@ -10,6 +10,7 @@ Enhanced Input이 어떻게 동작하는지를 클래스 역할, 파이프라인
 
 | 문서 | 내용 |
 |------|------|
+| [00. 클래스 구조 전체 지도](00_class_map.md) | UInputAction/IMC/FEnhancedActionKeyMapping/Component/PlayerInput 멤버 전체 |
 | [01. Subsystem vs Component](01_subsystem_component.md) | 두 클래스의 역할 분리, 처리 흐름, Lyra에서의 사용 |
 | [02. BindAction 오버로드](02_bind_action.md) | 3종 시그니처, VarTypes 고정 패턴, UFUNCTION 동적 바인딩 |
 | [03. IMC 평가 파이프라인](03_imc_evaluation.md) | PrepareInputDelegatesForEvaluation 내부 — 키→Action 변환 전 과정 |
