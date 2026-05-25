@@ -91,6 +91,37 @@ class UPlayerMappableKeySettings : public UObject
 
 ---
 
+### 런타임 처리 흐름 — EnhancedActionMappings와 FInputActionInstance
+
+`AddMappingContext` 호출 시, IMC 안의 모든 `FEnhancedActionKeyMapping`이 `UEnhancedPlayerInput.EnhancedActionMappings` 배열에 추가된다. 여러 IMC가 활성화되면 각 IMC의 항목이 **전부 별도 항목으로** 이 배열에 들어간다.
+
+```
+활성 IMC:
+  IMC_Combat (P10):  IA_Attack → LeftClick, Modifier: Scalar(2.0), Trigger: Hold
+  IMC_Default (P0):  IA_Attack → LeftClick, Modifier: 없음,        Trigger: 없음
+
+EnhancedActionMappings (빌드 결과):
+  [0] IMC_Combat:  Action=IA_Attack, Key=LeftClick, Modifiers=[Scalar(2.0)], Triggers=[Hold]
+  [1] IMC_Default: Action=IA_Attack, Key=LeftClick, Modifiers=[],            Triggers=[]
+```
+
+매 틱 이 배열을 순회하며 각 항목을 **독립적으로** 처리한다. 항목마다 자신의 Modifier와 Trigger가 실행된다. 처리 결과는 같은 Action의 `FInputActionInstance` 하나에 누적된다.
+
+```
+[0] 처리: Scalar(2.0) 적용 → Hold 진행 중 → Ongoing, Value=2.0
+[1] 처리: 변환 없음        → 즉시 발동    → Triggered, Value=1.0
+         ↓ AccumulationBehavior + FTriggerStateTracker
+FInputActionInstance(IA_Attack):
+  Value: TakeHighestAbsoluteValue → 2.0
+  TriggerEvent: 가장 강한 상태 → Triggered
+```
+
+단, `IA_Attack.bConsumeInput = true`(기본)이면 IMC_Combat(P10)이 키를 소비해 IMC_Default(P0)의 항목은 스킵된다. 이 경우 IMC_Combat의 Modifier/Trigger만 실행된다.
+
+**핵심**: `UInputAction` 에셋은 상태가 없는 설계도이고, `FEnhancedActionKeyMapping`은 키별 처리 설정을 담는 처리 단위이며, `FInputActionInstance`는 모든 처리가 끝난 후의 최종 결과를 담는 런타임 저장소다.
+
+---
+
 ### Modifier / Trigger의 두 레벨
 
 같은 Action에 키별로 다른 동작을 줘야 할 때 Mapping 레벨 Modifier/Trigger를 쓴다.
