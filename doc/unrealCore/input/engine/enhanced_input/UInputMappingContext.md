@@ -59,6 +59,38 @@ struct FEnhancedActionKeyMapping
 };
 ```
 
+### SettingBehavior — 키 리매핑 화면 메타데이터 처리 방식
+
+키 리매핑 UI(게임 내 "키 설정" 화면)에서 이 매핑을 어떻게 표시할지를 결정한다.
+
+```cpp
+EPlayerMappableKeySettingBehaviors SettingBehavior = InheritSettingsFromAction;
+TObjectPtr<UPlayerMappableKeySettings> UserSettings;  // OverrideSettings일 때 사용
+```
+
+| 값 | 동작 |
+|---|---|
+| `InheritSettingsFromAction` (기본) | IA 에셋에 붙은 `UPlayerMappableKeySettings`를 그대로 상속 |
+| `OverrideSettings` | `UserSettings`에 지정한 별도 설정으로 재정의. 같은 IA라도 키마다 다른 이름·카테고리 부여 가능 |
+| `IgnoreSettings` | 이 키 매핑을 리매핑 UI에서 숨김. 내부 키, 디버그 키 등에 사용 |
+
+`UPlayerMappableKeySettings`가 담는 정보:
+
+```cpp
+class UPlayerMappableKeySettings : public UObject
+{
+    FName    Name;             // 리매핑 저장 시 사용하는 식별자 (고유해야 함)
+    FText    DisplayName;      // UI에 표시되는 이름 (예: "이동 — 앞으로")
+    FText    DisplayCategory;  // UI 카테고리 (예: "이동", "전투", "메뉴")
+    UObject* Metadata;         // 추가 커스텀 데이터 (아이콘 등)
+    TArray<FString> SupportedKeyProfileIds;  // 이 설정이 적용되는 프로파일 목록
+};
+```
+
+**언제 사용하는가**: 기본 `InheritSettingsFromAction`만으로도 IA 에셋 단위 리매핑은 구현된다. 같은 IA를 여러 기기에 매핑하고 기기별로 UI 이름을 다르게 표시하거나, 특정 매핑을 UI에서 숨기고 싶을 때 `OverrideSettings`/`IgnoreSettings`를 쓴다.
+
+---
+
 ### Modifier / Trigger의 두 레벨
 
 같은 Action에 키별로 다른 동작을 줘야 할 때 Mapping 레벨 Modifier/Trigger를 쓴다.

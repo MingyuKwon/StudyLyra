@@ -49,12 +49,29 @@ EInputActionValueType ValueType = EInputActionValueType::Boolean;
 EInputActionAccumulationBehavior AccumulationBehavior = TakeHighestAbsoluteValue;
 ```
 
-같은 Action에 여러 키가 매핑된 경우(WASD + 게임패드 스틱 모두 `IA_Move`에 연결) 값을 어떻게 합산할지 결정한다.
+하나의 `UInputAction`에 여러 키를 매핑할 수 있다. 예를 들어 `IA_Move`에 WASD 4개와 게임패드 스틱이 모두 연결되어 있을 때, 이 키들을 **동시에 누르면** 최종 값을 어떻게 결정할지 정하는 것이 이 프로퍼티다.
 
-| 값 | 동작 | 사용 예 |
-|---|---|---|
-| `TakeHighestAbsoluteValue` (기본) | 컴포넌트별로 절댓값이 더 큰 쪽 채택 | 키보드·스틱 동시 사용, 더 강한 입력 우선 |
-| `Cumulative` | 단순 합산 | W(+1)와 S(-1)가 서로 상쇄되길 원할 때 |
+**TakeHighestAbsoluteValue (기본)** — 컴포넌트별로 절댓값이 더 큰 쪽 채택
+
+```
+W키:    (0,  1)   (SwizzleAxis 후)
+스틱:   (0, 0.7)
+
+결과:   (0,  1)   ← Y축은 W키(1.0)가 스틱(0.7)보다 크므로 W키 값 사용
+```
+
+키보드와 스틱을 동시에 사용할 때 더 강한 입력이 우선하는 자연스러운 동작이다.
+
+**Cumulative** — 모든 값을 합산
+
+```
+W키:  (0,  1)
+S키:  (0, -1)
+
+결과: (0,  0)   ← W+S 동시 입력 시 상쇄되어 멈춤
+```
+
+WASD에서 반대 방향 키를 동시에 누르면 서로 상쇄되길 원할 때 쓴다. 기본값(`TakeHighestAbsoluteValue`)으로는 이 상쇄가 보장되지 않는다.
 
 ---
 

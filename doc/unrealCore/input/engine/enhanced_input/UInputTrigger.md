@@ -25,6 +25,56 @@ UObject → UInputTrigger (abstract, EditInlineNew)
 
 ---
 
+## 두 레벨
+
+Trigger는 두 곳에 붙일 수 있고, 항상 이 순서로 평가된다.
+
+### 왜 두 레벨인가
+
+**"키마다 다른 조건"** 과 **"모든 키에 공통인 조건"** 을 분리하기 위해서다.
+
+```
+IA_Attack
+
+  마우스 Mapping  → IMC Trigger: 없음 (마우스는 즉시 발동)
+  패드 Mapping    → IMC Trigger: Hold(0.1초)
+                   "패드 스틱은 드리프트가 있어 0.1초 이상 눌려야 의도적 입력으로 간주"
+
+  IA_Attack 에셋 → Action 레벨 Trigger: 없음
+                   "어떤 키든 공통 조건 없음"
+```
+
+만약 **어떤 키로 입력받든 반드시 충족해야 하는 조건**이 있다면 IA 에셋에 한 번만 붙이면 된다.
+
+```
+IA_HeavyAttack
+
+  마우스 Mapping  → IMC Trigger: 없음
+  패드 Mapping    → IMC Trigger: 없음
+
+  IA_HeavyAttack 에셋 → Action 레벨 Trigger: Hold(1.0초)
+                         "어떤 키든 1초 이상 눌러야 강공격. 키별로 따로 붙일 필요 없음"
+```
+
+두 레벨 모두 통과해야 Action이 발동된다. Mapping 레벨이 먼저, Action 레벨이 나중이다.
+
+| 레벨 | 질문 |
+|------|------|
+| IMC Trigger | 이 키 고유의 발동 조건이 있는가? (장치별 차이) |
+| IA Trigger | 어떤 키로 입력받든 공통으로 충족해야 할 조건이 있는가? |
+
+```
+1. Mapping 레벨 (FEnhancedActionKeyMapping.Triggers)
+       → 키별 Trigger. 장치 특성에 맞는 조건 처리
+       → 예: 패드에만 Hold 적용, 마우스는 그냥 즉시
+
+2. Action 레벨 (UInputAction.Triggers)
+       → IA 에셋 Trigger. 키 종류와 무관하게 공통 조건
+       → 예: HeavyAttack은 어떤 키든 1초 Hold 필요
+```
+
+---
+
 ## 인터페이스
 
 ### UpdateState — 이 틱의 상태 반환

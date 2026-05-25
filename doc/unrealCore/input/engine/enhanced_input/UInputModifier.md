@@ -56,6 +56,39 @@ ModifiedValue = FInputActionValue(
 
 Modifier는 두 곳에 정의할 수 있고, 항상 이 순서로 적용된다.
 
+### 왜 두 레벨인가
+
+**"키마다 다른 변환"** 과 **"모든 키에 공통인 변환"** 을 분리하기 위해서다.
+
+```
+IA_Move (Axis2D)
+
+  W키 Mapping    → IMC Modifier: SwizzleAxis(YXZ)
+                   "W키 값(1, 0)을 Y축(0, 1)으로 바꾸는 건 W키에만 해당"
+
+  스틱 Mapping   → IMC Modifier: DeadZone
+                   "스틱 드리프트 처리는 스틱에만 필요"
+
+  IA_Move 에셋   → Action 레벨 Modifier: 없음
+                   "모든 키 공통으로 적용할 변환이 없으니 비워둠"
+```
+
+만약 **어떤 키로 입력받든 공통으로 적용할 변환**이 있다면 IA 에셋에 한 번만 붙이면 된다.
+
+```
+IA_Look (Axis2D)
+  마우스 Mapping  → IMC Modifier: 없음
+  스틱 Mapping   → IMC Modifier: DeadZone, ResponseCurve
+
+  IA_Look 에셋   → Action 레벨 Modifier: FOVScaling
+                   "줌 인 시 감도 줄이기는 어떤 장치든 공통 적용"
+```
+
+| 레벨 | 질문 |
+|------|------|
+| IMC Modifier | 이 키의 원시값을 어떻게 가공할 것인가? |
+| IA Modifier | 모든 키의 값이 누적된 후, 공통으로 추가 변환이 필요한가? |
+
 ```
 1. Mapping 레벨 (FEnhancedActionKeyMapping.Modifiers)
        → 각 키 매핑에 붙임. ProcessActionMappingEvent 내부에서 값 누적 전 적용
