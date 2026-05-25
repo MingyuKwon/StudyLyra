@@ -37,20 +37,29 @@ Enhanced Input이 어떻게 동작하는지를 클래스 역할, 파이프라인
 ## 전체 흐름 요약
 
 ```
-PrepareInputDelegatesForEvaluation()        ← EvaluateInputDelegates() 내부에서 호출
-    EnhancedActionMappings 순회             ← IMC → ActionMappings 빌드 결과
-    각 매핑 per-tick:
-        KeyState 조회 (RawValue)
-        EKeyEvent 결정 (None/Actuated/Held)
-        ApplyModifiers(Mapping.Modifiers)   ← Mapping 레벨 Modifier
-        EvaluateTriggers(Mapping.Triggers)  ← Mapping 레벨 Trigger
-        값 누적 (AccumulationBehavior)
-    Post-tick (ActionsWithEventsThisTick):
-        ApplyModifiers(Action.Modifiers)    ← Action 레벨 Modifier
-        EvaluateTriggers(Action.Triggers)   ← Action 레벨 Trigger
-        GetTriggerStateChangeEvent()        ← ETriggerEvent 확정
+[설정 단계 — 에셋, 런타임 전]
+UInputMappingContext (DataAsset)
+    FEnhancedActionKeyMapping[]
+        Key, Action, Triggers[], Modifiers[]   ← 키별 설정값
+    AddMappingContext(IMC, Priority)
+        → UEnhancedPlayerInput.EnhancedActionMappings 배열에 항목 추가
 
+[값 결정 단계 — 매 틱]
+PrepareInputDelegatesForEvaluation()
+    EnhancedActionMappings 순회 (우선순위 순)
+    각 FEnhancedActionKeyMapping:
+        KeyState 조회 (RawValue)
+        ApplyModifiers(Mapping.Modifiers)      ← Mapping 레벨 Modifier
+        EvaluateTriggers(Mapping.Triggers)     ← Mapping 레벨 Trigger
+        FInputActionInstance에 값 누적 (AccumulationBehavior)
+    Post-tick:
+        ApplyModifiers(Action.Modifiers)       ← Action 레벨 Modifier
+        EvaluateTriggers(Action.Triggers)      ← Action 레벨 Trigger
+        GetTriggerStateChangeEvent()           ← ETriggerEvent 확정
+
+[콜백 단계 — 매 틱]
 EvaluateInputComponentDelegates()
-    ActionInstanceData에서 TriggerEvent 읽음
-    매칭되는 바인딩 Execute() 호출
+    EnhancedInputComponent의 바인딩 순회
+    FInputActionInstance.TriggerEvent 조회
+    Binding.TriggerEvent 일치 → Execute() → 등록된 콜백 함수 호출
 ```
