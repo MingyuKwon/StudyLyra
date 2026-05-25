@@ -222,6 +222,27 @@ IA_CtrlC에 ChordAction(ChordAction = IA_Ctrl) 추가
 
 `EnhancedInput.OnlyTriggerLastActionInChord = 1` (기본): 체인의 마지막 Action(IA_CtrlC)만 발동하고 IA_Ctrl은 억제.
 
+### ChordAction이 다른 Action 상태를 확인하는 방법
+
+`UpdateState_Implementation`은 `UEnhancedPlayerInput* PlayerInput`을 받는다. `PlayerInput`이 `ActionInstanceData` 맵을 들고 있기 때문에, Trigger가 다른 Action의 현재 상태를 조회할 수 있다.
+
+```cpp
+// UInputTriggerChordAction::UpdateState_Implementation (엔진 소스)
+ETriggerState UInputTriggerChordAction::UpdateState_Implementation(
+    const UEnhancedPlayerInput* PlayerInput, FInputActionValue ModifiedValue, float DeltaTime)
+{
+    // ChordAction의 FInputActionInstance를 꺼내서 그 ETriggerState를 그대로 상속
+    const FInputActionInstance* EventData = PlayerInput->FindActionInstanceData(ChordAction);
+    return EventData ? EventData->GetEvaluatedActionTriggerState() : ETriggerState::None;
+}
+```
+
+`PlayerInput->FindActionInstanceData(ChordAction)` → 해당 Action의 런타임 인스턴스 반환  
+`GetEvaluatedActionTriggerState()` → 이번 틱에 평가된 `ETriggerState` 반환
+
+ChordAction이 Triggered면 이 Trigger도 Triggered를 반환 → 조합 조건 충족.  
+이것이 `UpdateState_Implementation`의 첫 번째 파라미터로 `PlayerInput`이 넘어오는 이유다. 다른 Action 상태를 참조할 수 있게 하기 위함이다. Combo Trigger도 동일한 방식으로 각 단계 Action의 상태를 확인한다.
+
 ---
 
 ## 유용한 프로퍼티
