@@ -106,6 +106,36 @@ bool bConsumesActionAndAxisMappings = false;  // true이면 레거시 키 매핑
 bool bReserveAllMappings = false;  // 상위 IMC가 자동으로 이 Action 매핑을 덮어쓰는 것 방지
 ```
 
+#### bReserveAllMappings 상세
+
+여러 IMC가 추가·제거될 때 시스템은 `EnhancedActionMappings`를 재빌드한다. 기본값(`false`)이면 높은 우선순위 IMC가 활성화될 때 낮은 우선순위 IMC의 매핑이 리빌드 과정에서 제거될 수 있다. `true`이면 이 Action의 키 매핑이 재빌드 중에도 항상 보존된다.
+
+**새 IMC에 같은 키가 있을 때**
+
+```
+IMC_Default (Priority 0): IA_Pause → Esc  (bReserveAllMappings = true)
+IMC_Combat  (Priority 10): IA_Dodge → Esc
+```
+
+`bReserveAllMappings`는 Esc 매핑이 리빌드에서 살아남도록 보호할 뿐이다. 실제로 어떤 Action이 발동되는지는 `bConsumeInput`이 결정한다.
+
+- `IA_Dodge.bConsumeInput = true` (기본) → Esc를 누르면 IA_Dodge만 발동, IA_Pause 차단
+- `IA_Dodge.bConsumeInput = false` → 둘 다 발동
+
+같은 키를 놓고 경쟁할 때는 `bReserveAllMappings`만으로 부족하다. `bConsumeInput`도 함께 고려해야 한다.
+
+**새 IMC에 같은 키가 없을 때 (핵심 사용처)**
+
+```
+IMC_Default (Priority 0): IA_Pause → Esc  (bReserveAllMappings = true)
+IMC_Combat  (Priority 10): Esc 매핑 없음
+```
+
+- `bReserveAllMappings = false` → 리빌드 시 Esc 매핑이 제거되어 일시정지 키가 동작 안 할 수 있음
+- `bReserveAllMappings = true` → Esc 매핑이 보존되어 IA_Pause 정상 발동
+
+IMC가 교체될 때마다 일시정지·메뉴 열기 같은 공통 Action을 모든 IMC에 중복 등록하지 않아도 된다. 원본 IMC에 한 번만 정의하고 `bReserveAllMappings = true`로 보호하는 것이 권장 패턴이다.
+
 ---
 
 ## FInputActionInstance — 런타임 인스턴스
