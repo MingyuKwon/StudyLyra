@@ -121,6 +121,29 @@ UCommonGameViewportClient::InputKey()
 
 `ActionRouter->ProcessInput()`는 현재 활성화된 위젯 스택을 순회하며 등록된 바인딩 중 이 키에 반응하는 것을 찾는다. 찾으면 콜백을 실행하고 `Handled`를 반환해 게임 입력을 막는다.
 
+### Slate와 ActionRouter의 역할 분담
+
+ActionRouter는 Slate가 소비하지 않은 입력만 받는다. 따라서 두 시스템이 담당하는 입력이 명확히 나뉜다.
+
+| 시스템 | 담당 입력 | 예시 |
+|--------|----------|------|
+| Slate Navigation | 방향키/스틱 → 포커스 이동 | 스틱 아래 → 다음 버튼으로 이동 |
+| Slate OnKeyDown | 포커스된 위젯의 확인 입력 | A버튼 → 포커스된 버튼 클릭 |
+| CommonUI ActionRouter | 컨텍스트 전체 바인딩 | ESC → 메뉴 닫기 (포커스 위치 무관) |
+
+```
+A버튼 (버튼이 포커스된 상태)
+    Slate Bubble → SCommonButton::OnKeyDown(A) → Handled()
+    → GameViewportClient까지 내려오지 않음 → ActionRouter 못 봄
+
+ESC키 (어떤 위젯도 ESC를 처리 안 할 때)
+    Slate Bubble → Unhandled() → UCommonGameViewportClient::InputKey()
+    → ActionRouter → "UI.Action.Escape" 바인딩 → HandleEscapeAction()
+```
+
+Slate 포커스 시스템은 ActionRouter와 별개로 완전히 유효하다.  
+포커스 이동과 포커스된 버튼 클릭은 Slate가 처리하고, ActionRouter는 거기서 걸러지고 남은 입력만 받는다.
+
 ### Enhanced Input과의 연동
 
 `UCommonUIInputData`에 `UInputAction` 에셋을 지정하면, ActionRouter가 현재 활성 IMC를 조회해서 "이 IA에 어떤 키가 매핑되어 있는가"를 읽어온다.  
@@ -136,6 +159,11 @@ ActionRouter가 키 입력 수신 시:
 
 게임의 `IA_Confirm`과 UI의 확인 버튼이 **같은 UInputAction 에셋을 참조**하기 때문에,  
 키 매핑을 한 곳에서만 관리해도 게임과 UI 양쪽에 자동으로 반영된다.
+
+> **Lyra는 Enhanced Input UI 연동을 쓰지 않는다.**  
+> `Config/DefaultGame.ini`에 `IsEnhancedInputSupportEnabled` 설정이 없고,  
+> `B_CommonInputData.uasset` (구형 DataTable 기반)을 사용한다.  
+> `LyraHUDLayout`의 `RegisterUIActionBinding`도 태그 기반 구형 방식이다.
 
 ---
 
