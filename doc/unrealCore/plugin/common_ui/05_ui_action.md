@@ -160,6 +160,43 @@ ActionRouter가 키 입력 수신 시:
 게임의 `IA_Confirm`과 UI의 확인 버튼이 **같은 UInputAction 에셋을 참조**하기 때문에,  
 키 매핑을 한 곳에서만 관리해도 게임과 UI 양쪽에 자동으로 반영된다.
 
+### UCommonActivatableWidget::InputMapping — 위젯 수명 연동 IMC
+
+`UCommonActivatableWidget`에 `InputMapping` 프로퍼티가 있다.  
+위젯이 활성화/비활성화될 때 해당 IMC를 Enhanced Input 서브시스템에 자동으로 추가/제거한다.
+
+```cpp
+void UCommonActivatableWidget::ActivateMappingContext()
+{
+    InputSystem->AddMappingContext(InputMapping, InputMappingPriority);  // 위젯 켜질 때
+}
+void UCommonActivatableWidget::DeactivateMappingContext()
+{
+    InputSystem->RemoveMappingContext(InputMapping);  // 위젯 꺼질 때
+}
+```
+
+이 기능은 Slate나 ActionRouter와 무관하다. `AddMappingContext()`로 등록된 IMC는 **Enhanced Input 정규 파이프라인**을 완전히 탄다.
+
+```
+물리 입력 → Slate (건드리지 않음)
+    └─ SViewport → UGameViewportClient → UEnhancedPlayerInput
+           └─ 위젯 InputMapping의 IMC 평가 → IA 콜백 발동
+```
+
+CommonUI가 하는 일은 위젯 수명에 맞춰 `Add/RemoveMappingContext`를 자동 호출하는 것뿐이다.  
+입력 자체는 게임 입력 파이프라인이 그대로 처리한다.
+
+```
+[예시] 설정 화면(SettingsWidget)에 IMC_Settings 지정
+  SettingsWidget 활성화 → AddMappingContext(IMC_Settings)
+    LB/RB → 탭 전환 IA 발동 (Enhanced Input 경로)
+  SettingsWidget 비활성화 → RemoveMappingContext(IMC_Settings)
+    LB/RB → 원래 게임 입력으로 복귀
+```
+
+`IsEnhancedInputSupportEnabled = true`일 때만 동작한다. Lyra는 이 설정이 꺼져 있어 사용하지 않는다.
+
 > **Lyra는 Enhanced Input UI 연동을 쓰지 않는다.**  
 > `Config/DefaultGame.ini`에 `IsEnhancedInputSupportEnabled` 설정이 없고,  
 > `B_CommonInputData.uasset` (구형 DataTable 기반)을 사용한다.  
