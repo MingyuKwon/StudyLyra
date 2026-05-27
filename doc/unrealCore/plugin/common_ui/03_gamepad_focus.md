@@ -88,6 +88,10 @@ Vertical Box에 버튼을 위→아래로 쌓으면 화면 Y 좌표도 위→아
 
 ### SupportsKeyboardFocus() — 후보 수집의 핵심
 
+> 이름이 Keyboard인 이유: 게임패드 지원 이전, Slate 포커스는 키보드 전용이었다.  
+> 게임패드가 추가될 때 별도 시스템을 만들지 않고 같은 포커스 시스템을 재활용했기 때문에 이름이 그대로 남았다.  
+> 실제 의미는 "방향 네비게이션(키보드·게임패드 무관)의 후보가 될 수 있는가"다.
+
 ```cpp
 // SButton (UMG 기본 버튼)
 virtual bool SupportsKeyboardFocus() const override { return false; }  // 후보에서 제외
