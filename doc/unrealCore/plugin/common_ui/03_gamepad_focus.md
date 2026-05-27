@@ -47,21 +47,56 @@ GetDesiredFocusTarget 이벤트
 
 ---
 
-## 포커스 이동 자동 순회
+## 포커스 이동 — 동작 원리
 
-방향키/스틱으로 포커스를 이동할 때 CommonUI가 Widget Tree를 자동 순회한다.  
-별도 코드 없이 **UMG 위젯 배치 순서(위→아래, 좌→우)** 대로 이동한다.
+포커스 이동은 "다음 위젯 포인터를 미리 지정해둔다"가 아니다.  
+**Slate가 화면 좌표 기반으로 런타임에 공간 탐색**을 수행한다.
+
+### 전체 흐름
+
+```
+[1] 방향키/스틱 입력
+        └─ FSlateApplication이 EUINavigation::Down (또는 Up/Left/Right) 이벤트 생성
+
+[2] 후보 수집
+        └─ 위젯 트리 전체 순회
+        └─ SupportsKeyboardFocus() == true 인 위젯만 후보로 수집
+
+[3] 방향 필터링
+        └─ 현재 포커스 위젯의 화면상 Bounding Box 기준
+        └─ Down이면 → 현재 위젯 중심 Y보다 아래에 있는 후보만 남김
+
+[4] 최적 후보 선택
+        └─ 남은 후보들에 Navigation Score 계산 (거리 + 정렬 보정값)
+        └─ 가장 낮은 Score의 위젯으로 포커스 이동
+```
+
+### UMG 배치 순서와 일치하는 이유
+
+트리 순서를 보는 것이 아니라 **실제 화면 픽셀 좌표**를 보기 때문이다.  
+Vertical Box에 버튼을 위→아래로 쌓으면 화면 Y 좌표도 위→아래가 되어 결과가 일치할 뿐이다.
 
 ```
 [수직 Box]
-  Button_A  ← 현재 포커스
-  Button_B
-  Button_C
+  Button_A  (Y: 100)  ← 현재 포커스
+  Button_B  (Y: 150)
+  Button_C  (Y: 200)
 
-스틱 아래 → Button_B로 이동
-스틱 아래 → Button_C로 이동
-스틱 아래 → (끝) → 아무 일도 일어나지 않음 (또는 루프, 설정에 따라 다름)
+스틱 아래 → Y > 100 후보 수집 → Button_B(50 차이), Button_C(100 차이)
+         → Score 최소값 = Button_B → 포커스 이동
 ```
+
+### SupportsKeyboardFocus() — 후보 수집의 핵심
+
+```cpp
+// SButton (UMG 기본 버튼)
+virtual bool SupportsKeyboardFocus() const override { return false; }  // 후보에서 제외
+
+// SCommonButton (CommonUI 버튼)
+virtual bool SupportsKeyboardFocus() const override { return bIsFocusable; }  // 후보 포함
+```
+
+`UButton`으로 만든 버튼은 후보 수집 단계에서 아예 제외되어 방향키로 이동이 불가능하다.
 
 ### 포커스 이동이 안 되는 경우
 
