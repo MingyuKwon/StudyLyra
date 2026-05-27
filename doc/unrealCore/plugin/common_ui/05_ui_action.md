@@ -97,6 +97,48 @@ ULyraBoundActionButton → TriggeringInputAction: "UI.Action.Confirm"
 
 ---
 
+## 내부 파이프라인 — 입력이 어떻게 바인딩에 도달하는가
+
+CommonUI는 `UCommonGameViewportClient`를 필수로 사용한다 (없으면 에러 로그 출력).  
+입력이 Slate Tunnel/Bubble을 통과한 뒤 GameViewportClient에 도달하는 시점에 가로챈다.
+
+```
+물리 입력
+    │
+    ▼
+FSlateApplication → Tunnel → Bubble (Slate 위젯)
+    │ Slate가 소비 못하면
+    ▼
+UCommonGameViewportClient::InputKey()
+    ├─ [1] CommonUI ActionRouter->ProcessInput()   ← 등록된 UIAction 바인딩 탐색
+    │       ├─ Handled        → return true  (Enhanced Input 못 받음)
+    │       ├─ BlockGameInput → return true  (게임 입력 차단)
+    │       └─ Unhandled      ↓
+    └─ [2] Super::InputKey()  → PlayerController → UEnhancedPlayerInput
+```
+
+소스 주석 원문: `"The input is fair game for handling - the UI gets first dibs"`
+
+`ActionRouter->ProcessInput()`는 현재 활성화된 위젯 스택을 순회하며 등록된 바인딩 중 이 키에 반응하는 것을 찾는다. 찾으면 콜백을 실행하고 `Handled`를 반환해 게임 입력을 막는다.
+
+### Enhanced Input과의 연동
+
+`UCommonUIInputData`에 `UInputAction` 에셋을 지정하면, ActionRouter가 현재 활성 IMC를 조회해서 "이 IA에 어떤 키가 매핑되어 있는가"를 읽어온다.  
+Enhanced Input 파이프라인을 직접 타지 않고 IMC 매핑 테이블만 참조하는 방식이다.
+
+```
+EnhancedInputClickAction = IA_Confirm
+
+ActionRouter가 키 입력 수신 시:
+  현재 IMC 조회 → "IA_Confirm = Gamepad_FaceButton_Bottom (A버튼)"
+  → A버튼 입력 → UI Click 처리 (Enhanced Input까지 안 내려감)
+```
+
+게임의 `IA_Confirm`과 UI의 확인 버튼이 **같은 UInputAction 에셋을 참조**하기 때문에,  
+키 매핑을 한 곳에서만 관리해도 게임과 UI 양쪽에 자동으로 반영된다.
+
+---
+
 ## 주의: 위젯이 활성화 중일 때만 바인딩 유효
 
 `RegisterUIActionBinding()`으로 등록한 바인딩은 해당 위젯이 **활성화 상태일 때만** 유효하다.
