@@ -214,3 +214,49 @@ FReply SMyWidget::OnKeyDown(const FGeometry&, const FKeyEvent& KeyEvent)
 | 인벤토리 UI 열림 | 포커스가 UI 위젯으로 이동 → SViewport 키보드 차단 |
 | 컷신 중 입력 차단 | PreProcessor 등록, 특정 키만 허용 |
 | 일시 정지 메뉴 ESC | UI에서 `Handled()` 반환 → 게임으로 전파 안 됨 |
+
+---
+
+## UI vs 게임 입력 분기
+
+물리 입력(키보드/마우스/게임패드) 하나가 들어오면 파이프라인이 두 갈래로 나뉜다.
+
+```
+[물리 입력]
+      │
+      ▼
+FSlateApplication  ← 모든 입력이 여기 먼저 도착
+      │
+      ├─ [UI 경로]  Tunnel → Bubble → 포커스 위젯 처리
+      │                └─ FReply::Handled() 반환 시 아래 경로로 내려가지 않음
+      │
+      └─ [게임 경로]  SViewport → FSceneViewport → UGameViewportClient → PlayerInput
+```
+
+FSlateApplication이 먼저 받고, UI가 `Handled()`를 반환하면 게임 경로로 내려가지 않는다.  
+UI가 `Unhandled()`를 반환하거나 포커스 경로에 없으면 SViewport를 통해 게임으로 전달된다.
+
+이 구조는 키보드·마우스·게임패드 모두 동일하게 적용된다.
+
+```
+키보드 ESC    → UI가 먼저 받음 → 모달 닫기(Handled) → 게임으로 전달 안 됨
+마우스 클릭   → UI가 먼저 받음 → 버튼 클릭(Handled) → 게임 월드 클릭 안 됨
+게임패드 스틱 → UI가 먼저 받음 → 포커스 이동(Handled) → 캐릭터 이동 안 됨
+```
+
+### CommonUI의 ECommonInputMode
+
+CommonUI는 이 분기를 **더 명시적으로** 제어한다.  
+스택 최상위 위젯의 `ECommonInputMode` 설정이 어느 경로를 허용할지 결정한다.
+
+| InputMode | UI 경로 | 게임 경로 |
+|-----------|---------|---------|
+| `Menu` | O | X — PlayerInput까지 전달 차단 |
+| `Game` | X | O — UI 포커스 입력 차단 |
+| `All` (GameAndMenu) | O | O — 둘 다 허용 |
+
+`Menu` 모드에서 게임패드 스틱을 누르면 UI 포커스만 이동하고 캐릭터는 움직이지 않는다.  
+`All` 모드에서 같은 입력을 누르면 포커스 이동과 캐릭터 이동이 동시에 일어날 수 있다.
+
+Lyra에서 UI를 열 때 `ELyraWidgetInputMode::Menu`로 전환하는 이유가 이것이다.  
+→ [CommonUI 입력 모드 상세](../../../../../plugin/common_ui/02_input_mode.md)
