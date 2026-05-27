@@ -21,6 +21,32 @@ Menu까지 pop 되면 → Game 모드로 자동 전환.
 
 ---
 
+## 동작 원리 — 입력은 항상 순차적
+
+모든 물리 입력(키보드·마우스·게임패드)은 **항상 Slate가 먼저 받고, 게임은 Slate가 소비하지 않은 입력만 받는다.**  
+동시에 두 곳에 가는 게 아니다.
+
+```
+물리 입력 → FSlateApplication → Tunnel/Bubble → 포커스 위젯
+                                                      │
+                                        Handled()     │  Unhandled()
+                                    (게임 전달 안 됨)  │  (SViewport → PlayerInput)
+```
+
+`ECommonInputMode`는 **포커스를 어디에 두느냐**로 경로를 제어한다.
+
+| InputMode | 포커스 위치 | 결과 |
+|-----------|------------|------|
+| `Menu` | UI 위젯 | SViewport가 포커스 경로 밖 → 게임 입력 원천 차단 |
+| `Game` | SViewport | UI 위젯이 포커스 경로 밖 → UI 입력 차단 |
+| `All` | UI 위젯 | UI가 소비한 입력은 게임 못 받고, UI가 흘린 입력은 게임이 받음 |
+
+`All` 모드는 "둘 다 동시에 받는다"가 아니다. Slate 우선 순차 처리이며, UI가 `Unhandled()`를 반환한 입력만 게임으로 내려간다.
+
+> 입력 라우팅 전체 흐름 → [FSlateApplication 위젯 라우팅](../../input/engine/background/01_slate_routing.md)
+
+---
+
 ## ELyraWidgetInputMode 4가지
 
 ### Default
