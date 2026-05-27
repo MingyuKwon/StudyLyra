@@ -107,19 +107,3 @@ UMyWidget::UMyWidget(const FObjectInitializer& ObjectInitializer)
 ```
 
 ---
-
-## 주의: Visibility로 숨기는 것과의 차이
-
-```
-SetVisibility(ESlateVisibility::Hidden)
-→ 위젯은 스택에 남아있음
-→ 입력 모드가 그대로 유지됨
-→ 포커스가 아래 위젯으로 내려가지 않음
-
-DeactivateWidget()
-→ 스택에서 완전히 제거
-→ 입력 모드 자동 복구
-→ 포커스 아래 위젯으로 자동 이동
-```
-
-UI를 "닫는" 동작은 반드시 `DeactivateWidget()`을 써야 한다.

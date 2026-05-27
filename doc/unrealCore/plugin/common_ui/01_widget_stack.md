@@ -53,6 +53,22 @@ DeactivateWidget();
 
 pop 되면 아래 위젯이 자동으로 다시 활성화된다.
 
+### 주의: SetVisibility와의 차이
+
+```
+SetVisibility(ESlateVisibility::Hidden)
+→ 위젯은 CommonUI 스택에 남아있음 (CommonUI는 여전히 활성으로 인식)
+→ 입력 모드 유지 (게임 입력 차단 상태 그대로)
+→ 포커스가 아래 위젯으로 내려가지 않음
+
+DeactivateWidget()
+→ CommonUI 스택에서 완전히 제거
+→ 입력 모드 자동 재계산 (아래 위젯 기준으로 복구)
+→ 포커스 아래 위젯으로 자동 이동
+```
+
+UI를 "닫는" 동작은 반드시 `DeactivateWidget()`을 써야 한다.
+
 ---
 
 ## 레이어 스택 — UGameUIManagerSubsystem
