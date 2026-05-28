@@ -330,24 +330,51 @@ void UEnhancedInputUserSettings::ApplySettings()
 }
 ```
 
-**`ApplySettings()`는 IMC를 직접 패치하지 않는다.**
+**`ApplySettings()`는 IMC를 직접 패치하지 않는다.**  
+브로드캐스트만 쏘고 끝이다. 실제 게임 입력 반영은 `RebuildControlMappings()`의 역할이다.
 
-실제 게임 입력 반영은 `IEnhancedInputSubsystemInterface::RebuildControlMappings()`에서 일어난다.  
-Enhanced Input은 IMC를 게임에 적용(AddMappingContext)할 때마다 내부적으로 `RebuildControlMappings()`를 호출하고,  
-그 안에서 `GetPlayerMappedKeysForRebuildControlMappings()`를 통해 `CurrentKey`를 물어본다.
+---
+
+### `RebuildControlMappings()` — 키가 실제로 게임에 꽂히는 시점
+
+Enhanced Input의 입력 처리는 두 단계로 나뉜다:
+
+**1단계 — Rebuild (이벤트 기반)**  
+`AddMappingContext()` 호출 시마다 내부적으로 `RebuildControlMappings()`가 실행된다.  
+이 때 Profile에서 `CurrentKey`를 읽어 `FEnhancedActionKeyMapping`에 **굽는다(bake-in)**.
 
 ```
-RebuildControlMappings() [EnhancedInput 내부, AddMappingContext 시 자동 호출]
+RebuildControlMappings()
     └─ 각 FEnhancedActionKeyMapping에 대해
             └─ Profile->GetPlayerMappedKeysForRebuildControlMappings(DefaultMapping, OutKeys)
                     └─ QueryPlayerMappedKeys() → CurrentKey 목록 반환
-            └─ OutKeys가 비어있지 않으면 CurrentKey로 입력 등록
-               OutKeys가 비어있으면 DefaultKey(IMC 원본)로 등록
+            └─ OutKeys가 있으면 CurrentKey로 등록
+               OutKeys가 없으면 DefaultKey(IMC 원본)로 등록
 ```
 
-즉, 키 변경 후 게임에 반영되는 시점은 `ApplySettings()` 호출이 아니라  
-`RebuildControlMappings()`가 트리거되는 시점이다.  
-Lyra에서는 `ULyraInputUserSettings::ApplySettings()` → `Super::ApplySettings()` → `OnSettingsApplied` 브로드캐스트 → Lyra가 이를 수신해서 직접 `RebuildControlMappings()` 혹은 subsystem 갱신을 트리거한다.
+**2단계 — 매 Tick (ProcessInputStack)**  
+1단계에서 구워진 키 목록으로만 동작한다. 매 Tick마다 Profile에 다시 물어보지 않는다.  
+"SpaceBar 눌렸나?" 같은 하드웨어 입력 체크만 한다.
+
+→ 즉, `MapPlayerKey()`로 `CurrentKey`를 바꿔도 **Rebuild가 다시 일어나기 전까지 게임에 반영되지 않는다.**
+
+---
+
+### Lyra에서 키 변경이 반영되는 전체 흐름
+
+```
+MapPlayerKey(SpaceBar → Enter)
+    → Profile의 CurrentKey만 변경 (게임 입력은 아직 SpaceBar)
+
+ApplySettings() 호출
+    → OnSettingsApplied 브로드캐스트
+    → Lyra가 수신 → RebuildControlMappings() 재실행
+    → 이 시점에 QueryPlayerMappedKeys()로 Enter를 읽어서 bake-in
+    → 이후 Tick부터 Enter로 처리됨
+```
+
+`ApplySettings()`의 역할은 "Rebuild를 다시 트리거하라"는 신호를 보내는 것이다.  
+Lyra에서는 `ULyraInputUserSettings::ApplySettings()` → `Super::ApplySettings()` → `OnSettingsApplied` 브로드캐스트 → Lyra가 이를 수신해서 subsystem의 `RebuildControlMappings()`를 호출한다.
 
 ---
 
