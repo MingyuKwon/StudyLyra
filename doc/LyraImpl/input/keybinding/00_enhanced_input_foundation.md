@@ -98,6 +98,46 @@ Profile "기본 배치"  (UEnhancedPlayerMappableKeyProfile)
 
 ---
 
+## 프로필 독립성의 정확한 의미
+
+IMC를 등록하면 **모든 프로필**을 갱신한다. "프로필이 독립적"이라고 했는데 왜 그럴까?
+
+프로필의 독립성은 **"각 프로필이 같은 액션에 대해 서로 다른 `CurrentKey`를 갖는다"** 는 뜻이다.  
+독립적인 것과 공유하는 것이 명확히 나뉜다.
+
+| | 프로필마다 독립 | 모든 프로필 공유 |
+|--|--|--|
+| `CurrentKey` (사용자가 바꾼 키) | ✓ | |
+| 어떤 액션이 리맵 가능한가 (Row 목록) | | ✓ |
+| `DefaultKey` (IMC 원본 키) | | ✓ |
+| `DisplayName`, `DisplayCategory` | | ✓ |
+
+IMC 등록은 "이 액션이 존재하고 리맵 가능하다"는 사실을 알리는 것이다.  
+어떤 프로필을 쓰든 설정 화면에는 같은 액션 목록이 나와야 하므로  
+모든 프로필이 같은 액션 목록을 공유한다.
+
+```
+[IMC 등록 직후 — 모든 프로필에 동일하게 초기화]
+Profile "기본 배치"            Profile "왼손잡이 배치"
+  IA_Jump: DefaultKey=Space      IA_Jump: DefaultKey=Space
+           CurrentKey=Space               CurrentKey=Space
+
+[사용자가 각 프로필에서 키를 바꾼 후]
+Profile "기본 배치"            Profile "왼손잡이 배치"
+  IA_Jump: CurrentKey=Space      IA_Jump: CurrentKey=Enter  ← 각자 다름
+           DefaultKey=Space               DefaultKey=Space  ← 이건 동일
+```
+
+**이미 커스텀된 프로필에 IMC가 뒤늦게 등록되면?**  
+`RegisterKeyMappingsToProfile()`이 `DefaultKey`와 메타데이터만 갱신하고 `CurrentKey`는 건드리지 않는다.  
+Game Feature 플러그인이 뒤늦게 로드되어 새 IMC를 등록해도 각 프로필의 기존 설정은 보존된다.
+
+**새 프로필을 생성하면?**  
+`CreateNewKeyProfile()` 내부에서 현재까지 등록된 모든 IMC를 그 프로필에 자동 등록한다.  
+프로필이 생성된 시점과 무관하게 항상 최신 액션 목록을 갖게 된다.
+
+---
+
 ## `RegisterInputMappingContext()` — 실제 동작
 
 ```cpp
