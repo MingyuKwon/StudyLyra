@@ -56,6 +56,48 @@ struct FPlayerKeyMapping
 
 ---
 
+## 세 계층의 관계 — Profile / Row / Mapping
+
+구조 트리만 보면 관계가 바로 와닿지 않을 수 있어서 역할을 구분해서 설명한다.
+
+| 계층 | 역할 | 비유 |
+|------|------|------|
+| `UEnhancedPlayerMappableKeyProfile` | 키 배치 프리셋 1개 전체 | "기본 배치" 설정 파일 한 장 |
+| `FKeyMappingRow` | 액션 1개의 모든 슬롯 묶음 | 그 파일에서 "점프" 항목 한 줄 |
+| `FPlayerKeyMapping` | 슬롯 1개의 실제 키값 | "점프 Primary: SpaceBar" |
+
+**구체적인 예시로 보면:**
+
+```
+Profile "기본 배치"  (UEnhancedPlayerMappableKeyProfile)
+│
+├─ "IA_Jump" → FKeyMappingRow
+│                   ├─ FPlayerKeyMapping { Slot: First,  CurrentKey: SpaceBar, DefaultKey: SpaceBar }
+│                   └─ FPlayerKeyMapping { Slot: Second, CurrentKey: F,        DefaultKey: Invalid  }
+│                                                                               ↑ 사용자가 직접 추가한 슬롯
+│                                                                                 IMC에 없으므로 Default=Invalid
+│
+└─ "IA_Interact" → FKeyMappingRow
+                        └─ FPlayerKeyMapping { Slot: First, CurrentKey: E, DefaultKey: E }
+```
+
+**`FKeyMappingRow`가 왜 따로 존재하는가?**
+
+직관적으로 생각하면 `TMap<FName, TSet<FPlayerKeyMapping>>`이면 충분해 보인다.  
+그런데 Blueprint는 중첩 컨테이너(`TMap<K, TSet<V>>`)를 지원하지 않는다.  
+그래서 `TSet<FPlayerKeyMapping>`을 `FKeyMappingRow` 구조체로 한 번 감싼 것이다.  
+헤더 주석에 이유가 직접 명시되어 있다:
+
+> *"Since a single mapping can have multiple bindings to it and this system should be Blueprint friendly, this needs to be a struct (blueprint don't support nested containers)."*
+
+**`Map`의 Key(`FName`)는 어디서 오는가?**
+
+`UPlayerMappableKeySettings`(또는 서브클래스)에서 지정한 `MappingName`이다.  
+에디터에서 IMC를 열어 키 매핑에 `PlayerMappableKeySettings`를 붙일 때 설정하는 이름.  
+`UInputAction`의 에셋 이름과 다를 수 있고, 같은 `UInputAction`에 대해 여러 IMC에서 각각 다른 이름을 붙일 수도 있다.
+
+---
+
 ## `RegisterInputMappingContext()` — 실제 동작
 
 ```cpp
