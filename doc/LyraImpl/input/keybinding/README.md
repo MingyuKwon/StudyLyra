@@ -63,6 +63,7 @@
 | 번호 | 문서 | 핵심 질문 |
 |------|------|-----------|
 | [00](00_enhanced_input_foundation.md) | Enhanced Input 엔진 기반 | 엔진이 제공하는 것 — RegisterInputMappingContext 실제 동작, 직렬화, MapPlayerKey 상세 |
+| [07](07_game_settings_foundation.md) | GameSettings 플러그인 기반 | 플러그인이 제공하는 것 — MVC 구조, StoreInitial/Restore 패턴, PressAnyKey 모달 동작 |
 | [01](01_architecture.md) | 전체 아키텍처 | "왜 이렇게 설계했는가?" — 각 계층의 존재 이유 |
 | [02](02_data_layer.md) | 데이터 계층 | "키 변경 결과가 어디에 저장되는가?" |
 | [03](03_imc_registration.md) | IMC 등록 | "어떤 키가 리맵 가능한가? 어떻게 등록되는가?" |
@@ -85,5 +86,8 @@
 | `UEnhancedPlayerMappableKeyProfile` | FKeyMappingRow 컨테이너 | 엔진 |
 | `FKeyMappingRow` | 액션 1개의 모든 슬롯 매핑 묶음 | 엔진 |
 | `FPlayerKeyMapping` | 슬롯 1개의 CurrentKey/DefaultKey | 엔진 |
-| `UGameSettingPressAnyKey` | 키 캡처 모달 위젯 | GameSettings 플러그인 |
-| `UKeyAlreadyBoundWarning` | 중복 경고 모달 위젯 | GameSettings 플러그인 |
+| `UGameSettingRegistry` | 설정 항목 목록 관리, SaveChanges 진입점 | GameSettings 플러그인 |
+| `UGameSettingValue` | 취소 가능한 설정 값 base (StoreInitial/Restore) | GameSettings 플러그인 |
+| `UGameSettingListEntryBase` | 설정 항목 위젯 base (IUserObjectListEntry) | GameSettings 플러그인 |
+| `UGameSettingPressAnyKey` | 키 캡처 모달 (InputPreProcessor로 원시 키 수신) | GameSettings 플러그인 |
+| `UKeyAlreadyBoundWarning` | 중복 경고 모달 (PressAnyKey 서브클래스) | GameSettings 플러그인 |
