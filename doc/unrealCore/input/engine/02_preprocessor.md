@@ -188,6 +188,101 @@ public:
 
 ---
 
+### 콜백 내 해제 — 1틱 딜레이 패턴
+
+PreProcessor의 콜백 안에서 자기 자신을 해제할 때는 **즉시 호출하면 안 되고 1틱 뒤로 미뤄야 한다.**  
+Lyra의 `UGameSettingPressAnyKey::Dismiss()`가 이 패턴을 정확히 따른다.
+
+```cpp
+void UGameSettingPressAnyKey::Dismiss(TFunction<void()> PostDismissCallback)
+{
+    // "We delay a tick so that we're done processing input."
+    FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this,
+        [this, PostDismissCallback](float)
+    {
+        FSlateApplication::Get().UnregisterInputPreProcessor(InputProcessor);
+        DeactivateWidget();
+        PostDismissCallback();
+        return false;
+    }));
+}
+```
+
+#### 왜 즉시 호출하면 안 되나
+
+`HandleKeyDownEvent` 콜백은 `PreProcessInput()` 안에서 불린다.  
+이 함수는 진입 시 `bIsIteratingPreProcessors = true`로 세팅한다.
+
+```cpp
+// SlateApplication.cpp
+bool PreProcessInput(...)
+{
+    TGuardValue<bool> IteratingGuard(bIsIteratingPreProcessors, true);  // 진입 시 ON
+    for (Processor : InputPreProcessorsIteratorList)
+    {
+        bShouldExit = InputProcessFunc(*Processor);   // ← 우리 콜백이 여기서 실행됨
+        if (bShouldExit) break;
+    }
+    // 루프 끝난 뒤 PendingRemoval 처리
+    for (Processor : ProcessorsPendingRemoval) { ... }
+    ProcessorsPendingRemoval.Reset();
+}   // IteratingGuard 소멸 → false로 복구
+```
+
+이 상태에서 즉시 호출하면 두 가지 문제가 생긴다.
+
+**문제 1 — `UnregisterInputPreProcessor` 즉시 삭제 실패**
+
+```cpp
+void Remove(TSharedPtr<IInputProcessor> InputProcessor)
+{
+    if (bIsIteratingPreProcessors)
+    {
+        ProcessorsPendingRemoval.Add(InputProcessor);  // 바로 삭제 못 하고 대기열에만 추가됨
+    }
+    else { /* 즉시 삭제 */ }
+}
+```
+
+Slate가 내부적으로 안전하게 처리해주긴 한다.  
+하지만 루프가 끝날 때까지 프로세서가 살아있는 채로 유지된다.
+
+**문제 2 — `DeactivateWidget()` 중 위젯 트리 변경**
+
+`DeactivateWidget()`은 CommonActivatableWidget을 비활성화한다. 이 과정에서:
+- OnDeactivated 콜백 실행
+- 포커스 이동
+- 위젯이 레이어에서 제거될 수 있음
+
+`ProcessKeyDownEvent`가 아직 콜스택에 살아있는 상태에서 위젯 트리가 바뀌는 것이다.
+
+**문제 3 — `PostDismissCallback()` 중 새 화면 Push**
+
+이 콜백은 다음 화면을 올리는 작업을 한다 (`PushContentToLayer_ForPlayer` 등).  
+입력 이벤트가 완전히 끝나지 않은 상태에서 새 위젯이 활성화되고 포커스를 잡으려 하면  
+Slate의 입력 처리 상태와 충돌한다.
+
+#### 1틱 딜레이의 효과
+
+```
+[현재 틱]
+  ProcessKeyDownEvent()
+    PreProcessInput()  — bIsIteratingPreProcessors = true
+      HandleKeyDownEvent()
+        Dismiss() → FTSTicker에 콜백 등록만 하고 즉시 반환
+        return true (입력 소비)
+    루프 종료 → bIsIteratingPreProcessors = false
+
+[다음 틱]  ← Slate 입력 처리 완전히 종료된 뒤
+  UnregisterInputPreProcessor()  → bIsIteratingPreProcessors=false → 즉시 삭제
+  DeactivateWidget()             → 깨끗한 상태에서 안전하게 실행
+  PostDismissCallback()          → 새 화면 Push, 포커스 변경 안전
+```
+
+**"입력 이벤트 처리 콜스택 안에서 위젯 트리를 바꾸지 않는다"** — 입력 콜백 안에서 위젯 수명을 변경할 때 쓰는 표준 패턴이다.
+
+---
+
 ## PreProcessor vs 위젯 라우팅
 
 | | InputPreProcessor | Tunnel/Bubble |
