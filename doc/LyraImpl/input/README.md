@@ -136,3 +136,7 @@ void AbilitySpecInputPressed(FGameplayAbilitySpec& Spec)
 | [02. 초기화 흐름](02_initialization.md) | HeroComponent 초기화 단계, IMC 등록, 바인딩 시점 |
 | [03. Ability 입력 경로](03_ability_input.md) | Tag Pressed/Released → ASC → ProcessAbilityInput 상세 |
 | [04. Native 입력 경로](04_native_input.md) | 이동/시점/웅크리기 콜백 구현 |
+| [05. 설정 시스템 아키텍처](05_settings_architecture.md) | SettingsLocal vs SettingsShared vs InputUserSettings, GameSettingRegistry 구조 |
+| [06. 게임패드 설정 UI](06_gamepad_settings.md) | 게임패드 탭 항목 구성, InputModifier 3종 연동, 플랫폼 Trait Tag |
+| [07. 키 바인딩 변경](keybinding/README.md) | 런타임 리맵핑 전체 흐름 (아키텍처/데이터/IMC등록/레지스트리/UI/적용저장 6개 문서) |
+| [08. CommonUI 입력 레이어](08_commonui_input.md) | 입력 모드 스택, 게임패드 포커스, 버튼 아이콘 자동 갱신, 컨트롤러 연결 끊김 |

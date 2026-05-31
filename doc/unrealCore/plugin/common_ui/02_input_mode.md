@@ -1,0 +1,135 @@
+# 입력 모드 — FUIInputConfig
+
+> 관련 소스: `UI/LyraActivatableWidget.h/cpp`
+
+---
+
+## 개념
+
+CommonUI는 **스택 최상위 위젯의 입력 설정이 전체 입력을 지배**한다.  
+위젯이 push/pop 될 때마다 CommonUI가 자동으로 입력 모드를 전환해준다.
+
+```
+[스택]
+  ▶ Modal (ELyraWidgetInputMode::Menu)    ← 현재 입력 모드: Menu
+  ─ Menu  (ELyraWidgetInputMode::Menu)
+  ─ HUD   (ELyraWidgetInputMode::Game)
+```
+
+Modal이 pop 되면 → Menu 모드로 자동 전환.  
+Menu까지 pop 되면 → Game 모드로 자동 전환.
+
+---
+
+## 동작 원리 — 입력은 항상 순차적
+
+모든 물리 입력(키보드·마우스·게임패드)은 **항상 Slate가 먼저 받고, 게임은 Slate가 소비하지 않은 입력만 받는다.**  
+동시에 두 곳에 가는 게 아니다.
+
+```
+물리 입력 → FSlateApplication → Tunnel/Bubble → 포커스 위젯
+                                                      │
+                                        Handled()     │  Unhandled()
+                                    (게임 전달 안 됨)  │  (SViewport → PlayerInput)
+```
+
+`ECommonInputMode`는 **포커스를 어디에 두느냐**로 경로를 제어한다.
+
+| InputMode | 포커스 위치 | 결과 |
+|-----------|------------|------|
+| `Menu` | UI 위젯 | SViewport가 포커스 경로 밖 → 게임 입력 원천 차단 |
+| `Game` | SViewport | UI 위젯이 포커스 경로 밖 → UI 입력 차단 |
+| `All` | UI 위젯 | UI가 소비한 입력은 게임 못 받고, UI가 흘린 입력은 게임이 받음 |
+
+`All` 모드는 "둘 다 동시에 받는다"가 아니다. Slate 우선 순차 처리이며, UI가 `Unhandled()`를 반환한 입력만 게임으로 내려간다.
+
+> 입력 라우팅 전체 흐름 → [FSlateApplication 위젯 라우팅](../../input/engine/background/01_slate_routing.md)
+
+---
+
+## ELyraWidgetInputMode 4가지
+
+### Default
+```
+부모 스택에게 위임한다.
+이 위젯 자체는 입력 모드를 바꾸지 않는다.
+HUD 안에 포함된 서브 위젯처럼, 단독으로 스택에 올라가지 않는 위젯에 사용.
+```
+
+### Menu
+```
+ECommonInputMode::Menu
+EMouseCaptureMode::NoCapture
+
+→ UI만 입력 받음. 게임 입력(캐릭터 이동 등) 차단.
+→ 마우스가 캡처되지 않아 자유롭게 움직임.
+→ 설정 화면, ESC 메뉴, 인벤토리 등에 사용.
+```
+
+### Game
+```
+ECommonInputMode::Game
+EMouseCaptureMode::CapturePermanently (기본값)
+
+→ 게임만 입력 받음. UI 클릭 등 차단.
+→ 마우스가 캡처되어 게임 시점 조작에 사용됨.
+→ HUD, 크로스헤어처럼 항상 떠 있는 오버레이에 사용.
+```
+
+### GameAndMenu
+```
+ECommonInputMode::All
+
+→ 게임 + UI 둘 다 입력 받음.
+→ 인게임 미니맵 클릭처럼 게임 중에도 UI 상호작용이 필요한 경우.
+```
+
+---
+
+## 내부 동작 — GetDesiredInputConfig()
+
+```cpp
+// LyraActivatableWidget.cpp
+TOptional<FUIInputConfig> ULyraActivatableWidget::GetDesiredInputConfig() const
+{
+    switch (InputConfig)
+    {
+    case ELyraWidgetInputMode::GameAndMenu:
+        return FUIInputConfig(ECommonInputMode::All, GameMouseCaptureMode);
+    case ELyraWidgetInputMode::Game:
+        return FUIInputConfig(ECommonInputMode::Game, GameMouseCaptureMode);
+    case ELyraWidgetInputMode::Menu:
+        return FUIInputConfig(ECommonInputMode::Menu, EMouseCaptureMode::NoCapture);
+    case ELyraWidgetInputMode::Default:
+    default:
+        return TOptional<FUIInputConfig>();  // 빈 값 = 부모에게 위임
+    }
+}
+```
+
+CommonUI가 스택을 순회하면서 `TOptional`이 값을 가진 첫 번째 위젯의 설정을 적용한다.
+
+---
+
+## 실제 설정 방법
+
+Blueprint에서 위젯 클래스를 열고 디테일 패널:
+
+```
+Class Defaults
+└─ Input
+    ├─ Input Config: Menu        ← 여기서 선택
+    └─ Game Mouse Capture Mode: No Capture
+```
+
+C++에서는 생성자에서:
+
+```cpp
+UMyWidget::UMyWidget(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+{
+    InputConfig = ELyraWidgetInputMode::Menu;
+}
+```
+
+---
