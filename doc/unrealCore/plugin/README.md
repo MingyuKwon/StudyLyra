@@ -10,3 +10,4 @@ Lyra 전용이 아닌 범용 엔진 플러그인이지만, Lyra에서 적극 활
 | [common_ui/](common_ui/README.md) | `Engine/Plugins/Runtime/CommonUI/` | 위젯 스택, 입력 모드, 게임패드 포커스, 버튼 스타일, UIAction 바인딩, 장치 감지 |
 | [common_user/](common_user/README.md) | `Plugins/CommonUser/` | UCommonUserSubsystem(로그인·권한), UCommonSessionSubsystem(세션 호스팅·검색·참여) |
 | [gameplay_message/](gameplay_message/README.md) | `Plugins/GameplayMessageRouter/` | UGameplayMessageSubsystem — GameplayTag 채널 기반 pub/sub 메시지 버스 |
+| [game_settings/](game_settings/README.md) | `Plugins/GameSettings/` | UGameSettingRegistry/Screen/Collection — MVC 설정 화면 프레임워크 |

@@ -96,7 +96,7 @@ void UGameSettingPressAnyKey::NativeOnActivated()
 	InputProcessor = MakeShared<FSettingsPressAnyKeyInputPreProcessor>();
 	InputProcessor->OnKeySelected.AddUObject(this, &ThisClass::HandleKeySelected);
 	InputProcessor->OnKeySelectionCanceled.AddUObject(this, &ThisClass::HandleKeySelectionCanceled);
-	FSlateApplication::Get().RegisterInputPreProcessor(InputProcessor, 0);
+ 	FSlateApplication::Get().RegisterInputPreProcessor(InputProcessor, 0);
 }
 
 void UGameSettingPressAnyKey::NativeOnDeactivated()

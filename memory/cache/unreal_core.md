@@ -160,6 +160,58 @@ UUserWidget에서 Tick 이벤트 사용 시 자동 세팅됨.
 
 ---
 
+## 27. CommonUI 레이어 시스템 — PushContentToLayer_ForPlayer
+
+> 출처:  
+> `Plugins/CommonGame/Source/Public/CommonUIExtensions.h`  
+> `Plugins/CommonGame/Source/Private/CommonUIExtensions.cpp`  
+> `Plugins/CommonGame/Source/Public/PrimaryGameLayout.h`
+
+### 레이어 구조
+
+`UPrimaryGameLayout`(루트 위젯) 안에 GameplayTag로 구분되는 레이어 스택들이 있다.
+
+```
+UPrimaryGameLayout
+├── UI.Layer.Game     ← HUD, 체력바 등 인게임 UI
+├── UI.Layer.Menu     ← 일반 메뉴
+├── UI.Layer.Modal    ← 팝업/모달 (상위 렌더링)
+└── UI.Layer.Overlay  ← 오버레이
+```
+
+각 레이어는 `UCommonActivatableWidgetContainerBase` — 위젯이 쌓이는 스택.  
+레이어 등록은 `UPrimaryGameLayout::RegisterLayer(LayerTag, LayerWidget)`으로 BP에서 한다.
+
+### PushContentToLayer_ForPlayer 흐름
+
+```
+PushContentToLayer_ForPlayer(LocalPlayer, "UI.Layer.Modal", WidgetClass)
+    └─ UGameUIManagerSubsystem (GameInstance 서브시스템)
+        └─ UGameUIPolicy (현재 UI 정책)
+            └─ UPrimaryGameLayout (이 플레이어의 루트 위젯)
+                └─ PushWidgetToLayerStack(LayerTag, WidgetClass)
+                    → Layers 맵에서 태그 매칭 레이어 찾기
+                    → 해당 레이어 스택에 위젯 인스턴스 생성 + Push + Activate
+```
+
+### Pop
+
+```cpp
+UCommonUIExtensions::PopContentFromLayer(Widget);
+// → RootLayout->FindAndRemoveWidgetFromLayer(Widget)
+```
+
+### Lyra PressAnyKey 활용 예
+
+```cpp
+// "아무 키나 누르세요" 위젯을 Modal 레이어에 올림
+PushContentToLayer_ForPlayer(GetOwningLocalPlayer(), "UI.Layer.Modal", PressAnyKeyPanelClass);
+// 키 입력 감지 후 Pop
+PopContentFromLayer(Widget);
+```
+
+---
+
 ## 20. CommonUser 플러그인
 
 출처: `Plugins/CommonUser/Source/CommonUser/Public/`

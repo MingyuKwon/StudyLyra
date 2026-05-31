@@ -10,7 +10,7 @@
 | 번호 | 문서 | 핵심 질문 |
 |------|------|-----------|
 | [00](00_enhanced_input_foundation.md) | Enhanced Input 엔진 기반 | 엔진이 제공하는 것 — RegisterInputMappingContext 실제 동작, 직렬화, MapPlayerKey 상세 |
-| [07](game_settings/README.md) | GameSettings 플러그인 기반 | 플러그인이 제공하는 것 — MVC 구조, Value 타입, EditCondition, Registry, 위젯 계층 |
+| [07](../../../../unrealCore/plugin/game_settings/README.md) | GameSettings 플러그인 기반 | 플러그인이 제공하는 것 — MVC 구조, Value 타입, EditCondition, Registry, 위젯 계층 |
 | [01](01_architecture.md) | 전체 아키텍처 | "왜 이렇게 설계했는가?" — 각 계층의 존재 이유 |
 | [02](02_data_layer.md) | 데이터 계층 | "키 변경 결과가 어디에 저장되는가?" |
 | [03](03_imc_registration.md) | IMC 등록 | "어떤 키가 리맵 가능한가? 어떻게 등록되는가?" |
