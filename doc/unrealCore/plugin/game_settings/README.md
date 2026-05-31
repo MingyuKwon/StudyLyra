@@ -16,6 +16,7 @@
 | [05](05_registry_collection.md) | Registry & Collection | 설정 항목 등록/구조화, SaveChanges, ChangeTracker |
 | [06](06_widget_system.md) | 위젯 시스템 | Screen/Panel/ListEntry 계층, Model-View 바인딩 방식 |
 | [07](07_key_widgets.md) | 키 바인딩 전용 위젯 | PressAnyKey InputPreProcessor 구조, KeyAlreadyBoundWarning |
+| [08](08_full_flow.md) | 전체 흐름 | Registry 생성 → Panel 연결 → 탭 전환 → CollectionPage 진입 → 뒤로가기 |
 
 ---
 
