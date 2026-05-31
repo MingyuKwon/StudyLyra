@@ -6,6 +6,19 @@
 
 ---
 
+## 문서 목록
+
+| 문서 | 내용 |
+|------|------|
+| [00. InputComponent](00_input_component.md) | InputComponent 개념, PC/Pawn 생성 위치, 기본 클래스 결정, EnableInput |
+| [01. Enhanced Input 상세](enhanced_input/README.md) | Subsystem/Component, BindAction, IMC 파이프라인, Trigger, Modifier, FInputActionValue |
+| [02. InputPreProcessor](02_preprocessor.md) | FEnhancedInputWorldProcessor 역할, 커스텀 PreProcessor 패턴 |
+| [03. 틱 처리 · GAS 연결](03_tick_and_gas.md) | PostProcessInput → ProcessAbilityInput, bDown 홀드 유지, BuildInputStack |
+| [04. 게임패드](04_gamepad/README.md) | 폴링 vs 인터럽트, 디지털/아날로그, 데드존, Modifier, 진동, 플랫폼 특수 기능 |
+| [05. 레거시 vs Enhanced Input](05_legacy_vs_enhanced.md) | 두 구조 상세 비교, PrepareInputDelegatesForEvaluation 위치, 공존 타임라인 |
+
+---
+
 ## 도입 배경
 
 언리얼 레거시 입력은 키와 함수를 코드에 직접 연결한다.
@@ -131,19 +144,6 @@ Subsystem이 먼저 "이 키가 어떤 Action인가"를 결정하고, 그 결과
 | `EvaluateInputDelegates` | BindAction/BindAxis 콜백 직접 실행 | IMC → ActionMappings → Modifier/Trigger → 콜백 체인 |
 | `PostProcessInput` | 빈 함수 | `ProcessAbilityInput()` → `TryActivateAbility()` |
 | GAS 연결 | 없음 (수동 구현 필요) | `PostProcessInput` → `ProcessAbilityInput` |
-
----
-
-## 문서 목록
-
-| 문서 | 내용 |
-|------|------|
-| [00. InputComponent](00_input_component.md) | InputComponent 개념, PC/Pawn 생성 위치, 기본 클래스 결정, EnableInput |
-| [01. Enhanced Input 상세](enhanced_input/README.md) | Subsystem/Component, BindAction, IMC 파이프라인, Trigger, Modifier, FInputActionValue |
-| [02. InputPreProcessor](02_preprocessor.md) | FEnhancedInputWorldProcessor 역할, 커스텀 PreProcessor 패턴 |
-| [03. 틱 처리 · GAS 연결](03_tick_and_gas.md) | PostProcessInput → ProcessAbilityInput, bDown 홀드 유지, BuildInputStack |
-| [04. 게임패드](04_gamepad/README.md) | 폴링 vs 인터럽트, 디지털/아날로그, 데드존, Modifier, 진동, 플랫폼 특수 기능 |
-| [05. 레거시 vs Enhanced Input](05_legacy_vs_enhanced.md) | 두 구조 상세 비교, PrepareInputDelegatesForEvaluation 위치, 공존 타임라인 |
 
 ---
 

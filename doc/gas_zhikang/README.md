@@ -10,14 +10,6 @@
 
 ---
 
-## 이 문서에 대해
-
-GAS(Gameplay Ability System)는 게임플레이 관련 값과 동작을 체계적으로 구성하기 위한 프레임워크다. 편리한 에디팅, 데이터 기반 상호작용, 상태 및 동작 복제, 기본 제공 디버깅 도구를 지원한다. GAS는 Gameplay Abilities 플러그인을 활성화하여 프로젝트에 추가한다. 데미지/체력, 동적 무기 발사 속도 및 재장전 속도, 이동 변수 변경, Pawn 능력 활성화/비활성화, Pawn-환경 상호작용 등 다양한 기능 구현에 활용할 수 있다. Epic의 자체 게임인 Fortnite Battle Royale, LEGO Fortnite에서도 사용하는 검증된 시스템이다.
-
-이 문서는 프로젝트에 GAS를 셋업할 때 발생하는 여러 질문들을 다룬다. 최선의 방법은 프로젝트마다 다르므로 고려해야 할 사항들을 제시하는 형식으로 구성된다. Lyra Starter Game을 자주 참조하므로 Lyra 프로젝트 파일을 받아두면 좋다. 여기서 다루는 Best Practice는 싱글플레이어와 네트워크 멀티플레이어 게임 모두에 적용된다.
-
----
-
 ## 목차
 
 | 파일 | 내용 |
@@ -26,3 +18,11 @@ GAS(Gameplay Ability System)는 게임플레이 관련 값과 동작을 체계�
 | [02 Gameplay Effects](02_gameplay_effects.md) | HideFromModifiers, Instant vs Infinite GE, 추가 파라미터 전달, GE Context GC 주의사항 |
 | [03 Gameplay Abilities](gameplay_abilities/README.md) | 활성화 방법, 비용·쿨다운, 이벤트 기반 어빌리티, Input ID, 복제 주의사항 |
 | [04 Attributes and Attribute Sets](attributes/README.md) | Base/Current 값, AttributeSet 추가·초기화·클램핑, 변경 감지, Meta Attribute, SetByCaller, 데미지 타입 |
+
+---
+
+## 이 문서에 대해
+
+GAS(Gameplay Ability System)는 게임플레이 관련 값과 동작을 체계적으로 구성하기 위한 프레임워크다. 편리한 에디팅, 데이터 기반 상호작용, 상태 및 동작 복제, 기본 제공 디버깅 도구를 지원한다. GAS는 Gameplay Abilities 플러그인을 활성화하여 프로젝트에 추가한다. 데미지/체력, 동적 무기 발사 속도 및 재장전 속도, 이동 변수 변경, Pawn 능력 활성화/비활성화, Pawn-환경 상호작용 등 다양한 기능 구현에 활용할 수 있다. Epic의 자체 게임인 Fortnite Battle Royale, LEGO Fortnite에서도 사용하는 검증된 시스템이다.
+
+이 문서는 프로젝트에 GAS를 셋업할 때 발생하는 여러 질문들을 다룬다. 최선의 방법은 프로젝트마다 다르므로 고려해야 할 사항들을 제시하는 형식으로 구성된다. Lyra Starter Game을 자주 참조하므로 Lyra 프로젝트 파일을 받아두면 좋다. 여기서 다루는 Best Practice는 싱글플레이어와 네트워크 멀티플레이어 게임 모두에 적용된다.

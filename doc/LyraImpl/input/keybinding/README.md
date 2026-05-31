@@ -5,6 +5,21 @@
 
 ---
 
+## 문서 목록
+
+| 번호 | 문서 | 핵심 질문 |
+|------|------|-----------|
+| [00](00_enhanced_input_foundation.md) | Enhanced Input 엔진 기반 | 엔진이 제공하는 것 — RegisterInputMappingContext 실제 동작, 직렬화, MapPlayerKey 상세 |
+| [07](game_settings/README.md) | GameSettings 플러그인 기반 | 플러그인이 제공하는 것 — MVC 구조, Value 타입, EditCondition, Registry, 위젯 계층 |
+| [01](01_architecture.md) | 전체 아키텍처 | "왜 이렇게 설계했는가?" — 각 계층의 존재 이유 |
+| [02](02_data_layer.md) | 데이터 계층 | "키 변경 결과가 어디에 저장되는가?" |
+| [03](03_imc_registration.md) | IMC 등록 | "어떤 키가 리맵 가능한가? 어떻게 등록되는가?" |
+| [04](04_settings_registry.md) | 설정 레지스트리 | "설정 UI에 항목이 어떻게 생기는가?" |
+| [05](05_ui_widget.md) | UI 위젯 계층 | "'키를 누르세요' 감지는 어떻게 동작하는가?" |
+| [06](06_apply_and_save.md) | 적용 & 저장 | "변경한 키가 언제 실제 게임에 반영되는가?" |
+
+---
+
 ## 시스템 전체 계층 구조
 
 ```
@@ -55,21 +70,6 @@
 │  SaveSettings()     → Saved/SaveGames/*.sav 직렬화               │
 └─────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## 문서 목록
-
-| 번호 | 문서 | 핵심 질문 |
-|------|------|-----------|
-| [00](00_enhanced_input_foundation.md) | Enhanced Input 엔진 기반 | 엔진이 제공하는 것 — RegisterInputMappingContext 실제 동작, 직렬화, MapPlayerKey 상세 |
-| [07](game_settings/README.md) | GameSettings 플러그인 기반 | 플러그인이 제공하는 것 — MVC 구조, Value 타입, EditCondition, Registry, 위젯 계층 |
-| [01](01_architecture.md) | 전체 아키텍처 | "왜 이렇게 설계했는가?" — 각 계층의 존재 이유 |
-| [02](02_data_layer.md) | 데이터 계층 | "키 변경 결과가 어디에 저장되는가?" |
-| [03](03_imc_registration.md) | IMC 등록 | "어떤 키가 리맵 가능한가? 어떻게 등록되는가?" |
-| [04](04_settings_registry.md) | 설정 레지스트리 | "설정 UI에 항목이 어떻게 생기는가?" |
-| [05](05_ui_widget.md) | UI 위젯 계층 | "'키를 누르세요' 감지는 어떻게 동작하는가?" |
-| [06](06_apply_and_save.md) | 적용 & 저장 | "변경한 키가 언제 실제 게임에 반영되는가?" |
 
 ---
 
