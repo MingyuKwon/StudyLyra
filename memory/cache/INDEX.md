@@ -13,3 +13,4 @@
 | [networking.md](networking.md) | 언리얼 복제 파이프라인(RepLayout/RPC), GetLifetimeReplicatedProps 매크로, PredictionKey 생명주기/롤백 |
 | [prediction.md](prediction.md) | Lyra 히트스캔 Prediction — RangedWeapon 발사 흐름, TargetData 전송, 히트마커 확인 시스템 |
 | [unreal_core.md](unreal_core.md) | UGameplayTagsManager, LooseGameplayTag vs GE태그, Slate/UMG UI 파이프라인, CommonUser, 카메라 시스템, GameplayMessageSubsystem, PlayerController vs LocalPlayer |
+| [game_settings.md](game_settings.md) | EditCondition 평가 시점(초기화/BroadcastEditConditionChanged/AddEditDependency), EditableStateCache, FWhenCondition/FWhenPlatformHasTrait/FWhenPlayingAsPrimaryPlayer, FGameSettingFilterState |

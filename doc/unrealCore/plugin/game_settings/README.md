@@ -17,6 +17,7 @@
 | [06](06_widget_system.md) | 위젯 시스템 | Screen/Panel/ListEntry 계층, Model-View 바인딩 방식 |
 | [07](07_key_widgets.md) | 키 바인딩 전용 위젯 | PressAnyKey InputPreProcessor 구조, KeyAlreadyBoundWarning |
 | [08](08_full_flow.md) | 전체 흐름 | Registry 생성 → Panel 연결 → 탭 전환 → CollectionPage 진입 → 뒤로가기 |
+| [09](09_model_view_binding.md) | Model-View 바인딩 | SetSetting() 이벤트 연결, UI→Model/Model→UI 값 반영, EditCondition→위젯 상태, ListView 풀링 |
 
 ---
 
