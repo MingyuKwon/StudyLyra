@@ -59,6 +59,20 @@ UGameSettingRegistry* ULyraGameSettingScreen::CreateRegistry()
 
 Registry는 `GetOrCreateRegistry()`로 지연 생성된다. 화면이 처음 활성화될 때 만들어진다.
 
+### Screen ↔ Registry는 1:1
+
+`UGameSettingScreen` 하나가 Registry 하나를 소유한다. `ULyraGameSettingRegistry`는 비디오·오디오·입력 설정을 전부 포함하므로, 설정 화면 전체가 하나의 Screen + 하나의 Registry로 동작한다.
+
+```
+ULyraSettingScreen (화면 1개)
+    └─ ULyraGameSettingRegistry (Registry 1개)
+            ├─ Collection "VideoSection"   ← 비디오 탭
+            ├─ Collection "AudioSection"   ← 오디오 탭
+            └─ Collection "InputSection"   ← 입력 탭
+```
+
+설정 화면을 여러 개 만들어야 한다면 Screen 서브클래스를 따로 만들고 `CreateRegistry()`에서 다른 Registry를 반환하면 된다. Lyra는 단일 Screen으로 모든 설정을 처리한다.
+
 ---
 
 ## `UGameSettingPanel` — 목록 + 네비게이션 스택

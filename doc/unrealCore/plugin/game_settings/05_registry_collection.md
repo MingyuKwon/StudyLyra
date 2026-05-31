@@ -50,6 +50,21 @@ void ULyraGameSettingRegistry::OnInitialize(ULocalPlayer* InLocalPlayer)
 
 `RegisterSetting()`은 `UGameSettingCollection`의 경우 하위 항목까지 재귀적으로 `RegisteredSettings`에 추가한다. `FindSettingByDevName()`은 이 플랫 목록에서 선형 검색한다.
 
+### Registry가 설정 전체를 소유한다
+
+Registry 하나에 **비디오·오디오·입력 등 모든 설정**이 들어간다. `OnInitialize()`에서 카테고리별 Collection을 만들어 전부 등록하는 구조이기 때문이다.
+
+```
+ULyraGameSettingRegistry
+    ├─ TopLevelSettings[]
+    │       ├─ Collection "VideoSection"
+    │       ├─ Collection "AudioSection"
+    │       └─ Collection "InputSection"
+    └─ RegisteredSettings[]   ← 위 트리 전체를 재귀 전개한 플랫 목록
+```
+
+`TopLevelSettings`는 화면에 표시되는 최상위 항목들이고, `RegisteredSettings`는 `FindSettingByDevName()` 검색을 위해 전체 항목을 평탄화한 목록이다.
+
 ### `SaveChanges()`
 
 플러그인 기본 구현은 비어 있다. Lyra에서 오버라이드해서:
@@ -128,6 +143,16 @@ class UGameSettingCollectionPage : public UGameSettingCollection
     └─ "키보드 바인딩" Collection
     └─ "게임패드 바인딩" Collection
 ```
+
+### Collection vs CollectionPage — 탭과 페이지의 차이
+
+| | `UGameSettingCollection` | `UGameSettingCollectionPage` |
+|---|---|---|
+| **역할** | 항목을 그 자리에 펼쳐 표시하는 섹션/탭 | 클릭하면 하위 페이지로 이동하는 항목 |
+| **선택 가능** | X (`IsSelectable() = false`) | O (`IsSelectable() = true`) |
+| **Panel 동작** | FilterState로 어떤 Collection을 보여줄지 전환 | `FilterNavigationStack`에 현재 상태 push 후 하위로 이동 |
+
+탭 수준("비디오", "오디오", "입력")은 `Collection`으로 구성하고, 탭 안에서 더 깊이 들어가는 하위 페이지("키보드 바인딩", "게임패드 바인딩")는 `CollectionPage`로 구성하는 것이 일반적인 패턴이다.
 
 ---
 
