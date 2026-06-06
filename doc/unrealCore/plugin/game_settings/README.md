@@ -18,6 +18,7 @@
 | [07](07_key_widgets.md) | 키 바인딩 전용 위젯 | PressAnyKey InputPreProcessor 구조, KeyAlreadyBoundWarning |
 | [08](08_full_flow.md) | 전체 흐름 | Registry 생성 → Panel 연결 → 탭 전환 → CollectionPage 진입 → 뒤로가기 |
 | [09](09_model_view_binding.md) | Model-View 바인딩 | SetSetting() 이벤트 연결, UI→Model/Model→UI 값 반영, EditCondition→위젯 상태, ListView 풀링 |
+| [10](10_change_tracker.md) | Change Tracking | dirty 감지(ChangeTracker), Apply/Cancel/Back 흐름, StoreInitial·RestoreToInitial 스냅샷, 팝업 구현 방법 |
 
 ---
 
