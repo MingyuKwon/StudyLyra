@@ -61,7 +61,8 @@
       "Bash(sed -i 's|doc/gas/|doc/gas_tranek/|g' D:/LyraStarterGame/memory/cache/ability_task.md)",
       "Bash(sed -i 's|doc/gas/|doc/gas_tranek/|g' D:/LyraStarterGame/memory/cache/gas_asc_ga.md)",
       "Bash(sed -i 's|`doc/gas/`|`doc/gas_tranek/`|g; s|`doc/gas`|`doc/gas_tranek`|g; s|doc/gas/|doc/gas_tranek/|g' D:/LyraStarterGame/docs/superpowers/plans/2026-04-23-gas-doc-restructure.md)",
-      "Bash(sed -i 's|doc/gas/|doc/gas_tranek/|g; s|doc/gas`|doc/gas_tranek`|g' D:/LyraStarterGame/docs/superpowers/specs/2026-04-23-gas-doc-restructure-design.md)"
+      "Bash(sed -i 's|doc/gas/|doc/gas_tranek/|g; s|doc/gas`|doc/gas_tranek`|g' D:/LyraStarterGame/docs/superpowers/specs/2026-04-23-gas-doc-restructure-design.md)",
+      "Bash(qmd query *)"
     ]
   },
   "hooks": {
