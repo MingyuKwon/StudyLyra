@@ -151,14 +151,90 @@ bool FCommonAnalogCursor::IsRelevantInput(const FKeyEvent& KeyEvent) const
 Tick() (게임패드 + 뷰포트 포커스)
   └── bShouldHandleRightAnalog && TimeUntilScrollUpdate <= 0
         └── ActionRouter.GatherActiveAnalogScrollRecipients()
+              ├── 반환값이 비어 있으면 → 스크롤 이벤트 발생하지 않음
               └── 등록된 ScrollBox/ListView/ScrollBar 마다
                     ├── DetermineScrollOrientation() → 수직/수평 판단
                     ├── ScrollAmount = (|value| - deadzone) / (1 - deadzone) × multiplier
                     └── SlateApp.ProcessMouseWheelOrGestureEvent(MouseEvent)
 ```
 
-`AnalogScrollUpdatePeriod = 0.1f` 주기로만 스크롤 이벤트를 발생시켜 과도한 이벤트 발사를 막는다.  
-스크롤 위젯은 `UCommonUIActionRouterBase::GatherActiveAnalogScrollRecipients()`를 통해 수집된다.
+`AnalogScrollUpdatePeriod = 0.1f` 주기로만 스크롤 이벤트를 발생시켜 과도한 이벤트 발사를 막는다.
+
+**스크롤이 동작하지 않는 근본 원인**: `GatherActiveAnalogScrollRecipients()`가 빈 배열을 반환하면 이벤트 자체가 발생하지 않는다.  
+이 함수는 **사전에 명시적으로 등록된 위젯 목록**만 반환하며, 단순히 ScrollBox/ListView 위젯이 화면에 있다는 것만으로는 스크롤이 되지 않는다.
+
+---
+
+### GatherActiveAnalogScrollRecipients 동작 원리
+
+```
+GatherActiveAnalogScrollRecipients()
+  └── ActiveRootNode->GatherScrollRecipients()
+        └── FActivatableTreeNode::AppendValidScrollRecipients()
+              └── 노드에 AddScrollRecipient()로 등록된 위젯만 수집
+                    └── 자식 노드 재귀 탐색
+```
+
+등록 경로는 두 가지다:
+
+**경로 1 — C++ / Blueprint에서 직접 호출**
+
+```cpp
+// UCommonUserWidget의 멤버 함수
+void UCommonUserWidget::RegisterScrollRecipient(const UWidget& AnalogScrollRecipient);
+void UCommonUserWidget::UnregisterScrollRecipient(const UWidget& AnalogScrollRecipient);
+
+// Blueprint 노출 버전 (외부 위젯 등록용)
+void RegisterScrollRecipientExternal(const UWidget* AnalogScrollRecipient);
+void UnregisterScrollRecipientExternal(const UWidget* AnalogScrollRecipient);
+```
+
+`RegisterScrollRecipient`를 호출하면 내부적으로 `UCommonUIActionRouterBase::RegisterScrollRecipient()`를 거쳐  
+`FActivatableTreeNode::AddScrollRecipient()`에 저장된다.
+
+**경로 2 — OnWidgetRebuilt 자동 등록**
+
+`UCommonUserWidget::OnWidgetRebuilt()`에서 `GetScrollRecipients()`가 반환하는 목록을  
+ActionRouter에 일괄 등록한다.  
+즉, `ScrollRecipients` 배열에 미리 담아 놓으면 위젯이 생성될 때 자동으로 등록된다.
+
+---
+
+### 스크롤이 안 될 때 체크리스트
+
+오른쪽 스틱을 움직여도 스크롤이 동작하지 않는다면 다음을 확인한다.
+
+**1. ScrollRecipient 등록 여부**
+
+스크롤을 원하는 `ScrollBox` / `ListView`가 `RegisterScrollRecipient()`로 등록되었는지 확인한다.
+
+```cpp
+// NativeConstruct 또는 위젯 생성 시점에 호출
+RegisterScrollRecipient(*MyScrollBox);
+```
+
+Blueprint에서는 `Register Scroll Recipient External` 노드를 사용한다.
+
+**2. 위젯이 UCommonUserWidget 안에 있는지**
+
+`RegisterScrollRecipient`는 `UCommonUserWidget`의 멤버다.  
+일반 `UUserWidget`을 사용하는 경우 이 함수를 사용할 수 없다.  
+`UCommonActivatableWidget`은 `UCommonUserWidget`을 상속하므로 사용 가능하다.
+
+**3. bShouldHandleRightAnalog 플래그**
+
+`FCommonAnalogCursor::ShouldHandleRightAnalog(false)`가 어딘가에서 호출된 경우  
+오른쪽 스틱 스크롤 처리 자체가 비활성화된다.
+
+**4. 게임패드 입력 중인지**
+
+`IsUsingGamepad()` → `ActiveInputMethod == ECommonInputType::Gamepad` 가 true여야 한다.  
+마우스/키보드 입력 상태에서는 오른쪽 스틱 스크롤이 동작하지 않는다.
+
+**5. 게임 뷰포트가 포커스 경로에 있는지**
+
+`IsGameViewportInFocusPathWithoutCapture()`가 false이면 Tick 처리 자체를 건너뛴다.  
+뷰포트가 마우스 캡처 상태(게임 플레이 중)이거나 다른 창이 포커스를 가지고 있으면 해당된다.
 
 ### Virtual Accept 처리 확장
 
