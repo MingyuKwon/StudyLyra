@@ -9,6 +9,7 @@
 | [03_memory_model.md](03_memory_model.md) | TSharedRef 메모리 모델 — GC와의 차이, SObjectWidget이 필요한 이유 |
 | [04_layout.md](04_layout.md) | 레이아웃 시스템 — AllottedGeometry · DesiredSize · 두 단계 Pass |
 | [05_declarative_syntax.md](05_declarative_syntax.md) | 선언형 문법 — SNew · SLATE_BEGIN_ARGS · 슬롯 · Attribute 바인딩 |
+| [06_focus.md](06_focus.md) | 포커스 시스템 — FNavigationReply · EFocusCause · Navigate() 흐름 |
 
 ---
 

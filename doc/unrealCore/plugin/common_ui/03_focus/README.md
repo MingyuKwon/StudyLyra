@@ -9,7 +9,7 @@
 
 | 파일 | 내용 |
 |------|------|
-| [01_slate_focus.md](01_slate_focus.md) | Slate 포커스 시스템 — 코어 개념 |
+| [Slate 포커스 시스템](../../../slate/06_focus.md) | FNavigationReply · EFocusCause · Navigate() 흐름 (Slate 코어) |
 | [02_commonui_focus.md](02_commonui_focus.md) | CommonUI 포커스 처리 — 초기화·격리·복귀·시각 피드백 |
 
 ---
