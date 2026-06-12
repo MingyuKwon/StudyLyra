@@ -22,7 +22,7 @@ CommonUI는 **멀티 플랫폼 UI 프레임워크**다.
 | [04. 버튼](04_button.md) | UCommonButtonBase, ULyraButtonBase, BoundActionButton, 스타일 자동 전환 |
 | [05. UIAction 바인딩](05_ui_action.md) | RegisterUIActionBinding, UIAction 태그, ESC/뒤로가기 처리 |
 | [06. 입력 장치 감지](06_input_subsystem.md) | UCommonInputSubsystem, 장치 전환 감지, 아이콘 자동 갱신 |
-| [07. AnalogCursor](07_analog_cursor.md) | FAnalogCursor 기반 구조, FCommonAnalogCursor 포커스 연동·스크롤·클릭 변환 |
+| [07. AnalogCursor](07_analog_cursor/README.md) | FAnalogCursor 기반 구조, FCommonAnalogCursor 포커스 연동·스크롤·클릭 변환 |
 | [08. ActionRouter](08_action_router.md) | UCommonUIActionRouterBase — per-player 입력 허브, 위젯 트리·UIAction·AnalogCursor 총괄 |
 
 ---
