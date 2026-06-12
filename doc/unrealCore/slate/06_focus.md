@@ -1,4 +1,4 @@
-# 01. Slate 포커스 시스템
+# Slate 포커스 시스템
 
 > 소스 경로  
 > - `Engine/Source/Runtime/SlateCore/Public/Input/Events.h`  
@@ -160,3 +160,81 @@ TSharedPtr<SWidget> GetUserFocusedWidget(uint32 UserIndex) const;
 ```
 
 UMG 레이어에서는 `UWidget::SetFocus()` 를 사용하면 내부적으로 `SetUserFocus`를 호출한다.
+
+---
+
+## 네비게이션 커스터마이징
+
+"다음 포커스 위젯을 어디로 할지"는 세 단계에서 개입할 수 있다.
+
+```
+입력 → FNavigationConfig → Navigate() → OnNavigation() → FNavigationReply 해석
+         ↑ 레벨 3 (전역)                  ↑ 레벨 2 (C++)    ↑ 레벨 1 (UMG 프로퍼티)
+```
+
+### 레벨 1 — UMG Navigation 프로퍼티 (가장 흔한 방법)
+
+위젯 디테일 패널 → **Navigation** 섹션에서 방향별로 Rule을 지정한다.
+
+> 소스: `Engine/Source/Runtime/UMG/Public/Blueprint/WidgetNavigation.h`
+
+| Rule | 동작 |
+|------|------|
+| `Escape` | 기본값. 기하 탐색으로 가장 가까운 위젯 |
+| `Stop` | 이 방향 이동 차단 |
+| `Wrap` | 경계 도달 시 반대편으로 순환 |
+| `Explicit` | 지정한 이름의 위젯으로 바로 이동 |
+| `Custom` | 델리게이트가 반환하는 위젯으로 이동 (항상 호출) |
+| `CustomBoundary` | 경계에 부딪혔을 때만 델리게이트 호출 |
+
+`Custom` / `CustomBoundary` 선택 시 Blueprint에 `GetCustomNavigationTarget` 이벤트가 생성된다.  
+인자로 `EUINavigation` 방향을 받고, 이동할 `UWidget*`을 반환하면 된다.
+
+```cpp
+// 내부 델리게이트 타입
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(UWidget*, FCustomWidgetNavigationDelegate,
+                                         EUINavigation, Navigation);
+```
+
+### 레벨 2 — SWidget::OnNavigation() 오버라이드 (C++ 위젯)
+
+```cpp
+virtual FNavigationReply OnNavigation(const FGeometry& MyGeometry,
+                                       const FNavigationEvent& InNavigationEvent) override
+{
+    if (InNavigationEvent.GetNavigationType() == EUINavigation::Down)
+    {
+        return FNavigationReply::Explicit(NextWidget);  // 특정 위젯으로 강제 이동
+    }
+    return FNavigationReply::Escape();  // 나머지는 기본 동작
+}
+```
+
+레벨 1이 UMG 레이어 위에서 동작하는 반면, 이 오버라이드는 Slate 레이어에서 직접 동작한다.  
+`FNavigationReply`에서 `Custom(Delegate)`을 반환하면 C++에서도 동적 타깃 지정이 가능하다.
+
+### 레벨 3 — FNavigationConfig 교체 (전역)
+
+입력 → 방향 매핑 자체를 바꾸거나, 조건에 따라 네비게이션 전체를 제어하는 경우.
+
+```cpp
+// SlateApplication.h
+SLATE_API void SetNavigationConfig(TSharedRef<FNavigationConfig> InNavigationConfig);
+```
+
+```cpp
+class FMyNavigationConfig : public FNavigationConfig
+{
+    virtual EUINavigation GetNavigationDirectionFromKey(
+        const FKeyEvent& InKeyEvent) const override
+    {
+        if (bNavigationLocked) return EUINavigation::Invalid;
+        return FNavigationConfig::GetNavigationDirectionFromKey(InKeyEvent);
+    }
+};
+
+FSlateApplication::Get().SetNavigationConfig(MakeShared<FMyNavigationConfig>());
+```
+
+CommonUI는 이 레벨을 건드리지 않는다. 기본 `FNavigationConfig`를 그대로 사용하며,  
+레이어 격리는 `FActivatableTreeNode`로 포커스 씨딩 단계에서 처리한다.
