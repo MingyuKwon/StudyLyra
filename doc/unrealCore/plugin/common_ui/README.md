@@ -18,7 +18,7 @@ CommonUI는 **멀티 플랫폼 UI 프레임워크**다.
 |------|------|
 | [01. 위젯 스택](01_widget_stack.md) | UCommonActivatableWidget, 레이어 구조, push/pop, 활성화 흐름 |
 | [02. 입력 모드](02_input_mode.md) | FUIInputConfig, 입력 모드 스택, Game/Menu/GameAndMenu |
-| [03. 게임패드 포커스](03_gamepad_focus.md) | GetDesiredFocusTarget, 포커스 이동, 자동 순회 |
+| [03. 포커스 시스템](03_focus/README.md) | Slate 포커스 코어, FNavigationReply, CommonUI 초기화·격리·복귀 |
 | [04. 버튼](04_button.md) | UCommonButtonBase, ULyraButtonBase, BoundActionButton, 스타일 자동 전환 |
 | [05. UIAction 바인딩](05_ui_action.md) | RegisterUIActionBinding, UIAction 태그, ESC/뒤로가기 처리 |
 | [06. 입력 장치 감지](06_input_subsystem.md) | UCommonInputSubsystem, 장치 전환 감지, 아이콘 자동 갱신 |
