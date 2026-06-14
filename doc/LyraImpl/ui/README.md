@@ -13,6 +13,7 @@
 | [02. HUD 레이아웃](02_hud_layout.md) | LyraHUDLayout 구현 — UI 레이어 태그, ESC 액션, 컨트롤러 연결 끊김 처리 |
 | [03. 새 화면 만들기](03_new_screen_pattern.md) | Lyra 패턴으로 새 UI 화면을 만드는 실용 가이드 |
 | [04. 설정 화면 포커스 분석](04_settings_screen.md) | LyraSettingScreen 구조 — 탭 전환·포커스 재씨딩 실제 구현 |
+| [05. 포커스 입력 처리 전체 경로](05_focus_input_flow.md) | 시나리오별 입력 → 포커스 흐름 (열기/D-pad/탭전환/닫기) |
 
 ---
 
