@@ -251,36 +251,39 @@ PinnedLeafmostActiveNode->CacheFocusRestorationTarget();
 > 소스  
 > - `Engine/Plugins/Runtime/CommonUI/Source/CommonInput/Private/CommonInputPreprocessor.cpp`  
 > - `Engine/Plugins/Runtime/CommonUI/Source/CommonInput/Private/CommonInputSubsystem.cpp`  
-> - `Engine/Plugins/Runtime/CommonUI/Source/CommonUI/Private/CommonButtonBase.cpp`
+> - `Engine/Plugins/Runtime/CommonUI/Source/CommonUI/Private/Input/UIActionRouterTypes.cpp:1510`
 
 ```
 [마우스 이동 또는 키보드 키 입력]
         ↓
 FCommonInputPreprocessor::HandleMouseMoveEvent() / HandleKeyDownEvent()
-  → GetInputType(Key/Pointer) → ECommonInputType::MouseAndKeyboard
-  → IsRelevantInput() 통과 (ControllerId 일치 여부 확인)
+  → GetInputType() → ECommonInputType::MouseAndKeyboard
   → RefreshCurrentInputMethod(MouseAndKeyboard)
         ↓
 UCommonInputSubsystem::SetCurrentInputType(MouseAndKeyboard)
-  → RawInputType 갱신
   → RecalculateCurrentInputType()
-        ↓
-RecalculateCurrentInputType()
-  → CurrentInputType = MouseAndKeyboard  (기존 Gamepad와 다름)
-  → SlateApplication.UsePlatformCursorForCursorUser(true)   ← 커서 표시
-  → BroadcastInputMethodChanged()
+      → CurrentInputType = MouseAndKeyboard
+      → SlateApplication.UsePlatformCursorForCursorUser(true)   ← 커서 표시
+      → BroadcastInputMethodChanged()
         ↓
 OnInputMethodChangedNative.Broadcast(MouseAndKeyboard)
-  ┌─ UCommonButtonBase::OnInputMethodChanged()
-  │    → UpdateInputActionWidget()     ← 버튼 힌트 아이콘: 게임패드 → 키보드 아이콘
-  │    → BP_OnInputMethodChanged()     ← BP 레벨 반응 (포커스 링 숨기기 등)
+  ┌─ FActivatableTreeRoot::HandleInputMethodChanged()          ← 핵심
+  │    → bRetainFocus = (Gamepad) && CVar = false
+  │    → ApplyLeafmostNodeConfig(bRetainFocus=false)
+  │        → FocusLeafmostNode()   ← 포커스 재씨딩 실행
+  │            AutoRestoresFocus() or GetDesiredFocusTarget() 경로
+  │    → CacheFocusRestorationTarget()   ← 현재 포커스 위치 저장
+  │
+  ├─ UCommonButtonBase::OnInputMethodChanged()
+  │    → UpdateInputActionWidget()   ← 버튼 힌트 아이콘 갱신
+  │    → BP_OnInputMethodChanged()
   │
   └─ UCommonActionWidget::HandleInputMethodChanged()
-       → OnInputMethodChanged.Broadcast(bIsGamepad=false)  ← 액션 아이콘 갱신
+       → 액션 아이콘 갱신
 ```
 
-**Slate 키보드 포커스는 변하지 않는다.**  
-SListView 등 UI 위젯이 여전히 포커스를 보유한 채로, 시각적 상태(포커스 링, 버튼 힌트)만 갱신된다.
+포커스 재씨딩(`FocusLeafmostNode`)이 발생한다. 위젯 전환 시(`ActivateWidget`)와 **동일한 경로**를 탄다.  
+마우스로 전환한 직후 현재 포커스 위치가 캐시(`CacheFocusRestorationTarget`)되어, 게임패드로 돌아올 때 복원에 쓰인다.
 
 ---
 
@@ -299,19 +302,22 @@ UCommonInputSubsystem::SetCurrentInputType(Gamepad)
         ↓ (스팸 아님)
 RecalculateCurrentInputType()
   → CurrentInputType = Gamepad
-  → SlateApplication.UsePlatformCursorForCursorUser(bEnableGamepadPlatformCursor)
-     ← 일반적으로 false → 커서 숨김
+  → SlateApplication.UsePlatformCursorForCursorUser(false)   ← 커서 숨김
   → BroadcastInputMethodChanged()
         ↓
 OnInputMethodChangedNative.Broadcast(Gamepad)
-  → 버튼 힌트: 키보드 → 게임패드 아이콘
-  → BP_OnInputMethodChanged() → 포커스 링 다시 표시
-        ↓
-[SListView에 포커스가 그대로 있으므로 D-pad 즉시 동작 가능]
+  ┌─ FActivatableTreeRoot::HandleInputMethodChanged()
+  │    → bRetainFocus = (Gamepad==true) && CVarGamepadFocusHoveredWidget
+  │        CVarGamepadFocusHoveredWidget이 false (기본값)이면 → bRetainFocus = false
+  │    → ApplyLeafmostNodeConfig(bRetainFocus)
+  │        bRetainFocus=false → FocusLeafmostNode() 호출
+  │            → AutoRestoresFocus(): 마우스 전환 시 캐시한 포커스 위치 복원
+  │
+  └─ UCommonButtonBase, UCommonActionWidget → 아이콘 갱신
 ```
 
-게임패드로 돌아왔을 때 포커스 재씨딩이 필요 없는 이유는,  
-마우스 사용 중에도 SListView의 키보드 포커스가 유지되어 있었기 때문이다.
+`CVarGamepadFocusHoveredWidget`이 true이고 게임패드 커서가 어떤 위젯을 hover 중이면,  
+`FocusLeafmostNode()` 대신 그 hover 위젯에 포커스를 유지하는 경로를 탄다.
 
 ---
 
@@ -342,8 +348,8 @@ SetCurrentInputType(NewType)
 | D-pad 경계 | Slate Navigate → `Escape()` → 기하 탐색 | 탭 버튼 `IsFocusable=false`로 후보 제외 |
 | 탭 전환 | UIAction → `SetFilterState()` | `RefreshSettingsList()` → `NavigateToIndex(0)` |
 | 화면 닫힘 | UIAction → `DeactivateWidget()` | `CacheFocusRestorationTarget()` → `AutoRestoresFocus()` |
-| 게임패드 → 마우스 | `FCommonInputPreprocessor` → `SetCurrentInputType` | Slate 포커스 유지, 시각 상태만 변경 |
-| 마우스 → 게임패드 | `FCommonInputPreprocessor` → `SetCurrentInputType` | Slate 포커스 그대로, 포커스 링 재표시 |
+| 게임패드 → 마우스 | `FCommonInputPreprocessor` → `BroadcastInputMethodChanged` | `FActivatableTreeRoot::HandleInputMethodChanged` → `FocusLeafmostNode()` 재씨딩 + 포커스 캐시 |
+| 마우스 → 게임패드 | `FCommonInputPreprocessor` → `BroadcastInputMethodChanged` | `FActivatableTreeRoot::HandleInputMethodChanged` → `FocusLeafmostNode()` (캐시 복원) |
 
 ---
 

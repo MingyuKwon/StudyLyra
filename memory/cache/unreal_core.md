@@ -412,10 +412,27 @@ RefreshCurrentInputMethod(NewType)
 - `UCommonButtonBase::OnInputMethodChanged()` → 버튼 힌트 아이콘 갱신 + BP 이벤트
 - `UCommonActionWidget::HandleInputMethodChanged()` → 액션 아이콘 갱신
 
-### 핵심: Slate 키보드 포커스는 전환 시 변하지 않는다
+### 핵심: FActivatableTreeRoot가 입력 전환을 감지해 포커스 재씨딩
 
-SListView 등 포커스 위젯이 그대로 포커스를 보유. 시각 상태(포커스 링, 버튼 힌트)만 바뀜.  
-게임패드로 돌아왔을 때 포커스 재씨딩 불필요.
+```cpp
+// UIActionRouterTypes.cpp:1510
+InputSubsystem.OnInputMethodChangedNative.AddSP(this, &FActivatableTreeRoot::HandleInputMethodChanged);
+
+void FActivatableTreeRoot::HandleInputMethodChanged(ECommonInputType InputMethod)
+{
+    const bool bRetainFocus = (InputMethod == ECommonInputType::Gamepad)
+        && CVarGamepadFocusHoveredWidget.GetValueOnAnyThread();
+
+    ApplyLeafmostNodeConfig(bRetainFocus);   // → FocusLeafmostNode() 재씨딩
+
+    if (InputMethod != ECommonInputType::Gamepad)
+        LeafmostActiveNode.Pin()->CacheFocusRestorationTarget();  // 포커스 위치 캐시
+}
+```
+
+- **마우스로 전환**: `bRetainFocus=false` → `FocusLeafmostNode()` 호출 → 포커스 재씨딩. 이후 포커스 위치 캐시.
+- **게임패드로 전환**: `CVarGamepadFocusHoveredWidget`(기본 false)이면 `FocusLeafmostNode()` 호출 → 캐시된 포커스 복원.
+- 위젯 전환 시(`ActivateWidget`)와 **동일한** `ApplyLeafmostNodeConfig` → `FocusLeafmostNode()` 경로를 탄다.
 
 ### 스팸 방지 (Thrashing)
 
