@@ -12,6 +12,7 @@
 | [01. 클래스 계층](01_class_hierarchy.md) | Lyra UI 클래스 전체 계층도, 각 클래스 역할과 사용 시점 |
 | [02. HUD 레이아웃](02_hud_layout.md) | LyraHUDLayout 구현 — UI 레이어 태그, ESC 액션, 컨트롤러 연결 끊김 처리 |
 | [03. 새 화면 만들기](03_new_screen_pattern.md) | Lyra 패턴으로 새 UI 화면을 만드는 실용 가이드 |
+| [04. 설정 화면 포커스 분석](04_settings_screen.md) | LyraSettingScreen 구조 — 탭 전환·포커스 재씨딩 실제 구현 |
 
 ---
 
