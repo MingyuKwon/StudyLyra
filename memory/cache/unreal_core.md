@@ -360,3 +360,120 @@ SViewport::OnKeyDown()                    ← Slate 위젯 (SViewport.cpp:286)
 - `FTunnelPolicy::Next()` → `++WidgetIndex` (루트→리프)
 - `FBubblePolicy::Next()` → `--WidgetIndex` (리프→루트)
 - Tunnel이 `Handled()` 반환 시 → Bubble 단계 전체 건너뜀
+
+---
+
+## 29. CommonUI 입력 타입 전환 — 게임패드 ↔ 마우스/키보드
+
+> 출처:  
+> `C:/UE_5.7/Engine/Plugins/Runtime/CommonUI/Source/CommonInput/Private/CommonInputPreprocessor.cpp`  
+> `C:/UE_5.7/Engine/Plugins/Runtime/CommonUI/Source/CommonInput/Private/CommonInputSubsystem.cpp`  
+> 상세 문서: `doc/LyraImpl/ui/05_focus_input_flow.md` 시나리오 6·7
+
+### 감지 — FCommonInputPreprocessor
+
+Slate InputPreProcessor로 등록된 `FCommonInputPreprocessor`가 모든 입력을 가장 먼저 보고 타입을 판정한다.
+
+```cpp
+// CommonInputPreprocessor.cpp:53
+bool FCommonInputPreprocessor::HandleKeyDownEvent(...)
+{
+    const ECommonInputType InputType = GetInputType(InKeyEvent.GetKey());
+    if (IsRelevantInput(...))
+        RefreshCurrentInputMethod(InputType);  // 타입 변경 시도
+    return false;  // 항상 Unhandled — 다음 처리기로 넘김
+}
+
+ECommonInputType GetInputType(const FKey& Key)
+{
+    if (Key.IsGamepadKey()) return ECommonInputType::Gamepad;
+    return ECommonInputType::MouseAndKeyboard;
+}
+```
+
+마우스 이동(`HandleMouseMoveEvent`)·클릭(`HandleMouseButtonDownEvent`)도 동일하게 `MouseAndKeyboard`로 판정.
+
+### 전환 체인
+
+```
+RefreshCurrentInputMethod(NewType)
+  → InputSubsystem.SetCurrentInputType(NewType)
+      → CheckForInputMethodThrashing()  // 스팸 방지
+      → RecalculateCurrentInputType()
+          → CurrentInputType 갱신
+          → Gamepad: UsePlatformCursorForCursorUser(false) → 커서 숨김
+          → Mouse:   UsePlatformCursorForCursorUser(true)  → 커서 표시
+          → BroadcastInputMethodChanged()
+              → OnInputMethodChangedNative.Broadcast()
+```
+
+### 위젯 반응
+
+- `UCommonButtonBase::OnInputMethodChanged()` → 버튼 힌트 아이콘 갱신 + BP 이벤트
+- `UCommonActionWidget::HandleInputMethodChanged()` → 액션 아이콘 갱신
+
+### 핵심: Slate 키보드 포커스는 전환 시 변하지 않는다
+
+SListView 등 포커스 위젯이 그대로 포커스를 보유. 시각 상태(포커스 링, 버튼 힌트)만 바뀜.  
+게임패드로 돌아왔을 때 포커스 재씨딩 불필요.
+
+### 스팸 방지 (Thrashing)
+
+게임패드 진동 + 마우스 동시 사용 등으로 타입이 수백ms 단위로 교차할 때 자동 억제.  
+`ThrashingWindow` 이내 반복 전환 → `bInputMethodLockedByThrashing = true` → `RecalculateCurrentInputType()` 스킵.
+
+---
+
+## 28. SWidget::OnKeyDown 기본 구현 — Navigate Reply 생성 주체
+
+> 출처: `C:/UE_5.7/Engine/Source/Runtime/SlateCore/Private/Widgets/SWidget.cpp:412`
+
+D-pad 키를 포커스 네비게이션으로 변환하는 것은 **`SWidget::OnKeyDown()` 기본 구현**이 한다. `FSlateApplication`이 아니다.
+
+```cpp
+// SWidget.cpp:412
+FReply SWidget::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+    if (bCanSupportFocus && SupportsKeyboardFocus())
+    {
+        EUINavigation Direction = FSlateApplicationBase::Get().GetNavigationDirectionFromKey(InKeyEvent);
+        if (Direction != EUINavigation::Invalid)
+        {
+            const ENavigationGenesis Genesis = InKeyEvent.GetKey().IsGamepadKey()
+                ? ENavigationGenesis::Controller : ENavigationGenesis::Keyboard;
+            return FReply::Handled().SetNavigation(Direction, Genesis);
+        }
+    }
+    return FReply::Unhandled();
+}
+```
+
+### 두 단계 구분
+
+| 함수 | 질문 | 반환 타입 |
+|------|------|-----------|
+| `OnKeyDown()` | "이 키가 방향키인가? 맞으면 네비게이션 시작해" | `FReply` |
+| `OnNavigation()` | "네비게이션이 내 경계에 도달했을 때 어떻게 할 건가?" | `FNavigationReply` |
+
+두 함수는 서로 다른 질문에 답한다. `OnKeyDown`이 `SetNavigation()`을 심은 Reply를 반환하면, `ProcessReply`가 감지해서 `OnNavigation` 순회를 시작한다.
+
+### D-pad Down → Navigate Reply 전체 흐름
+
+```
+ProcessKeyDownEvent() Bubble 단계
+  → 포커스 위젯의 OnKeyDown() 호출
+  → 위젯이 오버라이드 안 했거나 Unhandled 반환
+  → SWidget::OnKeyDown() 기본 구현
+      → GetNavigationDirectionFromKey(DPad_Down) → EUINavigation::Down
+      → FReply::Handled().SetNavigation(Down, Controller) 반환
+ProcessReply() (SlateApplication.cpp:3629)
+  → Reply에 Navigation 정보 감지
+  → 포커스 경로 위젯을 리프→루트 순회하며 OnNavigation(Down) 호출
+  → SListView::OnNavigation(Down) → FNavigationReply::Explicit(nullptr) 반환
+```
+
+### 핵심
+
+- `GetNavigationDirectionFromKey`를 호출하는 주체는 **포커스 위젯의 `OnKeyDown()` 기본 구현**
+- 실제 코드의 "Navigate Reply"는 `FReply::Handled().SetNavigation()` 임. `FReply::Navigate()`라는 별도 메서드가 아님
+- `SetNavigation()`으로 방향 정보를 심은 Reply를 받은 `ProcessReply()`가 `OnNavigation()` 순회를 시작함

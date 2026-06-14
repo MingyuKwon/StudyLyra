@@ -64,6 +64,227 @@ virtual bool SupportsKeyboardFocus() const override { return bIsFocusable; }  //
 
 ---
 
+## 방향 네비게이션의 두 단계 — OnKeyDown과 OnNavigation
+
+> 소스  
+> - `Engine/Source/Runtime/SlateCore/Private/Widgets/SWidget.cpp:412`  
+> - `Engine/Source/Runtime/Slate/Private/Framework/Application/SlateApplication.cpp:440, 3600`  
+> - `Engine/Source/Runtime/SlateCore/Public/Input/NavigationReply.h`
+
+방향 네비게이션은 내부적으로 **완전히 다른 두 단계**로 분리되어 있다.  
+이 구조를 모르면 "누가 언제 뭘 결정하는가"를 혼동하기 쉽다.
+
+```
+① OnKeyDown()   → "이 키가 방향키인가? 맞으면 네비게이션 시작해."   FReply 반환
+② OnNavigation() → "네비게이션이 내 경계에 도달했을 때 어떻게 할 건가?"  FNavigationReply 반환
+```
+
+두 함수는 **서로 다른 질문에 답한다.** 반환 타입도 다르다.
+
+---
+
+### 1단계 — OnKeyDown: 네비게이션 개시 신호
+
+D-pad Down이 들어오면 Slate는 Bubble 단계에서 포커스 위젯들의 `OnKeyDown()`을 순서대로 호출한다.  
+위젯이 `OnKeyDown()`을 오버라이드하지 않았다면 `SWidget`의 기본 구현이 실행된다.
+
+```cpp
+// SWidget.cpp:412
+FReply SWidget::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+    if (bCanSupportFocus && SupportsKeyboardFocus())
+    {
+        EUINavigation Direction = FSlateApplicationBase::Get().GetNavigationDirectionFromKey(InKeyEvent);
+        if (Direction != EUINavigation::Invalid)
+        {
+            const ENavigationGenesis Genesis = InKeyEvent.GetKey().IsGamepadKey()
+                ? ENavigationGenesis::Controller : ENavigationGenesis::Keyboard;
+            return FReply::Handled().SetNavigation(Direction, Genesis);
+        }
+    }
+    return FReply::Unhandled();
+}
+```
+
+- `GetNavigationDirectionFromKey(DPad_Down)` → `EUINavigation::Down`
+- `FReply::Handled().SetNavigation(Down, Controller)` 반환
+
+`SetNavigation()`은 Reply 안에 방향 정보를 심는 것이다.  
+이 Reply가 Handled로 표시되는 순간, 이벤트 라우팅 루프도 중단된다.
+
+---
+
+### 중간 — FEventRouter::Route가 즉시 ProcessReply 호출
+
+라우팅 루프는 각 위젯 Reply를 받을 때마다 즉시 `ProcessReply()`를 호출한다.
+
+```cpp
+// SlateApplication.cpp:452
+for (; !Reply.IsEventHandled() && RoutingPolicy.ShouldKeepGoing(); RoutingPolicy.Next())
+{
+    Reply = Lambda(ArrangedWidget, EventCopy).SetHandler(...);
+    //       ↑ SWidget::OnKeyDown() 호출
+
+    ProcessReply(ThisApplication, RoutingPath, Reply, ...);
+    //  ↑ Handled().SetNavigation() 감지 → 즉시 OnNavigation 순회 시작
+}
+```
+
+루프가 끝난 뒤 한 번 처리하는 것이 아니라, Reply가 나온 그 자리에서 바로 처리한다.
+
+---
+
+### 2단계 — OnNavigation: 경계 규칙 선언
+
+`ProcessReply()`가 Reply 안의 네비게이션 정보를 감지하면,  
+포커스 경로를 **리프→루트 방향으로 다시 순회**하며 각 위젯의 `OnNavigation()`을 호출한다.
+
+```cpp
+// SlateApplication.cpp:3631
+for (int32 WidgetIndex = NavigationSource.Widgets.Num() - 1; WidgetIndex >= 0; --WidgetIndex)
+{
+    NavigationReply = SomeWidget->OnNavigation(Geometry, NavigationEvent).SetHandler(SomeWidget);
+
+    if (NavigationReply.GetBoundaryRule() != EUINavigationRule::Escape || WidgetIndex == 0)
+    {
+        AttemptNavigation(NavigationSource, NavigationEvent, NavigationReply, SomeWidget);
+        break;  // Escape가 아니면 더 이상 올라가지 않음
+    }
+    // Escape면 계속 루트 방향으로 올라감
+}
+```
+
+각 위젯은 `OnNavigation()`에서 `FNavigationReply`를 반환해 **"네비게이션이 내 영역에 도달했을 때 어떻게 할 건지"** 를 선언한다.  
+`Escape`가 반환되면 계속 루트 방향으로 올라가고, 다른 규칙이 반환되면 그 자리에서 처리한다.
+
+`SListView`는 이를 직접 구현한 대표 예다.
+
+```cpp
+// SListView.h:512
+virtual FNavigationReply OnNavigation(const FGeometry& MyGeometry, const FNavigationEvent& InNavigationEvent) override
+{
+    const int32 AttemptSelectIndex = CurSelectionIndex + NumItemsPerLine;  // Down이면 +1
+
+    if (ItemsSourceRef.IsValidIndex(AttemptSelectIndex))
+    {
+        NavigationSelect(ItemToSelect.GetValue(), InNavigationEvent);  // 선택 + 스크롤
+        return FNavigationReply::Explicit(nullptr);                    // "내가 처리했음, 포커스 그대로"
+    }
+
+    return STableViewBase::OnNavigation(MyGeometry, InNavigationEvent);  // 범위 벗어남 → Escape
+}
+```
+
+- 인덱스 유효 → `Explicit(nullptr)`: 내부에서 직접 처리 완료. 포커스 위젯 변동 없음.
+- 인덱스 무효 (첫 항목에서 Up 등) → `Escape()`: "나는 처리 못 함, 더 위로 올라가라."
+
+---
+
+### 전체 연결 요약
+
+```
+[Gamepad_DPad_Down]
+        ↓
+FEventRouter Bubble 단계
+  → SWidget::OnKeyDown() 기본 구현
+      → GetNavigationDirectionFromKey(DPad_Down) → EUINavigation::Down
+      → FReply::Handled().SetNavigation(Down, Controller)
+        ↑ "키 이벤트 처리 완료, 네비게이션 시작해" 신호
+        ↓
+FEventRouter::ProcessReply() → FSlateApplication::ProcessReply()
+  → Reply 안에 Navigation 정보 감지
+  → 포커스 경로 위젯들의 OnNavigation(Down) 순회 (리프→루트)
+        ↓
+SListView::OnNavigation(Down)
+  → 다음 인덱스 계산 + NavigationSelect()
+  → FNavigationReply::Explicit(nullptr)
+    ↑ "경계 규칙: 내가 직접 처리했음, 포커스 유지" 선언
+        ↓
+[다음 항목 선택 + 시각 포커스 이동 완료]
+```
+
+`Explicit(nullptr)`의 `nullptr`는 "포커스를 옮길 위젯이 없다"는 뜻이 아니라,  
+"Slate가 포커스를 바꿀 필요 없다, 내가 내부 상태로 이미 처리했다"는 뜻이다.
+
+---
+
+### 3단계 — AttemptNavigation: FNavigationReply 해석
+
+> 소스: `Engine/Source/Runtime/Slate/Private/Framework/Application/SlateApplication.cpp:6382`
+
+`OnNavigation()` 순회가 끝나 `FNavigationReply`가 결정되면, `AttemptNavigation()`이 그 규칙에 따라 실제 포커스 이동을 수행한다.
+
+```
+FNavigationReply 종류별 분기 (AttemptNavigation 내부):
+
+Explicit(SomeWidget)  → 유효한 위젯이면 즉시 그 위젯으로 포커스 이동
+                         (SupportsKeyboardFocus() 검사 통과 시)
+
+Explicit(nullptr)     → FocusRecipient 유효성 검사 실패
+                         → DestinationWidget = null → 포커스 변동 없음
+                         (SListView가 내부 처리 완료 후 쓰는 패턴)
+
+Custom(Delegate)      → 델리게이트 실행 → 반환 위젯으로 포커스 이동
+
+그 외                 → HitTestGrid.FindNextFocusableWidget()
+(Escape / Stop / Wrap)  ← 화면 좌표 기반 기하 탐색 (아래 참고)
+```
+
+```cpp
+// SlateApplication.cpp:6397
+if (NavigationReply.GetBoundaryRule() == EUINavigationRule::Explicit)
+{
+    // nullptr이면 조건 불통과 → DestinationWidget 비어있음
+    if (FocusRecipient && FocusRecipient->IsEnabled() && FocusRecipient->SupportsKeyboardFocus())
+        DestinationWidget = NavigationReply.GetFocusRecipient();
+}
+else if (NavigationReply.GetBoundaryRule() == EUINavigationRule::Custom)
+{
+    DestinationWidget = FocusDelegate.Execute(NavigationType);
+}
+else
+{
+    // Escape / Stop / Wrap → 기하 탐색
+    DestinationWidget = HitTestGrid.FindNextFocusableWidget(
+        FocusedArrangedWidget, NavigationType, NavigationReply, BoundaryWidget, UserIndex);
+}
+```
+
+기하 탐색은 `OnNavigation()`을 통해 **아무 위젯도 처리를 선언하지 않았을 때** Slate가 화면을 직접 보고 찾아주는 최후 수단이다.
+
+#### 화면 좌표 기반 기하 탐색 — FindNextFocusableWidget
+
+`Escape`가 최상위까지 올라오면 `HitTestGrid.FindNextFocusableWidget()`이 실행된다.
+
+```
+[1] 후보 수집
+    화면에 렌더링된 위젯 중 SupportsKeyboardFocus() == true 인 것만
+
+[2] 방향 필터링
+    현재 포커스 위젯 중심 기준으로
+    Down이면 → Y 좌표가 더 큰 후보만 남김
+
+[3] Navigation Score 계산 (거리 + 정렬 보정)
+    후보들 중 Score 최솟값 위젯으로 포커스 이동
+```
+
+위젯 트리 순서가 아니라 **실제 화면 픽셀 좌표**를 기준으로 탐색하기 때문에,  
+에디터에서 배치한 위치 그대로 네비게이션이 자연스럽게 동작한다.
+
+#### 요약
+
+```
+OnNavigation 순회 결과
+    │
+    ├── Explicit(SomeWidget) → 바로 그 위젯으로 포커스 이동  (기하 탐색 없음)
+    ├── Explicit(nullptr)    → 포커스 변동 없음              (SListView 케이스)
+    ├── Custom(Delegate)     → 델리게이트 반환 위젯으로 이동  (기하 탐색 없음)
+    └── Escape (최상위까지)  → FindNextFocusableWidget()      ← 기하 탐색 발동
+                               화면 좌표 기준 최근접 포커서블 위젯
+```
+
+---
+
 ## FNavigationReply — 위젯의 네비게이션 응답
 
 위젯은 `SWidget::OnNavigation()` 에서 `FNavigationReply` 를 반환해 포커스가 어떻게 이동할지 결정한다.
@@ -83,26 +304,6 @@ virtual bool SupportsKeyboardFocus() const override { return bIsFocusable; }  //
 기본값이 `Escape`이기 때문에, 특별히 오버라이드하지 않으면 방향에 맞는 가장 가까운 포커서블 위젯으로 이동한다.
 
 UMG에서는 각 `UWidget`의 `Navigation` 프로퍼티에서 방향별로 설정할 수 있다.
-
----
-
-## "가장 가까운 위젯" 탐색 알고리즘
-
-`Escape` 응답 시 Slate는 **화면 좌표 기반 기하학적 탐색**으로 다음 위젯을 찾는다.
-
-```
-[1] 후보 수집
-    위젯 트리 전체 순회 → SupportsKeyboardFocus() == true 인 위젯만 수집
-
-[2] 방향 필터링
-    현재 포커스 위젯 중심 기준으로
-    Up이면 → Y 좌표가 더 작은 후보만 남김
-
-[3] Navigation Score 계산 (거리 + 정렬 보정)
-    후보들 중 Score 최솟값 위젯으로 포커스 이동
-```
-
-UMG에서 위젯을 배치한 순서와 네비게이션 방향이 일치하는 이유는 트리 순서를 보는 게 아니라 **실제 화면 픽셀 좌표**를 보기 때문이다.
 
 ---
 

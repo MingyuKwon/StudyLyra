@@ -246,6 +246,93 @@ PinnedLeafmostActiveNode->CacheFocusRestorationTarget();
 
 ---
 
+## 시나리오 6 — 게임패드 → 마우스/키보드 전환
+
+> 소스  
+> - `Engine/Plugins/Runtime/CommonUI/Source/CommonInput/Private/CommonInputPreprocessor.cpp`  
+> - `Engine/Plugins/Runtime/CommonUI/Source/CommonInput/Private/CommonInputSubsystem.cpp`  
+> - `Engine/Plugins/Runtime/CommonUI/Source/CommonUI/Private/CommonButtonBase.cpp`
+
+```
+[마우스 이동 또는 키보드 키 입력]
+        ↓
+FCommonInputPreprocessor::HandleMouseMoveEvent() / HandleKeyDownEvent()
+  → GetInputType(Key/Pointer) → ECommonInputType::MouseAndKeyboard
+  → IsRelevantInput() 통과 (ControllerId 일치 여부 확인)
+  → RefreshCurrentInputMethod(MouseAndKeyboard)
+        ↓
+UCommonInputSubsystem::SetCurrentInputType(MouseAndKeyboard)
+  → RawInputType 갱신
+  → RecalculateCurrentInputType()
+        ↓
+RecalculateCurrentInputType()
+  → CurrentInputType = MouseAndKeyboard  (기존 Gamepad와 다름)
+  → SlateApplication.UsePlatformCursorForCursorUser(true)   ← 커서 표시
+  → BroadcastInputMethodChanged()
+        ↓
+OnInputMethodChangedNative.Broadcast(MouseAndKeyboard)
+  ┌─ UCommonButtonBase::OnInputMethodChanged()
+  │    → UpdateInputActionWidget()     ← 버튼 힌트 아이콘: 게임패드 → 키보드 아이콘
+  │    → BP_OnInputMethodChanged()     ← BP 레벨 반응 (포커스 링 숨기기 등)
+  │
+  └─ UCommonActionWidget::HandleInputMethodChanged()
+       → OnInputMethodChanged.Broadcast(bIsGamepad=false)  ← 액션 아이콘 갱신
+```
+
+**Slate 키보드 포커스는 변하지 않는다.**  
+SListView 등 UI 위젯이 여전히 포커스를 보유한 채로, 시각적 상태(포커스 링, 버튼 힌트)만 갱신된다.
+
+---
+
+## 시나리오 7 — 마우스/키보드 → 게임패드 재전환
+
+```
+[게임패드 버튼 입력]
+        ↓
+FCommonInputPreprocessor::HandleKeyDownEvent()
+  → GetInputType(GamepadKey) → ECommonInputType::Gamepad
+  → RefreshCurrentInputMethod(Gamepad)
+        ↓
+UCommonInputSubsystem::SetCurrentInputType(Gamepad)
+  → CheckForInputMethodThrashing()   ← 빠른 전환 스팸 방어
+     일정 시간 내 반복 전환이면 bInputMethodLockedByThrashing = true → 무시
+        ↓ (스팸 아님)
+RecalculateCurrentInputType()
+  → CurrentInputType = Gamepad
+  → SlateApplication.UsePlatformCursorForCursorUser(bEnableGamepadPlatformCursor)
+     ← 일반적으로 false → 커서 숨김
+  → BroadcastInputMethodChanged()
+        ↓
+OnInputMethodChangedNative.Broadcast(Gamepad)
+  → 버튼 힌트: 키보드 → 게임패드 아이콘
+  → BP_OnInputMethodChanged() → 포커스 링 다시 표시
+        ↓
+[SListView에 포커스가 그대로 있으므로 D-pad 즉시 동작 가능]
+```
+
+게임패드로 돌아왔을 때 포커스 재씨딩이 필요 없는 이유는,  
+마우스 사용 중에도 SListView의 키보드 포커스가 유지되어 있었기 때문이다.
+
+---
+
+## 스팸 방지 — InputMethodThrashing 보호
+
+게임패드 진동이나 마우스 조작이 동시에 일어나는 경우 입력 타입이 수백ms 단위로 교차 전환될 수 있다.  
+CommonUI는 이를 "thrashing"이라 부르고 자동으로 억제한다.
+
+```
+SetCurrentInputType(NewType)
+  → CheckForInputMethodThrashing(NewType)
+      LastInputMethodChangeTime 기준으로 ThrashingWindow 이내에 전환이 반복되면
+      → bInputMethodLockedByThrashing = true
+      → RecalculateCurrentInputType() 호출 안 함 → 타입 변경 무시
+      → CooldownInSeconds 경과 후 잠금 해제
+```
+
+설정값은 `UCommonInputSettings::GetInputMethodThrashingWindowInSeconds()` / `GetInputMethodThrashingCooldownInSeconds()`.
+
+---
+
 ## 시나리오 요약
 
 | 시나리오 | 입력 경로 | 포커스 결정자 |
@@ -255,6 +342,8 @@ PinnedLeafmostActiveNode->CacheFocusRestorationTarget();
 | D-pad 경계 | Slate Navigate → `Escape()` → 기하 탐색 | 탭 버튼 `IsFocusable=false`로 후보 제외 |
 | 탭 전환 | UIAction → `SetFilterState()` | `RefreshSettingsList()` → `NavigateToIndex(0)` |
 | 화면 닫힘 | UIAction → `DeactivateWidget()` | `CacheFocusRestorationTarget()` → `AutoRestoresFocus()` |
+| 게임패드 → 마우스 | `FCommonInputPreprocessor` → `SetCurrentInputType` | Slate 포커스 유지, 시각 상태만 변경 |
+| 마우스 → 게임패드 | `FCommonInputPreprocessor` → `SetCurrentInputType` | Slate 포커스 그대로, 포커스 링 재표시 |
 
 ---
 
