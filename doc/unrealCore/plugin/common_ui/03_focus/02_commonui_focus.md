@@ -50,6 +50,39 @@ GetDesiredFocusTarget 이벤트 오버라이드
 
 구현하지 않으면 포커스가 설정되지 않아 게임패드로 아무것도 선택되지 않는다.
 
+### GetDesiredFocusTarget() 호출 시점
+
+`FActivatableTreeRoot::FocusLeafmostNode()` 안에서 호출된다. 이 함수가 트리거되는 상황은 네 가지다.
+
+| 상황 | 호출 여부 |
+|------|-----------|
+| ActivatableWidget 처음 활성화 (push) | **항상 호출** |
+| 위 화면이 닫혀 다시 leafmost가 될 때 (pop) | `AutoRestoresFocus` 캐시가 없을 때만 호출 |
+| 마우스 → 게임패드 입력 방식 전환 시 | 조건부 호출 |
+| `RequestRefreshFocus()` 명시적 호출 시 | **항상 호출** |
+
+pop 시에는 `AutoRestoresFocus`가 먼저 확인된다. 이전에 이 화면에서 포커스된 위젯이 캐시되어 있으면 `GetDesiredFocusTarget()` 없이 그 위치로 바로 복원된다.
+
+```cpp
+// UIActionRouterTypes.cpp:1651 — FocusLeafmostNode() 내부 우선순위
+if (TSharedPtr<SWidget> AutoRestoreTarget =
+        LeafWidget->AutoRestoresFocus() ? PinnedLeafmostNode->GetFocusFallbackTarget() : nullptr)
+{
+    SetUserFocus(AutoRestoreTarget);           // 1순위: 이전 포커스 위치 복원
+}
+else if (UWidget* DesiredTarget = LeafWidget->GetDesiredFocusTarget())
+{
+    DesiredTarget->SetFocus();                 // 2순위: GetDesiredFocusTarget()
+}
+else if (LeafWidget->IsFocusable())
+{
+    LeafWidget->SetFocus();                    // 3순위: ActivatableWidget 자신 (fallback)
+}
+```
+
+> **참고**: ActivatableWidget 자신은 포커스를 받지 않는다. `GetDesiredFocusTarget()`이 반환한 위젯이 직접 첫 포커스를 받는다. ActivatableWidget은 "누가 받을지" 선언하는 결정자일 뿐이다.  
+> 자세한 시나리오별 흐름은 [`doc/LyraImpl/ui/05_focus_input_flow.md`](../../../../LyraImpl/ui/05_focus_input_flow.md) 참고.
+
 ---
 
 ## 2. 네비게이션 격리 — FActivatableTreeNode

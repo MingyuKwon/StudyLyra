@@ -1,5 +1,7 @@
 # 포커스 입력 처리 전체 경로 — 시나리오별 분석
 
+> CommonUI 포커스 개념(씨딩·격리·복귀): [`doc/unrealCore/plugin/common_ui/03_focus/02_commonui_focus.md`](../../unrealCore/plugin/common_ui/03_focus/02_commonui_focus.md)
+
 > 소스 경로  
 > - `Source/LyraGame/UI/LyraHUDLayout.cpp`  
 > - `Plugins/CommonUI/.../CommonActivatableWidget.cpp`  
